@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Build / deps
+node_modules/
+vendor/
+*.log
+
+# WordPress local artifacts
+wp-cli.local.yml

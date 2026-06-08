@@ -1,0 +1,195 @@
+<?php
+/**
+ * Database schema. Creates custom tables via dbDelta() and tracks a DB version
+ * separate from the plugin version so migrations are explicit.
+ *
+ * dbDelta formatting rules observed: two spaces after PRIMARY KEY, one column /
+ * key per line, no IF NOT EXISTS, full prefixed table name, charset from
+ * $wpdb->get_charset_collate(). TEXT/LONGTEXT columns never carry a DEFAULT
+ * (MySQL forbids it before 8.0.13).
+ *
+ * @package AILinking
+ */
+
+namespace AILinking\Install;
+
+use AILinking\Support\Tables;
+
+defined( 'ABSPATH' ) || exit;
+
+class Schema {
+
+	const DB_VERSION_OPTION = 'ailinking_db_version';
+
+	/**
+	 * Create or upgrade all tables, then stamp the DB version.
+	 */
+	public static function install() {
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		global $wpdb;
+		$charset_collate = $wpdb->get_charset_collate();
+
+		foreach ( self::statements( $charset_collate ) as $sql ) {
+			dbDelta( $sql );
+		}
+
+		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+	}
+
+	/**
+	 * Run pending migrations when the stored DB version is behind.
+	 */
+	public static function maybe_upgrade() {
+		$installed = get_option( self::DB_VERSION_OPTION, '0' );
+		if ( version_compare( $installed, AILINKING_DB_VERSION, '<' ) ) {
+			self::install();
+		}
+	}
+
+	/**
+	 * All CREATE TABLE statements.
+	 *
+	 * @param string $charset_collate Charset/collation clause.
+	 * @return string[]
+	 */
+	private static function statements( $charset_collate ) {
+		$index       = Tables::index();
+		$link_graph  = Tables::link_graph();
+		$suggestions = Tables::suggestions();
+		$ledger      = Tables::ledger();
+		$tfidf       = Tables::tfidf();
+		$jobs        = Tables::jobs();
+
+		$statements = array();
+
+		$statements[] = "CREATE TABLE {$index} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) unsigned NOT NULL,
+			post_type varchar(20) NOT NULL DEFAULT 'post',
+			post_status varchar(20) NOT NULL DEFAULT 'publish',
+			title text NULL,
+			url varchar(2048) NOT NULL DEFAULT '',
+			content_system varchar(20) NOT NULL DEFAULT 'classic',
+			parsed_text longtext NULL,
+			content_hash char(32) NOT NULL DEFAULT '',
+			word_count int unsigned NOT NULL DEFAULT 0,
+			lang_code varchar(10) NOT NULL DEFAULT 'und',
+			lang_source varchar(10) NOT NULL DEFAULT 'none',
+			is_woo_product tinyint(1) NOT NULL DEFAULT 0,
+			is_woo_system tinyint(1) NOT NULL DEFAULT 0,
+			is_excluded tinyint(1) NOT NULL DEFAULT 0,
+			exclude_reason varchar(40) NOT NULL DEFAULT '',
+			click_depth smallint NOT NULL DEFAULT -1,
+			pagerank_score float NOT NULL DEFAULT 0,
+			write_safety varchar(12) NOT NULL DEFAULT 'auto',
+			last_modified datetime NULL,
+			indexed_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY post_id (post_id),
+			KEY lang_code (lang_code),
+			KEY post_type (post_type),
+			KEY status_excluded (post_status,is_excluded),
+			KEY content_hash (content_hash)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$link_graph} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			source_post_id bigint(20) unsigned NOT NULL,
+			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			target_url varchar(2048) NOT NULL DEFAULT '',
+			target_url_norm varchar(512) NOT NULL DEFAULT '',
+			anchor_text text NULL,
+			anchor_type varchar(12) NOT NULL DEFAULT 'partial',
+			location varchar(12) NOT NULL DEFAULT 'content',
+			is_first_link tinyint(1) NOT NULL DEFAULT 0,
+			origin varchar(12) NOT NULL DEFAULT 'discovered',
+			suggestion_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			is_broken tinyint(1) NOT NULL DEFAULT 0,
+			discovered_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY target_lookup (target_post_id,location),
+			KEY source_lookup (source_post_id,location),
+			KEY target_url_norm (target_url_norm),
+			KEY origin (origin)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$suggestions} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			source_post_id bigint(20) unsigned NOT NULL,
+			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			target_url varchar(2048) NOT NULL DEFAULT '',
+			anchor_text varchar(255) NOT NULL DEFAULT '',
+			suggested_context text NULL,
+			field_ref varchar(191) NOT NULL DEFAULT '',
+			relevance_score float NOT NULL DEFAULT 0,
+			naturalness_score float NOT NULL DEFAULT 0,
+			confidence_score float NOT NULL DEFAULT 0,
+			bridge_priority float NOT NULL DEFAULT 0,
+			type varchar(20) NOT NULL DEFAULT 'outbound',
+			engine varchar(20) NOT NULL DEFAULT 'tfidf',
+			lang_code varchar(10) NOT NULL DEFAULT 'und',
+			status varchar(20) NOT NULL DEFAULT 'pending',
+			reject_reason varchar(40) NOT NULL DEFAULT '',
+			applied_ledger_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY source_status (source_post_id,status),
+			KEY target_post_id (target_post_id),
+			KEY status_created (status,created_at),
+			KEY status_score (status,confidence_score),
+			KEY type (type)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$ledger} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			suggestion_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			post_id bigint(20) unsigned NOT NULL,
+			content_system varchar(20) NOT NULL DEFAULT 'classic',
+			storage_target varchar(20) NOT NULL DEFAULT 'post_content',
+			meta_key varchar(191) NOT NULL DEFAULT '',
+			field_ref varchar(191) NOT NULL DEFAULT '',
+			revision_id_before bigint(20) unsigned NOT NULL DEFAULT 0,
+			value_before longtext NULL,
+			value_after_hash char(32) NOT NULL DEFAULT '',
+			inserted_html text NULL,
+			target_url varchar(2048) NOT NULL DEFAULT '',
+			data_attr_id varchar(64) NOT NULL DEFAULT '',
+			applied_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			removed_at datetime NULL,
+			PRIMARY KEY  (id),
+			KEY post_active (post_id,removed_at),
+			KEY suggestion_id (suggestion_id),
+			KEY data_attr_id (data_attr_id)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$tfidf} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) unsigned NOT NULL,
+			term varchar(80) NOT NULL DEFAULT '',
+			tf int unsigned NOT NULL DEFAULT 0,
+			PRIMARY KEY  (id),
+			UNIQUE KEY post_term (post_id,term),
+			KEY term (term)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$jobs} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			job_type varchar(30) NOT NULL,
+			status varchar(16) NOT NULL DEFAULT 'queued',
+			total_items int unsigned NOT NULL DEFAULT 0,
+			processed_items int unsigned NOT NULL DEFAULT 0,
+			cursor_offset bigint(20) unsigned NOT NULL DEFAULT 0,
+			args longtext NULL,
+			last_error text NULL,
+			started_at datetime NULL,
+			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY type_status (job_type,status)
+		) {$charset_collate};";
+
+		return $statements;
+	}
+}
