@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.7.0
+Stable tag: 0.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.7.1 =
+* Auto-detect clusters: hardened idempotency. The duplicate-skip check now compares against the exact slug stored on the cluster (the detector passes its own slug to the repository), so re-running auto-detect can never create a second copy of a cluster — including for category names whose punctuation/language suffix would otherwise sanitize differently. No change to detected results; purely a robustness fix.
 
 = 0.7.0 =
 * Auto-detect clusters: a new "Auto-detect clusters" button on the Clusters tab builds topic clusters automatically from your categories/taxonomies and internal link structure — no manual pillar/spoke post IDs. Each topic (term) with at least 3 indexed posts becomes a cluster, the post the others link to most is chosen as the pillar (hub), and clusters are kept per-language. It is idempotent: re-running skips topics that already have a cluster and never touches clusters you created by hand. Detected clusters are analyzed immediately so authority/flat badges show right away. (Filters: ailinking_auto_cluster_min_size, _max_size, _max, _use_tags, _taxonomies.)

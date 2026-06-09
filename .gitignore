@@ -16,5 +16,6 @@ vendor/
 # WordPress local artifacts
 wp-cli.local.yml
 
-# Build artifacts (zips)
+# Build artifacts (zips) — never track release packages in the repo
 Plugin Zip files/
+*.zip

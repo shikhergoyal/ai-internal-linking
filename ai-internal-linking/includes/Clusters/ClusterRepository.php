@@ -16,18 +16,22 @@ class ClusterRepository {
 	/**
 	 * Create a cluster and register its pillar as a member.
 	 *
-	 * @param string $name    Cluster name.
-	 * @param int    $pillar  Pillar post id.
-	 * @param string $lang    Language code.
+	 * @param string $name   Cluster name.
+	 * @param int    $pillar Pillar post id.
+	 * @param string $lang   Language code.
+	 * @param string $slug   Explicit slug. When empty, derived from $name. Auto-
+	 *                       detection passes its own slug so idempotency checks
+	 *                       (existing-slug lookups) match exactly what is stored.
 	 * @return int Cluster id (0 on failure).
 	 */
-	public static function create( $name, $pillar, $lang = 'und' ) {
+	public static function create( $name, $pillar, $lang = 'und', $slug = '' ) {
 		global $wpdb;
-		$ok = $wpdb->insert(
+		$slug = ( '' !== (string) $slug ) ? (string) $slug : sanitize_title( (string) $name );
+		$ok   = $wpdb->insert(
 			Tables::clusters(),
 			array(
 				'name'           => (string) $name,
-				'slug'           => sanitize_title( $name ),
+				'slug'           => $slug,
 				'pillar_post_id' => (int) $pillar,
 				'lang_code'      => (string) $lang,
 			),
