@@ -57,8 +57,10 @@ class ContentParser {
 
 		$links = self::extract_links( $html );
 
-		// Build the text corpus from title + body.
-		$text = self::html_to_text( $post->post_title . ' . ' . $html );
+		// Build the text corpus from the BODY only. The post title is the page's
+		// H1, so it is intentionally excluded — anchors must never come from a
+		// heading/title (headings inside the body are stripped in html_to_text).
+		$text = self::html_to_text( $html );
 		if ( strlen( $text ) > self::MAX_TEXT ) {
 			$text = substr( $text, 0, self::MAX_TEXT );
 		}

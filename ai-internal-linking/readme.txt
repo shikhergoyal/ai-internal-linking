@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.5
+Stable tag: 0.6.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.6 =
+* Anchors now come from body text only — the post title (the page H1) is excluded from the indexed corpus too, so no suggestion uses the title/heading as its anchor. Also silenced a PHP notice from accent-insensitive database collation in the relevance scorer.
 
 = 0.6.5 =
 * Headings are never linked: anchors are no longer drawn from H1-H6 (heading text is excluded from the indexed corpus), and link insertion skips all heading elements and the Gutenberg heading block. Links only go into body text (paragraphs, lists, quotes).

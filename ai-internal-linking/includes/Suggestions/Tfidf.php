@@ -206,10 +206,12 @@ class Tfidf {
 
 		$useful_terms = array_keys( $idf );
 
-		// Source weighted norm (denominator of the overlap ratio).
+		// Source weighted norm (denominator of the overlap ratio). Guard the key:
+		// accent/case-insensitive DB collation can return accent-variant terms
+		// (e.g. niña vs nina) that aren't exact keys in $src_tf.
 		$src_weight_total = 0.0;
 		foreach ( $useful_terms as $t ) {
-			$src_weight_total += $idf[ $t ] * $src_tf[ $t ];
+			$src_weight_total += $idf[ $t ] * ( isset( $src_tf[ $t ] ) ? $src_tf[ $t ] : 0 );
 		}
 		if ( $src_weight_total <= 0 ) {
 			return array();
@@ -236,7 +238,7 @@ class Tfidf {
 		foreach ( $cand_rows as $r ) {
 			$pid  = (int) $r['post_id'];
 			$term = $r['term'];
-			if ( ! isset( $idf[ $term ] ) ) {
+			if ( ! isset( $idf[ $term ], $src_tf[ $term ] ) ) {
 				continue;
 			}
 			$contrib = $idf[ $term ] * min( $src_tf[ $term ], (int) $r['tf'] );
