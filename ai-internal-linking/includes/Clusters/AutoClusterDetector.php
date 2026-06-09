@@ -196,7 +196,9 @@ class AutoClusterDetector {
 			$pillar = self::pick_pillar( $rows );
 			$name   = self::cluster_name( $group['term_name'], $group['lang'] );
 
-			$cluster_id = ClusterRepository::create( $name, $pillar, $group['lang'] );
+			// Pass the same slug we checked for existence, so re-runs stay idempotent
+			// even for names where sanitize_title() of the display name would differ.
+			$cluster_id = ClusterRepository::create( $name, $pillar, $group['lang'], $slug );
 			if ( ! $cluster_id ) {
 				$skipped++;
 				continue;
