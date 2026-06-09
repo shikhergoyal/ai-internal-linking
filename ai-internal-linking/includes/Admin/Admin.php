@@ -31,6 +31,9 @@ class Admin {
 	/** @var KeywordsPage */
 	private $keywords;
 
+	/** @var ClustersPage */
+	private $clusters;
+
 	public function __construct() {
 		$this->wizard   = new Wizard();
 		$this->inbox    = new Inbox();
@@ -38,6 +41,7 @@ class Admin {
 		$this->health   = new HealthDashboard();
 		$this->keys     = new KeyPoolPage();
 		$this->keywords = new KeywordsPage();
+		$this->clusters = new ClustersPage();
 	}
 
 	/**
@@ -52,6 +56,7 @@ class Admin {
 		$this->settings->register();
 		$this->keys->register();
 		$this->keywords->register();
+		$this->clusters->register();
 	}
 
 	/**
@@ -93,6 +98,15 @@ class Admin {
 			Capabilities::MANAGE,
 			'ailinking-health',
 			array( $this->health, 'render' )
+		);
+
+		add_submenu_page(
+			'ailinking',
+			__( 'Clusters', 'ai-internal-linking' ),
+			__( 'Clusters', 'ai-internal-linking' ),
+			Capabilities::MANAGE,
+			'ailinking-clusters',
+			array( $this->clusters, 'render' )
 		);
 
 		add_submenu_page(
@@ -161,6 +175,7 @@ class Admin {
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
 					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
+					'analyzing'     => __( 'Analyzing…', 'ai-internal-linking' ),
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
 					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),

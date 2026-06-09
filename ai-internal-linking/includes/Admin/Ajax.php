@@ -16,6 +16,7 @@ use AILinking\Suggestions\VectorStore;
 use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
+use AILinking\Clusters\ClusterAnalyzer;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -36,6 +37,16 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_remove_links', array( $this, 'remove_links' ) );
 		add_action( 'wp_ajax_ailinking_run_embed', array( $this, 'run_embed' ) );
 		add_action( 'wp_ajax_ailinking_test_connection', array( $this, 'test_connection' ) );
+		add_action( 'wp_ajax_ailinking_run_clusters', array( $this, 'run_clusters' ) );
+	}
+
+	/**
+	 * Analyze all clusters (hub-and-spoke authority + flat detection).
+	 */
+	public function run_clusters() {
+		$this->guard();
+		$count = ClusterAnalyzer::analyze_all();
+		wp_send_json_success( array( 'ok' => true, 'count' => $count ) );
 	}
 
 	/**

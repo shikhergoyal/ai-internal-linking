@@ -29,6 +29,8 @@ $ailinking_tables = array(
 	'ailinking_keywords',
 	'ailinking_keyword_map',
 	'ailinking_embeddings',
+	'ailinking_clusters',
+	'ailinking_cluster_members',
 );
 
 // 1. Restore content for every active (un-reverted) inserted link before dropping data.
