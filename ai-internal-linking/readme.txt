@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -24,10 +24,15 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 * Never suggests cross-language links; respects link-density limits and skips pages you already link to.
 * Presents everything in a review inbox (approve / reject). **Nothing is written to your content in this build.**
 
-**Coming next (Phase 0b and beyond)**
+**New in 0.2.0 (Phase 0b)**
 
-* Gated, non-destructive apply with revision + backup ledger and one-click undo (Gutenberg/Classic/Divi/WPBakery/ACF auto-write; Elementor/Beaver suggest-only).
-* Graph audits (orphans, dead-ends, click-depth), GSC keyword import, GEO/cluster module, AI provider system + embedding re-ranker.
+* Gated, non-destructive **apply** with a WP revision + an independent backup ledger, plus **one-click undo** and a batched "remove all inserted links" action. Auto-apply currently covers Gutenberg and Classic; Divi/WPBakery/Elementor/Beaver/ACF remain suggest-only (manual) for now.
+* Inserted links are plain `<a data-ailinking-id>` (never shortcodes) and pass a visible-text integrity check before saving.
+* **Link Health** dashboard: orphans, dead-ends, over/under-linked pages, and click-depth from the front page.
+
+**Coming next**
+
+* Auto-apply for Divi/WPBakery (shortcode content), GSC CSV keyword import, GEO/cluster module, AI provider system + embedding re-ranker.
 
 == Installation ==
 
@@ -37,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.2.0 =
+* Phase 0b: gated non-destructive apply (revision + ledger backup), one-click undo, batched clean-removal, Link Health dashboard (orphans/dead-ends/density/click-depth). Auto-apply for Gutenberg + Classic; other builders suggest-only.
 
 = 0.1.0 =
 * Initial Phase 0a build: auto-detection, background indexer, TF-IDF suggestion engine, review inbox. Read-only (no content mutation).

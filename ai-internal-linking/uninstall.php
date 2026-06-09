@@ -2,12 +2,13 @@
 /**
  * Uninstall routine — runs in isolation when the plugin is deleted via the admin UI.
  *
- * Phase 0a: drops the plugin's custom tables and deletes its options/transients and
- * scheduled events. Inserted-link revert (the ledger-driven content restore) arrives
- * with the apply feature in Phase 0b; until then no content has been mutated.
+ * Content IS mutated by the apply feature (Phase 0b inserts <a> links). To leave a
+ * clean footprint, this first restores every still-active ledger row's original
+ * content, then drops the plugin's tables/options/scheduled events.
  *
- * Note: inserted links (when that feature lands) are plain <a> tags, so even a
- * filesystem delete that bypasses this file never leaves orphaned shortcode markup.
+ * Note: inserted links are plain <a data-ailinking-id> tags, so even a filesystem
+ * delete that bypasses this file never leaves orphaned shortcode markup — at worst
+ * a working hyperlink remains.
  *
  * @package AILinking
  */
@@ -25,13 +26,37 @@ $ailinking_tables = array(
 	'ailinking_jobs',
 );
 
+// 1. Restore content for every active (un-reverted) inserted link before dropping data.
+$ledger_table = $wpdb->prefix . 'ailinking_ledger';
+$ledger_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $ledger_table ) );
+
+if ( $ledger_exists === $ledger_table ) {
+	$rows = $wpdb->get_results(
+		"SELECT post_id, value_before, storage_target FROM `{$ledger_table}` WHERE removed_at IS NULL", // phpcs:ignore WordPress.DB.PreparedSQL
+		ARRAY_A
+	);
+	if ( $rows ) {
+		foreach ( $rows as $row ) {
+			if ( 'post_content' === $row['storage_target'] && (int) $row['post_id'] > 0 ) {
+				wp_update_post(
+					array(
+						'ID'           => (int) $row['post_id'],
+						'post_content' => (string) $row['value_before'],
+					)
+				);
+			}
+		}
+	}
+}
+
+// 2. Drop custom tables.
 foreach ( $ailinking_tables as $ailinking_table ) {
 	$table_name = $wpdb->prefix . $ailinking_table;
 	// Table identifiers cannot be parameterised; the name is built from a trusted whitelist.
 	$wpdb->query( "DROP TABLE IF EXISTS `{$table_name}`" ); // phpcs:ignore WordPress.DB.PreparedSQL
 }
 
-// Remove plugin options (autoload + non-autoload).
+// 3. Remove plugin options (autoload + non-autoload).
 $wpdb->query(
 	$wpdb->prepare(
 		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
@@ -39,7 +64,7 @@ $wpdb->query(
 	)
 );
 
-// Remove plugin transients (site + network).
+// 4. Remove plugin transients (site + network).
 $wpdb->query(
 	$wpdb->prepare(
 		"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
@@ -48,6 +73,6 @@ $wpdb->query(
 	)
 );
 
-// Clear any scheduled cron events.
+// 5. Clear any scheduled cron events.
 wp_clear_scheduled_hook( 'ailinking_cron_index' );
 wp_clear_scheduled_hook( 'ailinking_cron_suggest' );

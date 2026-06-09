@@ -11,6 +11,7 @@ namespace AILinking\Admin;
 
 use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
+use AILinking\Detectors\BuilderDetector;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -143,17 +144,30 @@ class Inbox {
 									</div>
 								</td>
 								<td class="col-actions">
-									<?php if ( 'pending' === $row['status'] ) : ?>
+									<?php
+									$safety = BuilderDetector::write_safety( BuilderDetector::detect( $source_id ) );
+									if ( 'pending' === $row['status'] ) :
+										?>
 										<button class="button button-small ailinking-act" data-status="approved"><?php esc_html_e( 'Approve', 'ai-internal-linking' ); ?></button>
 										<button class="button button-small ailinking-act" data-status="rejected"><?php esc_html_e( 'Reject', 'ai-internal-linking' ); ?></button>
+										<?php if ( 'auto' !== $safety ) : ?>
+											<span class="ailinking-badge" title="<?php esc_attr_e( 'Page-builder content — applying must be done manually.', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'manual', 'ai-internal-linking' ); ?></span>
+										<?php endif; ?>
 									<?php elseif ( 'approved' === $row['status'] ) : ?>
-										<span class="ailinking-badge ailinking-badge-ok"><?php esc_html_e( 'Approved', 'ai-internal-linking' ); ?></span>
-										<button class="button button-small ailinking-act" data-status="pending"><?php esc_html_e( 'Undo', 'ai-internal-linking' ); ?></button>
+										<?php if ( 'auto' === $safety ) : ?>
+											<button class="button button-small button-primary ailinking-apply"><?php esc_html_e( 'Apply', 'ai-internal-linking' ); ?></button>
+										<?php else : ?>
+											<span class="ailinking-badge" title="<?php esc_attr_e( 'This page is managed by a page builder; add the link manually using the anchor/context shown.', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'Manual (builder)', 'ai-internal-linking' ); ?></span>
+										<?php endif; ?>
+										<button class="button button-small ailinking-act" data-status="pending"><?php esc_html_e( 'Unapprove', 'ai-internal-linking' ); ?></button>
 									<?php elseif ( 'rejected' === $row['status'] ) : ?>
 										<span class="ailinking-badge"><?php esc_html_e( 'Rejected', 'ai-internal-linking' ); ?></span>
 										<button class="button button-small ailinking-act" data-status="pending"><?php esc_html_e( 'Restore', 'ai-internal-linking' ); ?></button>
 									<?php else : ?>
 										<span class="ailinking-badge ailinking-badge-ok"><?php esc_html_e( 'Applied', 'ai-internal-linking' ); ?></span>
+										<?php if ( (int) $row['applied_ledger_id'] > 0 ) : ?>
+											<button class="button button-small ailinking-undo" data-ledger="<?php echo esc_attr( $row['applied_ledger_id'] ); ?>"><?php esc_html_e( 'Undo', 'ai-internal-linking' ); ?></button>
+										<?php endif; ?>
 									<?php endif; ?>
 								</td>
 							</tr>

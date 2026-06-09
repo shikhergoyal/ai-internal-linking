@@ -21,8 +21,25 @@ class Plugin {
 	/** @var Plugin|null */
 	private static $instance = null;
 
-	/** @var bool Re-entrancy guard for plugin-initiated saves. */
-	private static $saving = false;
+	/** @var int Re-entrancy depth for plugin-initiated saves. */
+	private static $saving = 0;
+
+	/**
+	 * Begin a plugin-initiated content save (suppresses our own save_post handling).
+	 * Depth-counted so nested guarded saves are handled correctly.
+	 */
+	public static function begin_internal_save() {
+		self::$saving++;
+	}
+
+	/**
+	 * End a plugin-initiated content save.
+	 */
+	public static function end_internal_save() {
+		if ( self::$saving > 0 ) {
+			self::$saving--;
+		}
+	}
 
 	/**
 	 * @return Plugin
@@ -73,7 +90,7 @@ class Plugin {
 	 * @param \WP_Post $post    Post object.
 	 */
 	public function on_save_post( $post_id, $post ) {
-		if ( self::$saving ) {
+		if ( self::$saving > 0 ) {
 			return;
 		}
 		if ( wp_is_post_revision( $post_id ) || ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) ) {

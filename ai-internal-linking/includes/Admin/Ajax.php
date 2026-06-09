@@ -12,6 +12,8 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Indexer\Indexer;
 use AILinking\Suggestions\SuggestionEngine;
+use AILinking\Content\Editor;
+use AILinking\LinkGraph\GraphAudits;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,6 +28,10 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_run_index', array( $this, 'run_index' ) );
 		add_action( 'wp_ajax_ailinking_run_suggest', array( $this, 'run_suggest' ) );
 		add_action( 'wp_ajax_ailinking_set_status', array( $this, 'set_status' ) );
+		add_action( 'wp_ajax_ailinking_apply', array( $this, 'apply' ) );
+		add_action( 'wp_ajax_ailinking_undo', array( $this, 'undo' ) );
+		add_action( 'wp_ajax_ailinking_run_audits', array( $this, 'run_audits' ) );
+		add_action( 'wp_ajax_ailinking_remove_links', array( $this, 'remove_links' ) );
 	}
 
 	/**
@@ -110,6 +116,54 @@ class Ajax {
 		}
 
 		wp_send_json_success( array( 'id' => $id, 'status' => $status ) );
+	}
+
+	/**
+	 * Apply a suggestion to its source post (gated, non-destructive).
+	 */
+	public function apply() {
+		$this->guard();
+		$id  = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+		if ( $id <= 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid request.', 'ai-internal-linking' ) ), 400 );
+		}
+		$result = Editor::apply( $id );
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Undo an applied insertion.
+	 */
+	public function undo() {
+		$this->guard();
+		$ledger_id = isset( $_POST['ledger_id'] ) ? (int) $_POST['ledger_id'] : 0;
+		$force     = ! empty( $_POST['force'] );
+		if ( $ledger_id <= 0 ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid request.', 'ai-internal-linking' ) ), 400 );
+		}
+		$result = Editor::undo( $ledger_id, $force );
+		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Recompute graph audits + click depth.
+	 */
+	public function run_audits() {
+		$this->guard();
+		GraphAudits::recompute_depth();
+		$summary = GraphAudits::summary( true );
+		wp_send_json_success( array( 'ok' => true, 'summary' => $summary ) );
+	}
+
+	/**
+	 * Revert a batch of plugin-inserted links (clean removal while active).
+	 */
+	public function remove_links() {
+		$this->guard();
+		$result = Editor::remove_all_batch( 10 );
+		GraphAudits::flush_summary();
+		$result['done'] = ( 0 === (int) $result['remaining'] );
+		wp_send_json_success( $result );
 	}
 
 	/**

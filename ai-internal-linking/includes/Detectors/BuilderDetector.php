@@ -69,7 +69,13 @@ class BuilderDetector {
 	 * @return string 'auto' | 'suggest_only'.
 	 */
 	public static function write_safety( $system ) {
-		$auto = array( self::GUTENBERG, self::CLASSIC, self::DIVI, self::WPBAKERY );
+		/*
+		 * Phase 0b ships auto-write for the two systems whose canonical content is
+		 * plain post_content HTML (Gutenberg, Classic). Divi/WPBakery (shortcode
+		 * content) and Elementor/Beaver/ACF (postmeta trees) remain suggest-only
+		 * until their dedicated, tested writers land.
+		 */
+		$auto = array( self::GUTENBERG, self::CLASSIC );
 		return in_array( $system, $auto, true ) ? 'auto' : 'suggest_only';
 	}
 

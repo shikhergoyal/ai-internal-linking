@@ -123,30 +123,142 @@
 			} );
 		}
 
-		// Suggestion approve/reject/restore.
-		var acts = document.querySelectorAll( '.ailinking-act' );
-		acts.forEach( function ( btn ) {
+		// Suggestion approve/reject/restore (status only).
+		bindAll( '.ailinking-act', function ( btn, row ) {
+			var id = row.getAttribute( 'data-id' );
+			var status = btn.getAttribute( 'data-status' );
+			btn.disabled = true;
+			post( 'ailinking_set_status', { id: id, status: status } ).then( function ( res ) {
+				if ( res && res.success ) {
+					window.location.reload();
+				} else {
+					btn.disabled = false;
+					window.alert( cfg.i18n.error );
+				}
+			} ).catch( reEnable( btn ) );
+		} );
+
+		// Apply an approved suggestion to content.
+		bindAll( '.ailinking-apply', function ( btn, row ) {
+			var id = row.getAttribute( 'data-id' );
+			btn.disabled = true;
+			post( 'ailinking_apply', { id: id } ).then( function ( res ) {
+				if ( res && res.success && res.data && res.data.ok ) {
+					window.location.reload();
+				} else {
+					btn.disabled = false;
+					window.alert( applyMessage( res ) );
+				}
+			} ).catch( reEnable( btn ) );
+		} );
+
+		// Undo an applied insertion.
+		bindAll( '.ailinking-undo', function ( btn ) {
+			var ledger = btn.getAttribute( 'data-ledger' );
+			btn.disabled = true;
+			undo( ledger, 0, btn );
+		} );
+
+		// Recompute audits + click depth.
+		var auditBtn = document.getElementById( 'ailinking-run-audits' );
+		if ( auditBtn ) {
+			auditBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var box = document.querySelector( '#ailinking-progress-audits' );
+				setBar( box, 50, cfg.i18n.auditing );
+				auditBtn.disabled = true;
+				post( 'ailinking_run_audits', {} ).then( function () {
+					setBar( box, 100, cfg.i18n.done );
+					window.location.reload();
+				} ).catch( function () {
+					setBar( box, 100, cfg.i18n.error );
+					auditBtn.disabled = false;
+				} );
+			} );
+		}
+
+		// Remove all inserted links (batched).
+		var rmBtn = document.getElementById( 'ailinking-remove-links' );
+		if ( rmBtn ) {
+			rmBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				if ( parseInt( rmBtn.getAttribute( 'data-count' ), 10 ) === 0 ) {
+					return;
+				}
+				if ( ! window.confirm( cfg.i18n.confirmRemove ) ) {
+					return;
+				}
+				var box = document.querySelector( '#ailinking-progress-audits' );
+				rmBtn.disabled = true;
+
+				function loop() {
+					post( 'ailinking_remove_links', {} ).then( function ( res ) {
+						if ( ! res || ! res.success ) {
+							setBar( box, 100, cfg.i18n.error );
+							return;
+						}
+						setBar( box, res.data.done ? 100 : 50, cfg.i18n.removing + ' (' + res.data.remaining + ')' );
+						if ( res.data.done ) {
+							window.location.reload();
+						} else {
+							loop();
+						}
+					} ).catch( function () {
+						setBar( box, 100, cfg.i18n.error );
+					} );
+				}
+				loop();
+			} );
+		}
+	} );
+
+	function undo( ledger, force, btn ) {
+		post( 'ailinking_undo', { ledger_id: ledger, force: force } ).then( function ( res ) {
+			if ( res && res.success && res.data && res.data.ok ) {
+				window.location.reload();
+				return;
+			}
+			if ( res && res.data && 'modified_since' === res.data.reason && ! force ) {
+				if ( window.confirm( cfg.i18n.modifiedSince ) ) {
+					undo( ledger, 1, btn );
+					return;
+				}
+			} else {
+				window.alert( cfg.i18n.error );
+			}
+			if ( btn ) {
+				btn.disabled = false;
+			}
+		} ).catch( function () {
+			if ( btn ) {
+				btn.disabled = false;
+			}
+			window.alert( cfg.i18n.error );
+		} );
+	}
+
+	function applyMessage( res ) {
+		var reason = res && res.data ? res.data.reason : '';
+		if ( 'suggest_only' === reason ) {
+			return cfg.i18n.error;
+		}
+		return cfg.i18n.error;
+	}
+
+	function bindAll( selector, handler ) {
+		document.querySelectorAll( selector ).forEach( function ( btn ) {
 			btn.addEventListener( 'click', function ( e ) {
 				e.preventDefault();
 				var row = btn.closest( 'tr' );
-				if ( ! row ) {
-					return;
-				}
-				var id = row.getAttribute( 'data-id' );
-				var status = btn.getAttribute( 'data-status' );
-				btn.disabled = true;
-				post( 'ailinking_set_status', { id: id, status: status } ).then( function ( res ) {
-					if ( res && res.success ) {
-						window.location.reload();
-					} else {
-						btn.disabled = false;
-						window.alert( cfg.i18n.error );
-					}
-				} ).catch( function () {
-					btn.disabled = false;
-					window.alert( cfg.i18n.error );
-				} );
+				handler( btn, row );
 			} );
 		} );
-	} );
+	}
+
+	function reEnable( btn ) {
+		return function () {
+			btn.disabled = false;
+			window.alert( cfg.i18n.error );
+		};
+	}
 } )();

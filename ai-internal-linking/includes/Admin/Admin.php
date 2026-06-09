@@ -22,10 +22,14 @@ class Admin {
 	/** @var SettingsPage */
 	private $settings;
 
+	/** @var HealthDashboard */
+	private $health;
+
 	public function __construct() {
 		$this->wizard   = new Wizard();
 		$this->inbox    = new Inbox();
 		$this->settings = new SettingsPage();
+		$this->health   = new HealthDashboard();
 	}
 
 	/**
@@ -74,6 +78,15 @@ class Admin {
 
 		add_submenu_page(
 			'ailinking',
+			__( 'Link Health', 'ai-internal-linking' ),
+			__( 'Link Health', 'ai-internal-linking' ),
+			Capabilities::MANAGE,
+			'ailinking-health',
+			array( $this->health, 'render' )
+		);
+
+		add_submenu_page(
+			'ailinking',
 			__( 'Settings', 'ai-internal-linking' ),
 			__( 'Settings', 'ai-internal-linking' ),
 			Capabilities::MANAGE,
@@ -114,11 +127,15 @@ class Admin {
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'ailinking_ajax' ),
 				'i18n'    => array(
-					'indexing'     => __( 'Indexing…', 'ai-internal-linking' ),
-					'scanning'     => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
-					'done'         => __( 'Done', 'ai-internal-linking' ),
-					'error'        => __( 'Something went wrong. Please try again.', 'ai-internal-linking' ),
-					'confirmReset' => __( 'Re-index the whole site from scratch?', 'ai-internal-linking' ),
+					'indexing'      => __( 'Indexing…', 'ai-internal-linking' ),
+					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
+					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
+					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
+					'done'          => __( 'Done', 'ai-internal-linking' ),
+					'error'         => __( 'Something went wrong. Please try again.', 'ai-internal-linking' ),
+					'confirmReset'  => __( 'Re-index the whole site from scratch?', 'ai-internal-linking' ),
+					'confirmRemove' => __( 'Revert every link this plugin inserted? Your content will be restored to its pre-link state.', 'ai-internal-linking' ),
+					'modifiedSince' => __( 'This page was edited after the link was inserted. Undo anyway and overwrite those edits?', 'ai-internal-linking' ),
 				),
 			)
 		);
