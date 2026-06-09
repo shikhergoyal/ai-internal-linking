@@ -56,7 +56,7 @@ class AnchorGenerator {
 		}
 
 		// Break into clauses so phrases never cross punctuation boundaries
-		// (e.g. don't bridge "Part 10: Geography ...").
+		// (e.g. a phrase should not bridge across a colon, comma, or dash).
 		$segments = preg_split( '/[:;,|()\[\]\/]+|[\x{2013}\x{2014}-]+/u', $title );
 
 		$candidates = array(); // phrase => word_count
@@ -145,7 +145,7 @@ class AnchorGenerator {
 	 */
 	private static function is_noise_phrase( $words ) {
 		$stop  = self::stopwords();
-		$noise = array( 'part', 'parts', 'vol', 'volume', 'chapter', 'edition', 'section', 'no' );
+		$noise = apply_filters( 'ailinking_anchor_noise_words', array( 'part', 'parts', 'vol', 'volume', 'chapter', 'edition', 'section', 'no' ) );
 
 		$first = self::lc( $words[0] );
 		$last  = self::lc( $words[ count( $words ) - 1 ] );
@@ -235,6 +235,8 @@ class AnchorGenerator {
 		foreach ( $words as $w ) {
 			$set[ $w ] = true;
 		}
+		// Filterable so non-English sites can supply their own edge stopwords.
+		$set = apply_filters( 'ailinking_anchor_stopwords', $set );
 		return $set;
 	}
 }
