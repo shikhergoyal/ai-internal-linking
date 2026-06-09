@@ -15,3 +15,6 @@ vendor/
 
 # WordPress local artifacts
 wp-cli.local.yml
+
+# Build artifacts (zips)
+Plugin Zip files/
