@@ -3,7 +3,7 @@
  * Plugin Name:       AI Internal Linking
  * Plugin URI:        https://example.com/ai-internal-linking
  * Description:        Universal, AI-assisted internal linking. Crawls any WordPress site, then suggests contextual internal links (SEO + GEO best practices). Every suggestion is reviewed and gated — nothing is auto-inserted.
- * Version:           0.6.5
+ * Version:           0.6.6
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            You
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AILINKING_VERSION', '0.6.5' );
+define( 'AILINKING_VERSION', '0.6.6' );
 define( 'AILINKING_DB_VERSION', '1.2.0' );
 define( 'AILINKING_FILE', __FILE__ );
 define( 'AILINKING_PATH', plugin_dir_path( __FILE__ ) );
