@@ -202,54 +202,73 @@ class SuggestionEngine {
 	 */
 	public static function scan_batch( $limit = 10 ) {
 		global $wpdb;
-		$index    = Tables::index();
-		$progress = ProgressStore::get( 'suggest' );
-		if ( empty( $progress ) || 'running' !== $progress['status'] ) {
-			$progress           = self::start_scan();
-			$progress['status'] = $progress['total'] > 0 ? 'running' : 'complete';
-		}
 
-		$cursor = (int) $progress['cursor'];
-		$types  = Settings::crawl_post_types();
-
-		if ( empty( $types ) ) {
-			$progress['status'] = 'complete';
-			$progress['done']   = true;
-			ProgressStore::set( 'suggest', $progress );
+		// One scanner at a time (guards against double-clicks / overlapping runs).
+		if ( ! ProgressStore::acquire( 'suggest' ) ) {
+			$progress = ProgressStore::get( 'suggest' );
+			if ( empty( $progress ) ) {
+				$progress = array( 'total' => 0, 'processed' => 0, 'status' => 'running' );
+			}
+			$progress['done'] = ( 'complete' === ( isset( $progress['status'] ) ? $progress['status'] : '' ) );
 			return $progress;
 		}
 
-		$ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+		try {
+			$index    = Tables::index();
+			$progress = ProgressStore::get( 'suggest' );
+			if ( empty( $progress ) || 'running' !== $progress['status'] ) {
+				$progress           = self::start_scan();
+				$progress['status'] = $progress['total'] > 0 ? 'running' : 'complete';
+			}
 
-		$args   = $types;
-		$args[] = $cursor;
-		$args[] = $limit;
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT post_id FROM {$index}
-				 WHERE is_excluded = 0 AND post_status = 'publish' AND post_type IN ($ph) AND post_id > %d
-				 ORDER BY post_id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
-				$args
-			)
-		);
+			$cursor = (int) $progress['cursor'];
+			$types  = Settings::crawl_post_types();
 
-		if ( empty( $ids ) ) {
-			$progress['status'] = 'complete';
-			$progress['done']   = true;
+			if ( empty( $types ) ) {
+				$progress['status'] = 'complete';
+				$progress['done']   = true;
+				ProgressStore::set( 'suggest', $progress );
+				return $progress;
+			}
+
+			$ph = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+
+			$args   = $types;
+			$args[] = $cursor;
+			$args[] = $limit;
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT post_id FROM {$index}
+					 WHERE is_excluded = 0 AND post_status = 'publish' AND post_type IN ($ph) AND post_id > %d
+					 ORDER BY post_id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+					$args
+				)
+			);
+
+			if ( empty( $ids ) ) {
+				$progress['status'] = 'complete';
+				$progress['done']   = true;
+				ProgressStore::set( 'suggest', $progress );
+				return $progress;
+			}
+
+			foreach ( $ids as $pid ) {
+				$pid = (int) $pid;
+				try {
+					$progress['created'] += self::generate_for_post( $pid );
+				} catch ( \Throwable $e ) {
+					$progress['last_error'] = 'post ' . $pid . ': ' . $e->getMessage();
+				}
+				$progress['cursor'] = $pid;
+				$progress['processed']++;
+			}
+
+			$progress['done'] = false;
 			ProgressStore::set( 'suggest', $progress );
 			return $progress;
+		} finally {
+			ProgressStore::release( 'suggest' );
 		}
-
-		foreach ( $ids as $pid ) {
-			$pid = (int) $pid;
-			$progress['created'] += self::generate_for_post( $pid );
-			$progress['cursor']   = $pid;
-			$progress['processed']++;
-		}
-
-		$progress['done'] = false;
-		ProgressStore::set( 'suggest', $progress );
-		return $progress;
 	}
 
 	/**

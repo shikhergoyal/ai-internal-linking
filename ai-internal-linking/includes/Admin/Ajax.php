@@ -253,6 +253,9 @@ class Ajax {
 	private function shape( $progress ) {
 		$total     = (int) ( $progress['total'] ?? 0 );
 		$processed = (int) ( $progress['processed'] ?? 0 );
+		if ( $total > 0 && $processed > $total ) {
+			$processed = $total; // never display past 100%.
+		}
 		$done      = ! empty( $progress['done'] ) || 'complete' === ( $progress['status'] ?? '' );
 		$percent   = $total > 0 ? min( 100, (int) round( ( $processed / $total ) * 100 ) ) : 100;
 

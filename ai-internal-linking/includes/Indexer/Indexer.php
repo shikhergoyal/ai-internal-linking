@@ -77,52 +77,73 @@ class Indexer {
 	public static function process_batch( $limit = 15 ) {
 		global $wpdb;
 
-		$progress = ProgressStore::get( 'index' );
-		if ( empty( $progress ) ) {
-			$progress = self::start_full_reindex();
-		}
-
-		$types = self::scope_types();
-		if ( empty( $types ) ) {
-			$progress['status'] = 'complete';
-			$progress['done']   = true;
-			ProgressStore::set( 'index', $progress );
+		// Serialise indexing: only one worker (admin AJAX OR cron) runs at a time,
+		// otherwise they race the shared cursor — double-counting progress and
+		// skipping rows. A busy caller just returns the current state.
+		if ( ! ProgressStore::acquire( 'index' ) ) {
+			$progress = ProgressStore::get( 'index' );
+			if ( empty( $progress ) ) {
+				$progress = array( 'total' => 0, 'processed' => 0, 'status' => 'running' );
+			}
+			$progress['done'] = ( 'complete' === ( isset( $progress['status'] ) ? $progress['status'] : '' ) );
 			return $progress;
 		}
 
-		$cursor = (int) ( $progress['cursor'] ?? 0 );
-		$ph     = implode( ',', array_fill( 0, count( $types ), '%s' ) );
-		$args   = $types;
-		$args[] = $cursor;
-		$args[] = $limit;
+		try {
+			$progress = ProgressStore::get( 'index' );
+			if ( empty( $progress ) ) {
+				$progress = self::start_full_reindex();
+			}
 
-		$ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts}
-				 WHERE post_status = 'publish' AND post_type IN ($ph) AND ID > %d
-				 ORDER BY ID ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
-				$args
-			)
-		);
+			$types = self::scope_types();
+			if ( empty( $types ) ) {
+				$progress['status'] = 'complete';
+				$progress['done']   = true;
+				ProgressStore::set( 'index', $progress );
+				return $progress;
+			}
 
-		if ( empty( $ids ) ) {
-			$progress['status'] = 'complete';
-			$progress['done']   = true;
+			$cursor = (int) ( isset( $progress['cursor'] ) ? $progress['cursor'] : 0 );
+			$ph     = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+			$args   = $types;
+			$args[] = $cursor;
+			$args[] = $limit;
+
+			$ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts}
+					 WHERE post_status = 'publish' AND post_type IN ($ph) AND ID > %d
+					 ORDER BY ID ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+					$args
+				)
+			);
+
+			if ( empty( $ids ) ) {
+				$progress['status'] = 'complete';
+				$progress['done']   = true;
+				ProgressStore::set( 'index', $progress );
+				return $progress;
+			}
+
+			foreach ( $ids as $id ) {
+				$id = (int) $id;
+				// Isolate per-post failures so one bad post can't stall the whole run.
+				try {
+					self::index_post( $id );
+				} catch ( \Throwable $e ) {
+					$progress['last_error'] = 'post ' . $id . ': ' . $e->getMessage();
+				}
+				$progress['cursor']    = $id; // advance even on failure (skip poison pill).
+				$progress['processed'] = (int) ( isset( $progress['processed'] ) ? $progress['processed'] : 0 ) + 1;
+			}
+
+			$progress['done']   = false;
+			$progress['status'] = 'running';
 			ProgressStore::set( 'index', $progress );
 			return $progress;
+		} finally {
+			ProgressStore::release( 'index' );
 		}
-
-		foreach ( $ids as $id ) {
-			$id = (int) $id;
-			self::index_post( $id );
-			$progress['cursor'] = $id;
-			$progress['processed'] = (int) ( $progress['processed'] ?? 0 ) + 1;
-		}
-
-		$progress['done']   = false;
-		$progress['status'] = 'running';
-		ProgressStore::set( 'index', $progress );
-		return $progress;
 	}
 
 	/**

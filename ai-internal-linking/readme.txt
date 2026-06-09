@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.1
+Stable tag: 0.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.2 =
+* Fix: indexing could freeze and over-count (e.g. “218 / 210”, only a few pages actually indexed) when the WP-Cron tick and the admin run overlapped. Added a job lock so only one indexer/scan/embed worker runs at a time (cursor advances cleanly, no skipped or double-counted posts), isolated per-post failures so one bad post can’t stall a run, and clamped the progress bar so it can’t exceed 100%.
 
 = 0.6.1 =
 * UI: consolidated the eight separate admin pages into a single “AI Linking” page with tabs (Setup & Dashboard, Suggestions, Link Health, Clusters, GEO Readiness, Keywords, AI Keys, Settings). Navigation only — no functional changes.

@@ -246,6 +246,18 @@ class VectorStore {
 	 */
 	public static function build_batch( $limit = 5 ) {
 		global $wpdb;
+
+		// One embedding worker at a time.
+		if ( ! ProgressStore::acquire( 'embed' ) ) {
+			$progress = ProgressStore::get( 'embed' );
+			if ( empty( $progress ) ) {
+				$progress = array( 'total' => 0, 'processed' => 0, 'status' => 'running' );
+			}
+			$progress['done'] = ( 'complete' === ( isset( $progress['status'] ) ? $progress['status'] : '' ) );
+			return $progress;
+		}
+
+		try {
 		$index    = Tables::index();
 		$embed    = Tables::embeddings();
 		$progress = ProgressStore::get( 'embed' );
@@ -303,5 +315,8 @@ class VectorStore {
 		$progress['done'] = false;
 		ProgressStore::set( 'embed', $progress );
 		return $progress;
+		} finally {
+			ProgressStore::release( 'embed' );
+		}
 	}
 }
