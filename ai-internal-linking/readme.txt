@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.2
+Stable tag: 0.6.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.3 =
+* Fix: indexing could report “done” (e.g. 210/210) while saving 0 pages when the custom DB tables were missing (possible after deletes/updates). The plugin now (a) recreates missing tables automatically before indexing and on admin load, and (b) surfaces the actual database error in the dashboard and progress bar instead of failing silently. Note: the indexed total reflects your Scope — only the post types you tick under “Crawl these post types” are counted.
 
 = 0.6.2 =
 * Fix: indexing could freeze and over-count (e.g. “218 / 210”, only a few pages actually indexed) when the WP-Cron tick and the admin run overlapped. Added a job lock so only one indexer/scan/embed worker runs at a time (cursor advances cleanly, no skipped or double-counted posts), isolated per-post failures so one bad post can’t stall a run, and clamped the progress bar so it can’t exceed 100%.

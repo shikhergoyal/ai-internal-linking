@@ -38,13 +38,42 @@ class Schema {
 	}
 
 	/**
-	 * Run pending migrations when the stored DB version is behind.
+	 * Run pending migrations when the stored DB version is behind, OR when the
+	 * core table is missing (e.g. tables dropped, or plugin updated without a
+	 * fresh activation).
 	 */
 	public static function maybe_upgrade() {
 		$installed = get_option( self::DB_VERSION_OPTION, '0' );
 		if ( version_compare( $installed, AILINKING_DB_VERSION, '<' ) ) {
 			self::install();
+			return;
 		}
+		// Recovery: recreate tables if they went missing (admin only, to avoid a
+		// per-request query on the front end).
+		if ( is_admin() && ! self::table_exists( Tables::index() ) ) {
+			self::install();
+		}
+	}
+
+	/**
+	 * Create the tables now if the core table is missing. Cheap safety net before
+	 * a (re)index so writes never fail silently on a half-installed site.
+	 */
+	public static function ensure_installed() {
+		if ( ! self::table_exists( Tables::index() ) ) {
+			self::install();
+		}
+	}
+
+	/**
+	 * Whether a table exists.
+	 *
+	 * @param string $table Full table name.
+	 * @return bool
+	 */
+	public static function table_exists( $table ) {
+		global $wpdb;
+		return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
 	}
 
 	/**

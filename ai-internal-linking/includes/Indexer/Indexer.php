@@ -11,6 +11,7 @@ namespace AILinking\Indexer;
 
 use AILinking\Support\Tables;
 use AILinking\Support\Settings;
+use AILinking\Install\Schema;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Detectors\BuilderDetector;
 use AILinking\Content\ContentParser;
@@ -57,6 +58,7 @@ class Indexer {
 	 * @return array Progress snapshot.
 	 */
 	public static function start_full_reindex() {
+		Schema::ensure_installed(); // guarantee tables exist before writing.
 		$total    = self::count_total();
 		$progress = array(
 			'total'     => $total,
@@ -222,9 +224,15 @@ class Indexer {
 		$changed = true;
 		if ( $existing ) {
 			$changed = ( $existing['content_hash'] !== $content_hash );
-			$wpdb->update( $table, $data, array( 'post_id' => $post_id ), $format, array( '%d' ) );
+			$ok      = $wpdb->update( $table, $data, array( 'post_id' => $post_id ), $format, array( '%d' ) );
 		} else {
-			$wpdb->insert( $table, $data, $format );
+			$ok = $wpdb->insert( $table, $data, $format );
+		}
+
+		// Surface DB write failures (e.g. missing table) instead of silently
+		// "processing" with nothing saved. Caught by the batch loop -> shown in UI.
+		if ( false === $ok ) {
+			throw new \RuntimeException( 'index write failed: ' . ( $wpdb->last_error ? $wpdb->last_error : 'unknown DB error' ) );
 		}
 
 		// Heavy work only when content actually changed (or first index).

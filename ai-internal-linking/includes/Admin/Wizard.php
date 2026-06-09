@@ -112,6 +112,13 @@ class Wizard {
 					<p class="ailinking-stat"><span class="ailinking-num"><?php echo esc_html( number_format_i18n( $indexed ) ); ?></span> <?php esc_html_e( 'pages indexed', 'ai-internal-linking' ); ?></p>
 					<p class="ailinking-stat"><span class="ailinking-num"><?php echo esc_html( number_format_i18n( $pending ) ); ?></span> <?php esc_html_e( 'suggestions awaiting review', 'ai-internal-linking' ); ?></p>
 
+					<?php if ( ! empty( $idx_prog['last_error'] ) ) : ?>
+						<div class="notice notice-error inline"><p>
+							<strong><?php esc_html_e( 'Last indexing error:', 'ai-internal-linking' ); ?></strong>
+							<?php echo esc_html( $idx_prog['last_error'] ); ?>
+						</p></div>
+					<?php endif; ?>
+
 					<h3><?php esc_html_e( 'Run', 'ai-internal-linking' ); ?></h3>
 					<p>
 						<button class="button button-primary" id="ailinking-run-index"><?php esc_html_e( 'Index / Re-index site', 'ai-internal-linking' ); ?></button>

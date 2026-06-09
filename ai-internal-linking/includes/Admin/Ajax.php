@@ -260,11 +260,12 @@ class Ajax {
 		$percent   = $total > 0 ? min( 100, (int) round( ( $processed / $total ) * 100 ) ) : 100;
 
 		return array(
-			'total'     => $total,
-			'processed' => $processed,
-			'created'   => (int) ( $progress['created'] ?? 0 ),
-			'percent'   => $percent,
-			'done'      => $done,
+			'total'      => $total,
+			'processed'  => $processed,
+			'created'    => (int) ( $progress['created'] ?? 0 ),
+			'percent'    => $percent,
+			'done'       => $done,
+			'last_error' => isset( $progress['last_error'] ) ? (string) $progress['last_error'] : '',
 		);
 	}
 }

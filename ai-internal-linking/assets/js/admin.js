@@ -72,7 +72,8 @@
 				if ( showCreated ) {
 					label += '  (' + d.created + ' found)';
 				}
-				var doneLabel = d.error ? ( cfg.i18n.error + ': ' + d.error ) : cfg.i18n.done;
+				var problem = d.error || d.last_error || '';
+				var doneLabel = problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done;
 				setBar( box, d.percent, d.done ? doneLabel : label );
 				return !! d.done;
 			} ).catch( function () {
