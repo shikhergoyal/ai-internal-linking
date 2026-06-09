@@ -11,6 +11,7 @@ namespace AILinking\Admin;
 use AILinking\Security\Capabilities;
 use AILinking\Clusters\ClusterRepository;
 use AILinking\Clusters\ClusterAnalyzer;
+use AILinking\Clusters\AutoClusterDetector;
 use AILinking\Detectors\SiteDetector;
 
 defined( 'ABSPATH' ) || exit;
@@ -22,6 +23,36 @@ class ClustersPage {
 		add_action( 'admin_post_ailinking_delete_cluster', array( $this, 'handle_delete' ) );
 		add_action( 'admin_post_ailinking_add_spoke', array( $this, 'handle_add_spoke' ) );
 		add_action( 'admin_post_ailinking_remove_spoke', array( $this, 'handle_remove_spoke' ) );
+		add_action( 'admin_post_ailinking_auto_clusters', array( $this, 'handle_auto_detect' ) );
+	}
+
+	/**
+	 * Build clusters automatically from the site's taxonomies + link graph, then
+	 * analyze them so authority/flat badges show immediately.
+	 */
+	public function handle_auto_detect() {
+		Capabilities::require_manage();
+		check_admin_referer( 'ailinking_auto_clusters' );
+
+		$result = AutoClusterDetector::detect();
+		if ( $result['created'] > 0 ) {
+			ClusterAnalyzer::analyze_all();
+		}
+
+		if ( $result['created'] > 0 ) {
+			$msg = sprintf(
+				/* translators: 1: created count, 2: skipped count */
+				__( 'Auto-detected %1$d cluster(s). %2$d existing/duplicate group(s) were skipped.', 'ai-internal-linking' ),
+				$result['created'],
+				$result['skipped']
+			);
+		} elseif ( $result['candidates'] > 0 ) {
+			$msg = __( 'No new clusters: every detected topic group already has a matching cluster.', 'ai-internal-linking' );
+		} else {
+			$msg = __( 'No clusters detected. Make sure the site is indexed and your posts use categories (a topic needs at least 3 posts). Then try again.', 'ai-internal-linking' );
+		}
+
+		$this->redirect( $msg );
 	}
 
 	public function handle_create() {
@@ -82,10 +113,19 @@ class ClustersPage {
 				<div class="notice notice-info is-dismissible"><p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['ailinking_msg'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
 			<?php endif; ?>
 
-			<p>
-				<button class="button button-primary" id="ailinking-run-clusters"><?php esc_html_e( 'Analyze clusters', 'ai-internal-linking' ); ?></button>
-				<span id="ailinking-cluster-status" class="description"></span>
-			</p>
+			<div class="ailinking-card">
+				<h2><?php esc_html_e( 'Build clusters automatically', 'ai-internal-linking' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Detects topic clusters from your categories/taxonomies and internal link structure — no manual post IDs needed. Each topic with at least 3 indexed posts becomes a cluster, and the post the others link to most is chosen as the pillar (hub). Re-running is safe: it skips topics that already have a cluster and never changes clusters you created by hand. Index the site first for best results.', 'ai-internal-linking' ); ?></p>
+				<p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline">
+						<input type="hidden" name="action" value="ailinking_auto_clusters" />
+						<?php wp_nonce_field( 'ailinking_auto_clusters' ); ?>
+						<button class="button button-primary"><?php esc_html_e( 'Auto-detect clusters', 'ai-internal-linking' ); ?></button>
+					</form>
+					<button class="button" id="ailinking-run-clusters"><?php esc_html_e( 'Re-analyze clusters', 'ai-internal-linking' ); ?></button>
+					<span id="ailinking-cluster-status" class="description"></span>
+				</p>
+			</div>
 
 			<?php foreach ( $clusters as $c ) : ?>
 				<?php
