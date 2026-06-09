@@ -11,6 +11,7 @@ namespace AILinking\Admin;
 use AILinking\Security\Capabilities;
 use AILinking\Support\Settings;
 use AILinking\Support\Tables;
+use AILinking\Install\Schema;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
@@ -24,6 +25,18 @@ class Wizard {
 	 */
 	public function register() {
 		add_action( 'admin_post_ailinking_save_wizard', array( $this, 'handle_save' ) );
+		add_action( 'admin_post_ailinking_reset', array( $this, 'handle_reset' ) );
+	}
+
+	/**
+	 * Wipe all plugin data so the user can rescan from scratch.
+	 */
+	public function handle_reset() {
+		Capabilities::require_manage();
+		check_admin_referer( 'ailinking_reset' );
+		Schema::reset_data();
+		wp_safe_redirect( add_query_arg( 'ailinking_msg', 'reset_done', admin_url( 'admin.php?page=ailinking&tab=dashboard' ) ) );
+		exit;
 	}
 
 	/**
@@ -80,6 +93,10 @@ class Wizard {
 				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'ai-internal-linking' ); ?></p></div>
 			<?php endif; ?>
 
+			<?php if ( isset( $_GET['ailinking_msg'] ) && 'reset_done' === $_GET['ailinking_msg'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'All plugin data was cleared. Click “Index / Re-index site” to rebuild from scratch.', 'ai-internal-linking' ); ?></p></div>
+			<?php endif; ?>
+
 			<?php if ( ! Scheduler::has_action_scheduler() ) : ?>
 				<div class="notice notice-info"><p>
 					<?php esc_html_e( 'Action Scheduler was not detected; the plugin uses WP-Cron with an in-browser fallback for indexing. Use the buttons below to run jobs interactively.', 'ai-internal-linking' ); ?>
@@ -134,6 +151,19 @@ class Wizard {
 					</div>
 					<p><a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=ailinking&tab=suggestions' ) ); ?>"><?php esc_html_e( 'Review suggestions →', 'ai-internal-linking' ); ?></a></p>
 				</div>
+			</div>
+
+			<div class="ailinking-card ailinking-danger-zone">
+				<h2><?php esc_html_e( 'Reset', 'ai-internal-linking' ); ?></h2>
+				<p class="description">
+					<strong class="ailinking-warn"><?php esc_html_e( 'Warning:', 'ai-internal-linking' ); ?></strong>
+					<?php esc_html_e( 'This permanently deletes ALL plugin data — the index, every suggestion, the link graph, clusters, keywords, embeddings and the inserted-links log — so you can rescan from scratch. Links already inserted into your posts will remain in the content (use “Remove all inserted links” on Link Health first if you want to revert those). This cannot be undone.', 'ai-internal-linking' ); ?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'This permanently deletes ALL plugin data (index, suggestions, link graph, clusters, keywords, embeddings, inserted-links log) so you can rescan from scratch. This cannot be undone. Continue?', 'ai-internal-linking' ) ); ?>');">
+					<input type="hidden" name="action" value="ailinking_reset" />
+					<?php wp_nonce_field( 'ailinking_reset' ); ?>
+					<button type="submit" class="button ailinking-danger"><?php esc_html_e( 'Reset all data', 'ai-internal-linking' ); ?></button>
+				</form>
 			</div>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="ailinking-card ailinking-scope">
