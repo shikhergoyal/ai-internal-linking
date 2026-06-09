@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.5.0 =
+* Topic clusters: define a pillar (hub) page plus supporting spokes; the analyzer computes hub-and-spoke authority, detects “flat” clusters with no clear hub, and gives concrete fixes. New Clusters admin page.
 
 = 0.4.0 =
 * SEO checks completed: internal PageRank (link-equity) on the Link Health dashboard, broken internal-link detection, and an anchor-text diversity / over-optimization report. “Recompute audits” now also computes PageRank and broken links.
