@@ -66,7 +66,7 @@ class ClustersPage {
 	}
 
 	private function redirect( $msg ) {
-		wp_safe_redirect( add_query_arg( 'ailinking_msg', $msg, admin_url( 'admin.php?page=ailinking-clusters' ) ) );
+		wp_safe_redirect( add_query_arg( 'ailinking_msg', $msg, admin_url( 'admin.php?page=ailinking&tab=clusters' ) ) );
 		exit;
 	}
 

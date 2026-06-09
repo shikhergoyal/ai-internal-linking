@@ -77,7 +77,7 @@ class SettingsPage {
 			)
 		);
 
-		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking-settings' ) ) );
+		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking&tab=settings' ) ) );
 		exit;
 	}
 

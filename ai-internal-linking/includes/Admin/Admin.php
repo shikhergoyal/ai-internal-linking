@@ -64,7 +64,25 @@ class Admin {
 	}
 
 	/**
-	 * Register the admin menu.
+	 * Ordered tab map: slug => [ label, page object ].
+	 *
+	 * @return array
+	 */
+	private function tabs() {
+		return array(
+			'dashboard'   => array( __( 'Setup & Dashboard', 'ai-internal-linking' ), $this->wizard ),
+			'suggestions' => array( __( 'Suggestions', 'ai-internal-linking' ), $this->inbox ),
+			'health'      => array( __( 'Link Health', 'ai-internal-linking' ), $this->health ),
+			'clusters'    => array( __( 'Clusters', 'ai-internal-linking' ), $this->clusters ),
+			'geo'         => array( __( 'GEO Readiness', 'ai-internal-linking' ), $this->geo ),
+			'keywords'    => array( __( 'Keywords', 'ai-internal-linking' ), $this->keywords ),
+			'keys'        => array( __( 'AI Keys', 'ai-internal-linking' ), $this->keys ),
+			'settings'    => array( __( 'Settings', 'ai-internal-linking' ), $this->settings ),
+		);
+	}
+
+	/**
+	 * Register a single top-level admin page; every section is a tab on it.
 	 */
 	public function menu() {
 		add_menu_page(
@@ -72,82 +90,40 @@ class Admin {
 			__( 'AI Linking', 'ai-internal-linking' ),
 			Capabilities::MANAGE,
 			'ailinking',
-			array( $this->wizard, 'render' ),
+			array( $this, 'render_tabs' ),
 			'dashicons-admin-links',
 			58
 		);
+	}
 
-		add_submenu_page(
-			'ailinking',
-			__( 'Setup & Dashboard', 'ai-internal-linking' ),
-			__( 'Setup & Dashboard', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking',
-			array( $this->wizard, 'render' )
-		);
+	/**
+	 * Render the tab bar, then the active section (its existing render()).
+	 */
+	public function render_tabs() {
+		Capabilities::require_manage();
 
-		add_submenu_page(
-			'ailinking',
-			__( 'Suggestions', 'ai-internal-linking' ),
-			__( 'Suggestions', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-suggestions',
-			array( $this->inbox, 'render' )
-		);
+		$tabs   = $this->tabs();
+		$active = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'dashboard'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $tabs[ $active ] ) ) {
+			$active = 'dashboard';
+		}
 
-		add_submenu_page(
-			'ailinking',
-			__( 'Link Health', 'ai-internal-linking' ),
-			__( 'Link Health', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-health',
-			array( $this->health, 'render' )
-		);
+		echo '<div class="wrap ailinking-shell">';
+		echo '<h1 class="wp-heading-inline">' . esc_html__( 'AI Internal Linking', 'ai-internal-linking' ) . '</h1>';
+		echo '<h2 class="nav-tab-wrapper ailinking-tabs">';
+		foreach ( $tabs as $slug => $tab ) {
+			$url = add_query_arg(
+				array( 'page' => 'ailinking', 'tab' => $slug ),
+				admin_url( 'admin.php' )
+			);
+			$cls = ( $slug === $active ) ? 'nav-tab nav-tab-active' : 'nav-tab';
+			echo '<a class="' . esc_attr( $cls ) . '" href="' . esc_url( $url ) . '">' . esc_html( $tab[0] ) . '</a>';
+		}
+		echo '</h2>';
+		echo '</div>';
 
-		add_submenu_page(
-			'ailinking',
-			__( 'Clusters', 'ai-internal-linking' ),
-			__( 'Clusters', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-clusters',
-			array( $this->clusters, 'render' )
-		);
-
-		add_submenu_page(
-			'ailinking',
-			__( 'GEO Readiness', 'ai-internal-linking' ),
-			__( 'GEO Readiness', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-geo',
-			array( $this->geo, 'render' )
-		);
-
-		add_submenu_page(
-			'ailinking',
-			__( 'Keywords', 'ai-internal-linking' ),
-			__( 'Keywords', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-keywords',
-			array( $this->keywords, 'render' )
-		);
-
-		add_submenu_page(
-			'ailinking',
-			__( 'AI Keys', 'ai-internal-linking' ),
-			__( 'AI Keys', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-keys',
-			array( $this->keys, 'render' )
-		);
-
-		add_submenu_page(
-			'ailinking',
-			__( 'Settings', 'ai-internal-linking' ),
-			__( 'Settings', 'ai-internal-linking' ),
-			Capabilities::MANAGE,
-			'ailinking-settings',
-			array( $this->settings, 'render' )
-		);
+		// Delegate to the section's existing renderer (unchanged behaviour).
+		$tabs[ $active ][1]->render();
 	}
 
 	/**

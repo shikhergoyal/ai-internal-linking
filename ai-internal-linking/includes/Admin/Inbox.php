@@ -69,7 +69,8 @@ class Inbox {
 				foreach ( $allowed as $s ) :
 					$url = add_query_arg(
 						array(
-							'page'   => 'ailinking-suggestions',
+							'page'   => 'ailinking',
+							'tab'    => 'suggestions',
 							'status' => $s,
 						),
 						admin_url( 'admin.php' )
@@ -190,7 +191,8 @@ class Inbox {
 						'current'   => $paged,
 						'total'     => $total_pages,
 						'add_args'  => array(
-							'page'   => 'ailinking-suggestions',
+							'page'   => 'ailinking',
+							'tab'    => 'suggestions',
 							'status' => $status,
 						),
 					)

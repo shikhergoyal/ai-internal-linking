@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.5.0
+Stable tag: 0.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.1 =
+* UI: consolidated the eight separate admin pages into a single “AI Linking” page with tabs (Setup & Dashboard, Suggestions, Link Health, Clusters, GEO Readiness, Keywords, AI Keys, Settings). Navigation only — no functional changes.
 
 = 0.6.0 =
 * GEO Readiness dashboard: scores how well each page is positioned to be cited by AI answer engines (from link equity, click depth, cluster membership, orphan status, schema presence, freshness, and answer front-loading), with concrete fixes, structured-data recommendations, and AI-crawler guidance.

@@ -1,3 +1,16 @@
+.ailinking-tabs {
+	margin-top: 10px;
+}
+
+.ailinking-shell {
+	margin-bottom: 0;
+}
+
+/* Tighten the gap between the tab bar and the section content below it. */
+.ailinking-shell + .wrap {
+	margin-top: 8px;
+}
+
 .ailinking-wrap .ailinking-cards {
 	display: flex;
 	flex-wrap: wrap;

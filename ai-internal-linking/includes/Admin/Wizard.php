@@ -53,7 +53,7 @@ class Wizard {
 			)
 		);
 
-		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking' ) ) );
+		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking&tab=dashboard' ) ) );
 		exit;
 	}
 
@@ -125,7 +125,7 @@ class Wizard {
 						<div class="ailinking-bar"><span></span></div>
 						<p class="ailinking-progress-label"></p>
 					</div>
-					<p><a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=ailinking-suggestions' ) ); ?>"><?php esc_html_e( 'Review suggestions →', 'ai-internal-linking' ); ?></a></p>
+					<p><a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=ailinking&tab=suggestions' ) ); ?>"><?php esc_html_e( 'Review suggestions →', 'ai-internal-linking' ); ?></a></p>
 				</div>
 			</div>
 
