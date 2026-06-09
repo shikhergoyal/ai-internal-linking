@@ -12,6 +12,7 @@ namespace AILinking\Suggestions;
 use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Jobs\ProgressStore;
+use AILinking\Providers\Gateway;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -91,6 +92,11 @@ class SuggestionEngine {
 		$targets = Settings::target_post_types();
 		$candidates = Tfidf::candidates( $source_id, $source['lang_code'], $targets, ( $limit * 4 ) + 10 );
 
+		// Optional embedding re-rank (precision) on top of TF-IDF recall.
+		if ( Gateway::embeddings_enabled() ) {
+			$candidates = VectorStore::rerank( $source_id, $candidates );
+		}
+
 		$created = 0;
 		foreach ( $candidates as $cand ) {
 			if ( $created >= $limit ) {
@@ -125,7 +131,7 @@ class SuggestionEngine {
 					'naturalness_score' => $naturalness,
 					'confidence_score'  => $confidence,
 					'type'              => 'outbound',
-					'engine'            => 'tfidf',
+					'engine'            => isset( $cand['engine'] ) ? $cand['engine'] : 'tfidf',
 					'lang_code'         => $source['lang_code'],
 					'status'            => 'pending',
 				),
@@ -252,9 +258,10 @@ class SuggestionEngine {
 	 * @return string
 	 */
 	private static function trim_len( $s, $max ) {
-		if ( strlen( $s ) <= $max ) {
-			return $s;
+		// Cap by characters (not bytes) so multibyte anchors aren't split mid-character.
+		if ( function_exists( 'mb_substr' ) ) {
+			return ( mb_strlen( $s, 'UTF-8' ) <= $max ) ? $s : mb_substr( $s, 0, $max, 'UTF-8' );
 		}
-		return substr( $s, 0, $max );
+		return ( strlen( $s ) <= $max ) ? $s : substr( $s, 0, $max );
 	}
 }

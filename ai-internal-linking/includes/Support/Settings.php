@@ -30,6 +30,14 @@ class Settings {
 			'max_suggestions_post' => 8,      // cap suggestions generated per source post
 			'min_anchor_words'     => 2,      // 1 allows single-word anchors as a fallback
 			'max_anchor_words'     => 4,      // longest anchor phrase to consider
+			// AI provider configuration (Phase 1).
+			'chat_provider'             => 'none',
+			'chat_model'                => '',
+			'embedding_provider'        => 'none',
+			'embedding_model'           => '',
+			'reuse_chat_for_embeddings' => false,
+			'rotation'                  => 'round_robin', // or primary_failover
+			'monthly_cap_usd'           => 0,             // 0 = no cap
 		);
 	}
 

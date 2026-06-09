@@ -25,11 +25,19 @@ class Admin {
 	/** @var HealthDashboard */
 	private $health;
 
+	/** @var KeyPoolPage */
+	private $keys;
+
+	/** @var KeywordsPage */
+	private $keywords;
+
 	public function __construct() {
 		$this->wizard   = new Wizard();
 		$this->inbox    = new Inbox();
 		$this->settings = new SettingsPage();
 		$this->health   = new HealthDashboard();
+		$this->keys     = new KeyPoolPage();
+		$this->keywords = new KeywordsPage();
 	}
 
 	/**
@@ -42,6 +50,8 @@ class Admin {
 		// admin-post handlers for form submissions.
 		$this->wizard->register();
 		$this->settings->register();
+		$this->keys->register();
+		$this->keywords->register();
 	}
 
 	/**
@@ -83,6 +93,24 @@ class Admin {
 			Capabilities::MANAGE,
 			'ailinking-health',
 			array( $this->health, 'render' )
+		);
+
+		add_submenu_page(
+			'ailinking',
+			__( 'Keywords', 'ai-internal-linking' ),
+			__( 'Keywords', 'ai-internal-linking' ),
+			Capabilities::MANAGE,
+			'ailinking-keywords',
+			array( $this->keywords, 'render' )
+		);
+
+		add_submenu_page(
+			'ailinking',
+			__( 'AI Keys', 'ai-internal-linking' ),
+			__( 'AI Keys', 'ai-internal-linking' ),
+			Capabilities::MANAGE,
+			'ailinking-keys',
+			array( $this->keys, 'render' )
 		);
 
 		add_submenu_page(
@@ -131,6 +159,10 @@ class Admin {
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
 					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
+					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
+					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
+					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
+					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),
 					'error'         => __( 'Something went wrong. Please try again.', 'ai-internal-linking' ),
 					'confirmReset'  => __( 'Re-index the whole site from scratch?', 'ai-internal-linking' ),

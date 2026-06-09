@@ -60,6 +60,11 @@ class Schema {
 		$ledger      = Tables::ledger();
 		$tfidf       = Tables::tfidf();
 		$jobs        = Tables::jobs();
+		$provider_keys = Tables::provider_keys();
+		$spend_log     = Tables::spend_log();
+		$keywords      = Tables::keywords();
+		$keyword_map   = Tables::keyword_map();
+		$embeddings    = Tables::embeddings();
 
 		$statements = array();
 
@@ -188,6 +193,99 @@ class Schema {
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY type_status (job_type,status)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$provider_keys} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			provider varchar(30) NOT NULL DEFAULT '',
+			label varchar(100) NOT NULL DEFAULT '',
+			base_url varchar(255) NOT NULL DEFAULT '',
+			model varchar(100) NOT NULL DEFAULT '',
+			capability varchar(12) NOT NULL DEFAULT 'chat',
+			key_cipher text NULL,
+			key_last4 varchar(8) NOT NULL DEFAULT '',
+			extra_config text NULL,
+			priority int NOT NULL DEFAULT 100,
+			enabled tinyint(1) NOT NULL DEFAULT 1,
+			state varchar(16) NOT NULL DEFAULT 'active',
+			cooldown_until datetime NULL,
+			request_count bigint(20) unsigned NOT NULL DEFAULT 0,
+			error_count int unsigned NOT NULL DEFAULT 0,
+			last_error varchar(255) NOT NULL DEFAULT '',
+			est_spend_cents bigint(20) unsigned NOT NULL DEFAULT 0,
+			last_used_at datetime NULL,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY provider_state (provider,state),
+			KEY provider_cap (provider,capability,enabled)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$spend_log} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			key_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			provider varchar(30) NOT NULL DEFAULT '',
+			model varchar(100) NOT NULL DEFAULT '',
+			operation varchar(20) NOT NULL DEFAULT 'chat',
+			tokens_in int unsigned NOT NULL DEFAULT 0,
+			tokens_out int unsigned NOT NULL DEFAULT 0,
+			est_cost decimal(12,6) NOT NULL DEFAULT 0,
+			http_status smallint unsigned NOT NULL DEFAULT 0,
+			error_type varchar(30) NOT NULL DEFAULT '',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY key_created (key_id,created_at),
+			KEY provider_created (provider,created_at)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$keywords} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			keyword varchar(500) NOT NULL DEFAULT '',
+			keyword_norm varchar(191) NOT NULL DEFAULT '',
+			source varchar(12) NOT NULL DEFAULT 'csv',
+			page_url varchar(2048) NOT NULL DEFAULT '',
+			post_id bigint(20) unsigned NULL DEFAULT NULL,
+			clicks int unsigned NOT NULL DEFAULT 0,
+			impressions int unsigned NOT NULL DEFAULT 0,
+			position decimal(6,2) NOT NULL DEFAULT 0,
+			ctr decimal(6,4) NOT NULL DEFAULT 0,
+			is_striking tinyint(1) NOT NULL DEFAULT 0,
+			opportunity_score float NOT NULL DEFAULT 0,
+			data_date date NULL,
+			imported_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			KEY position (position),
+			KEY striking (is_striking,opportunity_score),
+			KEY post_id (post_id),
+			KEY keyword_norm (keyword_norm),
+			KEY source (source)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$keyword_map} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			keyword_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			target_url varchar(2048) NOT NULL DEFAULT '',
+			map_type varchar(12) NOT NULL DEFAULT 'auto',
+			confidence float NOT NULL DEFAULT 0,
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY kw_target (keyword_id,target_post_id),
+			KEY target_post_id (target_post_id)
+		) {$charset_collate};";
+
+		$statements[] = "CREATE TABLE {$embeddings} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			post_id bigint(20) unsigned NOT NULL,
+			provider varchar(30) NOT NULL DEFAULT '',
+			model varchar(100) NOT NULL DEFAULT '',
+			dims int unsigned NOT NULL DEFAULT 0,
+			vector longtext NULL,
+			norm float NOT NULL DEFAULT 0,
+			content_hash char(32) NOT NULL DEFAULT '',
+			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY  (id),
+			UNIQUE KEY post_id (post_id),
+			KEY model (model)
 		) {$charset_collate};";
 
 		return $statements;

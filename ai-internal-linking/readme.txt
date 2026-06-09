@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,13 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.3.0 =
+* AI provider system (Phase 1): provider-agnostic adapters — Anthropic, OpenAI, Google Gemini, Cohere, OpenRouter, Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Perplexity, Azure OpenAI, Voyage (embeddings), a custom OpenAI-compatible endpoint, and local (Ollama/LM Studio/vLLM).
+* Multi-key pool with encrypted-at-rest keys (envelope encryption), round-robin or primary-failover rotation, automatic failover with cooldown, per-key health/spend, and a monthly spend cap with auto-pause to TF-IDF.
+* Optional embedding re-ranker (hybrid TF-IDF recall → embedding precision) with a “Build embeddings” action.
+* Keyword CSV import (GSC/Semrush/generic) with striking-distance (positions 5–20) + opportunity scoring, mapped to posts. New “AI Keys” and “Keywords” admin pages.
+* Note: live API calls, and the encryption story, require your real environment + keys to fully validate.
 
 = 0.2.1 =
 * Anchors are now descriptive 2-4 word phrases drawn from the target title (configurable via Minimum/Maximum anchor words), instead of single words. A fresh scan replaces the pending queue so new settings take effect; rejected pairs are no longer re-suggested.

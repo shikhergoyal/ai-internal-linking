@@ -12,8 +12,10 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Indexer\Indexer;
 use AILinking\Suggestions\SuggestionEngine;
+use AILinking\Suggestions\VectorStore;
 use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
+use AILinking\Providers\Registry;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -32,6 +34,8 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_undo', array( $this, 'undo' ) );
 		add_action( 'wp_ajax_ailinking_run_audits', array( $this, 'run_audits' ) );
 		add_action( 'wp_ajax_ailinking_remove_links', array( $this, 'remove_links' ) );
+		add_action( 'wp_ajax_ailinking_run_embed', array( $this, 'run_embed' ) );
+		add_action( 'wp_ajax_ailinking_test_connection', array( $this, 'test_connection' ) );
 	}
 
 	/**
@@ -164,6 +168,69 @@ class Ajax {
 		GraphAudits::flush_summary();
 		$result['done'] = ( 0 === (int) $result['remaining'] );
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * Advance the embedding build a few batches.
+	 */
+	public function run_embed() {
+		$this->guard();
+		if ( ! empty( $_POST['start'] ) ) {
+			VectorStore::start_build();
+		}
+		$progress = array();
+		for ( $i = 0; $i < self::BATCHES_PER_REQUEST; $i++ ) {
+			$progress = VectorStore::build_batch( 5 );
+			if ( ! empty( $progress['done'] ) ) {
+				break;
+			}
+		}
+		$shaped          = $this->shape( $progress );
+		$shaped['error'] = isset( $progress['error'] ) ? $progress['error'] : '';
+		wp_send_json_success( $shaped );
+	}
+
+	/**
+	 * Probe a provider with a supplied key (not stored). Returns ok + message.
+	 */
+	public function test_connection() {
+		$this->guard();
+		$provider_id = isset( $_POST['provider'] ) ? sanitize_key( wp_unslash( $_POST['provider'] ) ) : '';
+		$plane       = isset( $_POST['plane'] ) && 'embedding' === $_POST['plane'] ? 'embedding' : 'chat';
+		$key         = isset( $_POST['api_key'] ) ? trim( (string) wp_unslash( $_POST['api_key'] ) ) : '';
+		$base        = isset( $_POST['base_url'] ) ? esc_url_raw( wp_unslash( $_POST['base_url'] ) ) : '';
+		$model       = isset( $_POST['model'] ) ? sanitize_text_field( wp_unslash( $_POST['model'] ) ) : '';
+
+		$provider = Registry::get( $provider_id );
+		if ( ! $provider ) {
+			wp_send_json_success( array( 'ok' => false, 'message' => __( 'Unknown provider.', 'ai-internal-linking' ) ) );
+		}
+
+		$models = $provider->default_models();
+		if ( '' === $model ) {
+			$list  = ( 'embedding' === $plane ) ? $models['embedding'] : $models['chat'];
+			$model = ! empty( $list ) ? $list[0] : '';
+		}
+
+		$ctx = array(
+			'api_key'  => $key,
+			'base_url' => '' !== $base ? $base : $provider->default_base_url(),
+			'model'    => $model,
+			'timeout'  => 20,
+			'extra'    => array(),
+		);
+
+		if ( 'embedding' === $plane && $provider->supports_embeddings() ) {
+			$resp = $provider->embed( array( 'input' => array( 'ping' ) ), $ctx );
+		} else {
+			$resp = $provider->chat( array( 'messages' => array( array( 'role' => 'user', 'content' => 'ping' ) ), 'max_tokens' => 5, 'temperature' => 0 ), $ctx );
+		}
+
+		if ( ! empty( $resp['ok'] ) ) {
+			wp_send_json_success( array( 'ok' => true, 'message' => __( 'Connection OK.', 'ai-internal-linking' ) ) );
+		}
+		$msg = isset( $resp['error']['message'] ) ? $resp['error']['message'] : __( 'Connection failed.', 'ai-internal-linking' );
+		wp_send_json_success( array( 'ok' => false, 'message' => $msg ) );
 	}
 
 	/**

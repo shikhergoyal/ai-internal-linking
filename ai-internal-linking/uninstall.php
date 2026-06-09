@@ -24,6 +24,11 @@ $ailinking_tables = array(
 	'ailinking_ledger',
 	'ailinking_tfidf',
 	'ailinking_jobs',
+	'ailinking_provider_keys',
+	'ailinking_spend_log',
+	'ailinking_keywords',
+	'ailinking_keyword_map',
+	'ailinking_embeddings',
 );
 
 // 1. Restore content for every active (un-reverted) inserted link before dropping data.

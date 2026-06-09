@@ -72,7 +72,8 @@
 				if ( showCreated ) {
 					label += '  (' + d.created + ' found)';
 				}
-				setBar( box, d.percent, d.done ? cfg.i18n.done : label );
+				var doneLabel = d.error ? ( cfg.i18n.error + ': ' + d.error ) : cfg.i18n.done;
+				setBar( box, d.percent, d.done ? doneLabel : label );
 				return !! d.done;
 			} ).catch( function () {
 				setBar( box, 100, cfg.i18n.error );
@@ -95,7 +96,7 @@
 	}
 
 	function setButtonsDisabled( state ) {
-		[ 'ailinking-run-index', 'ailinking-run-suggest' ].forEach( function ( id ) {
+		[ 'ailinking-run-index', 'ailinking-run-suggest', 'ailinking-run-embed' ].forEach( function ( id ) {
 			var b = document.getElementById( id );
 			if ( b ) {
 				b.disabled = state;
@@ -210,7 +211,53 @@
 				loop();
 			} );
 		}
+
+		// Build embeddings (key pool page).
+		var embedBtn = document.getElementById( 'ailinking-run-embed' );
+		if ( embedBtn ) {
+			embedBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				runJob( 'ailinking_run_embed', '#ailinking-progress-embed', cfg.i18n.embedding, false );
+			} );
+		}
+
+		// Test a provider connection (add-key form).
+		var testBtn = document.getElementById( 'ailinking-test-conn' );
+		if ( testBtn ) {
+			testBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var out = document.getElementById( 'ailinking-test-result' );
+				var cap = val( 'capability' );
+				var plane = ( 'embedding' === cap ) ? 'embedding' : 'chat';
+				if ( out ) {
+					out.textContent = cfg.i18n.testing;
+				}
+				testBtn.disabled = true;
+				post( 'ailinking_test_connection', {
+					provider: val( 'provider' ),
+					api_key: val( 'api_key' ),
+					base_url: val( 'base_url' ),
+					model: val( 'model' ),
+					plane: plane
+				} ).then( function ( res ) {
+					testBtn.disabled = false;
+					if ( out ) {
+						out.textContent = ( res && res.success && res.data ) ? res.data.message : cfg.i18n.error;
+					}
+				} ).catch( function () {
+					testBtn.disabled = false;
+					if ( out ) {
+						out.textContent = cfg.i18n.error;
+					}
+				} );
+			} );
+		}
 	} );
+
+	function val( id ) {
+		var el = document.getElementById( id );
+		return el ? el.value : '';
+	}
 
 	function undo( ledger, force, btn ) {
 		post( 'ailinking_undo', { ledger_id: ledger, force: force } ).then( function ( res ) {
@@ -240,7 +287,10 @@
 	function applyMessage( res ) {
 		var reason = res && res.data ? res.data.reason : '';
 		if ( 'suggest_only' === reason ) {
-			return cfg.i18n.error;
+			return cfg.i18n.suggestOnly;
+		}
+		if ( 'anchor_not_found' === reason || 'anchor_ambiguous' === reason || 'integrity_check_failed' === reason ) {
+			return cfg.i18n.cantPlace;
 		}
 		return cfg.i18n.error;
 	}

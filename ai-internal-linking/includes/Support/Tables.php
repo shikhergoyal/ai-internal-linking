@@ -46,12 +46,32 @@ class Tables {
 		return self::name( 'jobs' );
 	}
 
+	public static function provider_keys() {
+		return self::name( 'provider_keys' );
+	}
+
+	public static function spend_log() {
+		return self::name( 'spend_log' );
+	}
+
+	public static function keywords() {
+		return self::name( 'keywords' );
+	}
+
+	public static function keyword_map() {
+		return self::name( 'keyword_map' );
+	}
+
+	public static function embeddings() {
+		return self::name( 'embeddings' );
+	}
+
 	/**
 	 * All logical table keys (used by install/uninstall).
 	 *
 	 * @return string[]
 	 */
 	public static function all_keys() {
-		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs' );
+		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map', 'embeddings' );
 	}
 }
