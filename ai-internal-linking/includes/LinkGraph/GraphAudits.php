@@ -12,6 +12,7 @@ use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Content\UrlResolver;
 use AILinking\Content\LedgerRepository;
+use AILinking\Scorers\AnchorDiversity;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -37,13 +38,15 @@ class GraphAudits {
 		$per1000 = (int) Settings::get( 'max_links_per_1000', 5 );
 
 		$summary = array(
-			'indexed'       => self::count_eligible(),
-			'orphans'       => self::orphans_count(),
-			'dead_ends'     => self::dead_ends_count(),
-			'over_linked'   => self::density_count( 'over', $per1000 ),
-			'under_linked'  => self::density_count( 'under', $per1000 ),
-			'applied_links' => LedgerRepository::count_active(),
-			'depth'         => self::depth_stats(),
+			'indexed'        => self::count_eligible(),
+			'orphans'        => self::orphans_count(),
+			'dead_ends'      => self::dead_ends_count(),
+			'over_linked'    => self::density_count( 'over', $per1000 ),
+			'under_linked'   => self::density_count( 'under', $per1000 ),
+			'applied_links'  => LedgerRepository::count_active(),
+			'broken'         => BrokenLinks::count(),
+			'over_optimized' => AnchorDiversity::over_count(),
+			'depth'          => self::depth_stats(),
 		);
 
 		set_transient( self::SUMMARY_TRANSIENT, $summary, HOUR_IN_SECONDS );
@@ -55,6 +58,19 @@ class GraphAudits {
 	 */
 	public static function flush_summary() {
 		delete_transient( self::SUMMARY_TRANSIENT );
+	}
+
+	/**
+	 * Recompute all derived graph metrics (depth, PageRank, broken links).
+	 *
+	 * @return array{ok:bool,reason?:string}
+	 */
+	public static function recompute_all() {
+		$depth = self::recompute_depth();
+		PageRank::compute();
+		BrokenLinks::scan();
+		self::flush_summary();
+		return $depth;
 	}
 
 	/** ---- Counts ---- */

@@ -10,6 +10,8 @@ namespace AILinking\Admin;
 
 use AILinking\Security\Capabilities;
 use AILinking\LinkGraph\GraphAudits;
+use AILinking\LinkGraph\PageRank;
+use AILinking\LinkGraph\BrokenLinks;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -54,6 +56,8 @@ class HealthDashboard {
 				$this->stat_card( __( 'Over-linked pages', 'ai-internal-linking' ), $summary['over_linked'] );
 				$this->stat_card( __( 'Under-linked pages', 'ai-internal-linking' ), $summary['under_linked'] );
 				$this->stat_card( __( 'Plugin-inserted links', 'ai-internal-linking' ), $summary['applied_links'] );
+				$this->stat_card( __( 'Broken internal links', 'ai-internal-linking' ), isset( $summary['broken'] ) ? $summary['broken'] : 0 );
+				$this->stat_card( __( 'Over-optimized targets', 'ai-internal-linking' ), isset( $summary['over_optimized'] ) ? $summary['over_optimized'] : 0 );
 				$this->stat_card( __( 'Deepest click-depth', 'ai-internal-linking' ), $depth['max'] );
 				$this->stat_card( __( 'Unreachable from home', 'ai-internal-linking' ), $depth['unreached'] );
 				?>
@@ -63,9 +67,57 @@ class HealthDashboard {
 			$this->list_table( __( 'Orphan pages', 'ai-internal-linking' ), GraphAudits::orphans( 50 ), false );
 			$this->list_table( __( 'Dead-end pages', 'ai-internal-linking' ), GraphAudits::dead_ends( 50 ), false );
 			$this->list_table( __( 'Over-linked pages', 'ai-internal-linking' ), GraphAudits::over_linked( 50 ), true );
+			$this->pagerank_table( PageRank::top( 25 ) );
+			$this->broken_table( BrokenLinks::listing( 50 ) );
 			?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Top pages by internal PageRank.
+	 *
+	 * @param array $rows Rows.
+	 */
+	private function pagerank_table( $rows ) {
+		echo '<div class="ailinking-card">';
+		echo '<h2>' . esc_html__( 'Top pages by internal link equity (PageRank)', 'ai-internal-linking' ) . '</h2>';
+		if ( empty( $rows ) ) {
+			echo '<p>' . esc_html__( 'Run “Recompute audits” to calculate PageRank.', 'ai-internal-linking' ) . '</p></div>';
+			return;
+		}
+		echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>' . esc_html__( 'Page', 'ai-internal-linking' ) . '</th><th>' . esc_html__( 'Score', 'ai-internal-linking' ) . '</th></tr></thead><tbody>';
+		foreach ( $rows as $row ) {
+			$edit = get_edit_post_link( (int) $row['post_id'] );
+			$name = $row['title'] ? $row['title'] : ( '#' . (int) $row['post_id'] );
+			echo '<tr><td>' . ( $edit ? '<a href="' . esc_url( $edit ) . '">' . esc_html( $name ) . '</a>' : esc_html( $name ) ) . '</td>';
+			echo '<td>' . esc_html( number_format_i18n( (float) $row['pagerank_score'], 2 ) ) . '</td></tr>';
+		}
+		echo '</tbody></table></div>';
+	}
+
+	/**
+	 * Broken internal links.
+	 *
+	 * @param array $rows Rows.
+	 */
+	private function broken_table( $rows ) {
+		echo '<div class="ailinking-card">';
+		echo '<h2>' . esc_html__( 'Broken internal links', 'ai-internal-linking' ) . '</h2>';
+		if ( empty( $rows ) ) {
+			echo '<p>' . esc_html__( 'None found.', 'ai-internal-linking' ) . '</p></div>';
+			return;
+		}
+		echo '<table class="wp-list-table widefat fixed striped"><thead><tr><th>' . esc_html__( 'On page', 'ai-internal-linking' ) . '</th><th>' . esc_html__( 'Anchor', 'ai-internal-linking' ) . '</th><th>' . esc_html__( 'Broken URL', 'ai-internal-linking' ) . '</th></tr></thead><tbody>';
+		foreach ( $rows as $row ) {
+			$edit = get_edit_post_link( (int) $row['source_post_id'] );
+			$name = get_the_title( (int) $row['source_post_id'] );
+			$name = $name ? $name : ( '#' . (int) $row['source_post_id'] );
+			echo '<tr><td>' . ( $edit ? '<a href="' . esc_url( $edit ) . '">' . esc_html( $name ) . '</a>' : esc_html( $name ) ) . '</td>';
+			echo '<td>' . esc_html( $row['anchor_text'] ) . '</td>';
+			echo '<td><code>' . esc_html( $row['target_url'] ) . '</code></td></tr>';
+		}
+		echo '</tbody></table></div>';
 	}
 
 	/**

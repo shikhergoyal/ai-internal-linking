@@ -154,7 +154,7 @@ class Ajax {
 	 */
 	public function run_audits() {
 		$this->guard();
-		GraphAudits::recompute_depth();
+		GraphAudits::recompute_all();
 		$summary = GraphAudits::summary( true );
 		wp_send_json_success( array( 'ok' => true, 'summary' => $summary ) );
 	}

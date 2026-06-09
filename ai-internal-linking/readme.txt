@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.3.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.4.0 =
+* SEO checks completed: internal PageRank (link-equity) on the Link Health dashboard, broken internal-link detection, and an anchor-text diversity / over-optimization report. “Recompute audits” now also computes PageRank and broken links.
 
 = 0.3.0 =
 * AI provider system (Phase 1): provider-agnostic adapters — Anthropic, OpenAI, Google Gemini, Cohere, OpenRouter, Mistral, Groq, Together, Fireworks, DeepSeek, xAI, Perplexity, Azure OpenAI, Voyage (embeddings), a custom OpenAI-compatible endpoint, and local (Ollama/LM Studio/vLLM).
