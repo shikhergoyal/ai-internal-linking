@@ -23,7 +23,8 @@ class ContentWriter {
 	 * (custom blocks, HTML/code/shortcode blocks, classic-in-block freeform) is
 	 * left untouched and falls back to suggest-only.
 	 */
-	const ALLOWED_BLOCKS = array( 'core/paragraph', 'core/heading', 'core/list', 'core/list-item', 'core/quote', 'core/pullquote', 'core/verse' );
+	// Note: core/heading is intentionally excluded — links must never go in headings.
+	const ALLOWED_BLOCKS = array( 'core/paragraph', 'core/list', 'core/list-item', 'core/quote', 'core/pullquote', 'core/verse' );
 
 	/**
 	 * Produce the rewritten field value for a post.

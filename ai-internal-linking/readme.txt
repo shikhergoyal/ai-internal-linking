@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.4
+Stable tag: 0.6.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.5 =
+* Headings are never linked: anchors are no longer drawn from H1-H6 (heading text is excluded from the indexed corpus), and link insertion skips all heading elements and the Gutenberg heading block. Links only go into body text (paragraphs, lists, quotes).
 
 = 0.6.4 =
 * Fix: on sites with a persistent object cache, the WP-Cron indexer could race itself and hit “Duplicate entry for key post_id”, which (with 0.6.3’s strict error handling) skipped most posts so only a few were indexed. Index writes are now an atomic upsert (REPLACE), and TF-IDF inserts use INSERT IGNORE — concurrent workers can no longer collide. Full re-index now stores every post.

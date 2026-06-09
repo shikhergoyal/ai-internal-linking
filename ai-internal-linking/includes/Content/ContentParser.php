@@ -226,6 +226,8 @@ class ContentParser {
 	 */
 	private static function html_to_text( $html ) {
 		$html = preg_replace( '#<(script|style)[^>]*>.*?</\1>#is', ' ', $html );
+		// Drop heading text (H1-H6) entirely so anchors are never drawn from headings.
+		$html = preg_replace( '#<h[1-6][^>]*>.*?</h[1-6]>#is', ' ', $html );
 		$text = wp_strip_all_tags( $html );
 		$text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
 		$text = preg_replace( '/\s+/u', ' ', $text );

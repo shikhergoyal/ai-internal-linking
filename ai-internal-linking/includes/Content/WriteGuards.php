@@ -18,7 +18,9 @@ defined( 'ABSPATH' ) || exit;
 
 class WriteGuards {
 
-	const SKIP_TAGS = array( 'a', 'code', 'pre', 'script', 'style' );
+	// Never link inside these elements: existing links, code, preformatted, scripts,
+	// styles, or any heading (H1-H6).
+	const SKIP_TAGS = array( 'a', 'code', 'pre', 'script', 'style', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
 
 	/**
 	 * Count eligible (link-able, whole-word) occurrences of an anchor.
