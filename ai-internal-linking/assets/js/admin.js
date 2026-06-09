@@ -265,8 +265,15 @@
 					out.textContent = cfg.i18n.analyzing;
 				}
 				post( 'ailinking_run_clusters', {} ).then( function ( res ) {
-					if ( res && res.success ) {
-						window.location.reload();
+					if ( res && res.success && res.data ) {
+						if ( ( res.data.count || 0 ) > 0 ) {
+							window.location.reload(); // refresh to show updated scores.
+						} else {
+							clBtn.disabled = false;
+							if ( out ) {
+								out.textContent = cfg.i18n.noClusters;
+							}
+						}
 					} else {
 						clBtn.disabled = false;
 						if ( out ) {

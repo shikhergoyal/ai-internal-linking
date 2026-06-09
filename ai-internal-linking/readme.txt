@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.7
+Stable tag: 0.6.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.8 =
+* "Analyze clusters" now gives clear feedback when there are no clusters yet (it previously just reloaded to the same screen, which looked like nothing happened). Create a cluster (name + pillar post ID), add spoke posts, then Analyze.
 
 = 0.6.7 =
 * Added a "Reset all data" button (Setup & Dashboard) that wipes every plugin table — index, suggestions, link graph, clusters, keywords, embeddings, inserted-links log — plus progress/caches, so you can rescan from scratch. It is red, shows a clear warning, and asks for confirmation; it does not change your posts.

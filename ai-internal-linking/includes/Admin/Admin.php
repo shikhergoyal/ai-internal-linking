@@ -165,6 +165,7 @@ class Admin {
 					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
 					'analyzing'     => __( 'Analyzing…', 'ai-internal-linking' ),
+					'noClusters'    => __( 'No clusters to analyze yet — create one below first (name + pillar post ID), add spoke posts, then Analyze.', 'ai-internal-linking' ),
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
 					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),
