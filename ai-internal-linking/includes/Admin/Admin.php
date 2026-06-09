@@ -34,6 +34,9 @@ class Admin {
 	/** @var ClustersPage */
 	private $clusters;
 
+	/** @var GeoDashboard */
+	private $geo;
+
 	public function __construct() {
 		$this->wizard   = new Wizard();
 		$this->inbox    = new Inbox();
@@ -42,6 +45,7 @@ class Admin {
 		$this->keys     = new KeyPoolPage();
 		$this->keywords = new KeywordsPage();
 		$this->clusters = new ClustersPage();
+		$this->geo      = new GeoDashboard();
 	}
 
 	/**
@@ -107,6 +111,15 @@ class Admin {
 			Capabilities::MANAGE,
 			'ailinking-clusters',
 			array( $this->clusters, 'render' )
+		);
+
+		add_submenu_page(
+			'ailinking',
+			__( 'GEO Readiness', 'ai-internal-linking' ),
+			__( 'GEO Readiness', 'ai-internal-linking' ),
+			Capabilities::MANAGE,
+			'ailinking-geo',
+			array( $this->geo, 'render' )
 		);
 
 		add_submenu_page(

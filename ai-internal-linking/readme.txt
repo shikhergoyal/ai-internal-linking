@@ -43,6 +43,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 
 == Changelog ==
 
+= 0.6.0 =
+* GEO Readiness dashboard: scores how well each page is positioned to be cited by AI answer engines (from link equity, click depth, cluster membership, orphan status, schema presence, freshness, and answer front-loading), with concrete fixes, structured-data recommendations, and AI-crawler guidance.
+
 = 0.5.0 =
 * Topic clusters: define a pillar (hub) page plus supporting spokes; the analyzer computes hub-and-spoke authority, detects “flat” clusters with no clear hub, and gives concrete fixes. New Clusters admin page.
 
