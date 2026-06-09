@@ -66,6 +66,32 @@ class Schema {
 	}
 
 	/**
+	 * Reset: empty ALL plugin data tables and clear progress/caches/locks, so the
+	 * next scan starts completely from scratch. Keeps the table schema (does not
+	 * drop tables) and does NOT touch any WordPress posts. Links already inserted
+	 * into content remain in the posts.
+	 */
+	public static function reset_data() {
+		global $wpdb;
+		self::ensure_installed();
+
+		foreach ( Tables::all_keys() as $key ) {
+			$table = Tables::name( $key );
+			$wpdb->query( "DELETE FROM `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
+
+		// Clear job progress, the spend window, the audit cache, and any locks.
+		delete_option( 'ailinking_progress_index' );
+		delete_option( 'ailinking_progress_suggest' );
+		delete_option( 'ailinking_progress_embed' );
+		delete_option( 'ailinking_spend_month' );
+		delete_transient( 'ailinking_audit_summary' );
+		delete_transient( 'ailinking_lock_index' );
+		delete_transient( 'ailinking_lock_suggest' );
+		delete_transient( 'ailinking_lock_embed' );
+	}
+
+	/**
 	 * Whether a table exists.
 	 *
 	 * @param string $table Full table name.

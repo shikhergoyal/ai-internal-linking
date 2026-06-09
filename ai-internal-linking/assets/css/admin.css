@@ -120,3 +120,28 @@
 	background: #edfaef;
 	color: #135e3b;
 }
+
+/* Reset / danger zone */
+.ailinking-danger-zone {
+	border-color: #f0b9b9;
+	background: #fff8f8;
+}
+
+.ailinking-warn {
+	color: #b32d2e;
+}
+
+.button.ailinking-danger,
+.button.ailinking-danger:focus {
+	background: #b32d2e !important;
+	border-color: #8a1f11 !important;
+	color: #fff !important;
+	text-shadow: none !important;
+	box-shadow: none !important;
+}
+
+.button.ailinking-danger:hover {
+	background: #8a1f11 !important;
+	border-color: #6e1a0e !important;
+	color: #fff !important;
+}
