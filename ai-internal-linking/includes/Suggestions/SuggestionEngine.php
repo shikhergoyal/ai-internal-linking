@@ -49,6 +49,8 @@ class SuggestionEngine {
 		$min_rel     = (float) $settings['min_relevance'];
 		$per_post    = (int) $settings['max_suggestions_post'];
 		$per_1000    = (int) $settings['max_links_per_1000'];
+		$min_words   = (int) $settings['min_anchor_words'];
+		$max_words   = (int) $settings['max_anchor_words'];
 		$word_count  = max( 1, (int) $source['word_count'] );
 
 		// Density ceiling.
@@ -78,7 +80,7 @@ class SuggestionEngine {
 		}
 		$suggested = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT DISTINCT target_post_id FROM {$sugg} WHERE source_post_id = %d AND status IN ('pending','approved','applied')", // phpcs:ignore WordPress.DB.PreparedSQL
+				"SELECT DISTINCT target_post_id FROM {$sugg} WHERE source_post_id = %d AND status IN ('pending','approved','applied','rejected')", // phpcs:ignore WordPress.DB.PreparedSQL
 				$source_id
 			)
 		);
@@ -102,7 +104,7 @@ class SuggestionEngine {
 				continue;
 			}
 
-			$anchor = AnchorGenerator::find( $text, $cand['title'] );
+			$anchor = AnchorGenerator::find( $text, $cand['title'], $min_words, $max_words );
 			if ( null === $anchor ) {
 				continue; // wrap-first: no natural anchor, no suggestion.
 			}
@@ -148,6 +150,11 @@ class SuggestionEngine {
 		global $wpdb;
 		$index = Tables::index();
 		$types = Settings::crawl_post_types();
+
+		// A fresh scan replaces the pending queue so new settings take effect.
+		// Approved / applied / rejected suggestions are preserved.
+		$sugg_table = Tables::suggestions();
+		$wpdb->query( "DELETE FROM {$sugg_table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL
 
 		if ( empty( $types ) ) {
 			$progress = array(

@@ -37,11 +37,19 @@ class SettingsPage {
 		$density  = isset( $_POST['max_links_per_1000'] ) ? (int) $_POST['max_links_per_1000'] : 5;
 		$density  = max( 1, min( 20, $density ) );
 
+		$min_words = isset( $_POST['min_anchor_words'] ) ? (int) $_POST['min_anchor_words'] : 2;
+		$min_words = max( 1, min( 4, $min_words ) );
+
+		$max_words = isset( $_POST['max_anchor_words'] ) ? (int) $_POST['max_anchor_words'] : 4;
+		$max_words = max( $min_words, min( 6, $max_words ) );
+
 		Settings::update(
 			array(
 				'min_relevance'        => $min_rel,
 				'max_suggestions_post' => $per_post,
 				'max_links_per_1000'   => $density,
+				'min_anchor_words'     => $min_words,
+				'max_anchor_words'     => $max_words,
 			)
 		);
 
@@ -78,6 +86,17 @@ class SettingsPage {
 					<tr>
 						<th scope="row"><label for="max_suggestions_post"><?php esc_html_e( 'Max suggestions per page', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="number" min="1" max="50" id="max_suggestions_post" name="max_suggestions_post" value="<?php echo esc_attr( (int) $settings['max_suggestions_post'] ); ?>" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="min_anchor_words"><?php esc_html_e( 'Minimum anchor words', 'ai-internal-linking' ); ?></label></th>
+						<td>
+							<input type="number" min="1" max="4" id="min_anchor_words" name="min_anchor_words" value="<?php echo esc_attr( (int) $settings['min_anchor_words'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'Prefer descriptive phrase anchors. Set to 2 to avoid single-word links; set to 1 to allow single words as a fallback.', 'ai-internal-linking' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="max_anchor_words"><?php esc_html_e( 'Maximum anchor words', 'ai-internal-linking' ); ?></label></th>
+						<td><input type="number" min="2" max="6" id="max_anchor_words" name="max_anchor_words" value="<?php echo esc_attr( (int) $settings['max_anchor_words'] ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="max_links_per_1000"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>

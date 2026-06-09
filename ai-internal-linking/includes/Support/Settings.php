@@ -28,6 +28,8 @@ class Settings {
 			'max_links_per_1000'   => 5,      // link-density ceiling (configurable)
 			'min_relevance'        => 0.08,   // discard candidates below this cosine
 			'max_suggestions_post' => 8,      // cap suggestions generated per source post
+			'min_anchor_words'     => 2,      // 1 allows single-word anchors as a fallback
+			'max_anchor_words'     => 4,      // longest anchor phrase to consider
 		);
 	}
 

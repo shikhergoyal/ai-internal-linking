@@ -1,9 +1,10 @@
 <?php
 /**
  * Wrap-first anchor finder: locate an existing phrase in the SOURCE text that can
- * naturally become the anchor for a link to the target. Never fabricates text —
- * if no natural phrase exists, returns null (AI snippet generation is a separate,
- * gated, opt-in feature for a later phase).
+ * naturally become the anchor for a link to the target. Prefers descriptive
+ * multi-word phrases (2-4 words) drawn from the target title; single words are a
+ * gated fallback only. Never fabricates text — returns null when nothing natural
+ * exists.
  *
  * @package AILinking
  */
@@ -14,17 +15,19 @@ defined( 'ABSPATH' ) || exit;
 
 class AnchorGenerator {
 
+	const MAX_CANDIDATES = 60;
+
 	/**
 	 * Find a natural anchor for a target within the source text.
 	 *
 	 * @param string $source_text  Source plain text.
 	 * @param string $target_title Target post title.
+	 * @param int    $min_words    Minimum anchor words (1 enables single-word fallback).
+	 * @param int    $max_words    Maximum anchor words.
 	 * @return array{anchor:string,context:string,offset:int}|null
 	 */
-	public static function find( $source_text, $target_title ) {
-		$phrases = self::candidate_phrases( $target_title );
-
-		foreach ( $phrases as $phrase ) {
+	public static function find( $source_text, $target_title, $min_words = 2, $max_words = 4 ) {
+		foreach ( self::candidate_phrases( $target_title, $min_words, $max_words ) as $phrase ) {
 			$hit = self::locate( $source_text, $phrase );
 			if ( null !== $hit ) {
 				return $hit;
@@ -34,51 +37,131 @@ class AnchorGenerator {
 	}
 
 	/**
-	 * Build candidate anchor phrases from a title, longest/most-specific first.
+	 * Build candidate anchor phrases from a title, most-specific first:
+	 * longer multi-word phrases before shorter, single words last (if allowed).
 	 *
-	 * @param string $title Target title.
+	 * @param string $title     Target title.
+	 * @param int    $min_words Minimum words.
+	 * @param int    $max_words Maximum words.
 	 * @return string[]
 	 */
-	private static function candidate_phrases( $title ) {
-		$title = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( (string) $title ) ) );
+	private static function candidate_phrases( $title, $min_words, $max_words ) {
+		$min_words = max( 1, (int) $min_words );
+		$max_words = max( $min_words, (int) $max_words );
+
+		$title = html_entity_decode( wp_strip_all_tags( (string) $title ), ENT_QUOTES, 'UTF-8' );
+		$title = trim( preg_replace( '/\s+/u', ' ', $title ) );
 		if ( '' === $title ) {
 			return array();
 		}
 
-		$phrases = array();
+		// Break into clauses so phrases never cross punctuation boundaries
+		// (e.g. don't bridge "Part 10: Geography ...").
+		$segments = preg_split( '/[:;,|()\[\]\/]+|[\x{2013}\x{2014}-]+/u', $title );
 
-		// Full title (only if a reasonable anchor length).
-		if ( self::word_count( $title ) <= 8 && strlen( $title ) >= 4 ) {
-			$phrases[] = $title;
-		}
+		$candidates = array(); // phrase => word_count
+		$lower_min  = max( 2, $min_words ); // phrase loop only builds multi-word grams
 
-		// Title with a leading article/stopword removed.
-		$trimmed = preg_replace( '/^(the|a|an|how to|what is|why|guide to)\s+/i', '', $title );
-		if ( $trimmed !== $title && strlen( $trimmed ) >= 4 && self::word_count( $trimmed ) <= 8 ) {
-			$phrases[] = $trimmed;
-		}
+		foreach ( (array) $segments as $seg ) {
+			if ( ! preg_match_all( '/[\p{L}\p{Nd}]+/u', $seg, $mm ) ) {
+				continue;
+			}
+			$words = $mm[0];
+			$n     = count( $words );
 
-		// Significant individual words (length >= 6, not generic).
-		$generic = array( 'guide', 'review', 'tips', 'guide', 'best', 'introduction', 'overview', 'about' );
-		preg_match_all( '/\p{L}{6,}/u', $title, $m );
-		if ( ! empty( $m[0] ) ) {
-			foreach ( $m[0] as $word ) {
-				$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $word, 'UTF-8' ) : strtolower( $word );
-				if ( ! in_array( $lower, $generic, true ) ) {
-					$phrases[] = $word;
+			for ( $size = min( $max_words, $n ); $size >= $lower_min; $size-- ) {
+				for ( $i = 0; $i + $size <= $n; $i++ ) {
+					$slice = array_slice( $words, $i, $size );
+					if ( self::is_noise_phrase( $slice ) ) {
+						continue;
+					}
+					$phrase = implode( ' ', $slice );
+					if ( strlen( $phrase ) < 6 ) {
+						continue;
+					}
+					$candidates[ $phrase ] = $size;
 				}
 			}
 		}
 
-		// De-duplicate while preserving order; longest first for specificity.
-		$phrases = array_values( array_unique( $phrases ) );
+		$phrases = array_keys( $candidates );
 		usort(
 			$phrases,
+			function ( $a, $b ) use ( $candidates ) {
+				if ( $candidates[ $a ] !== $candidates[ $b ] ) {
+					return $candidates[ $b ] - $candidates[ $a ];
+				}
+				return strlen( $b ) - strlen( $a );
+			}
+		);
+
+		if ( count( $phrases ) > self::MAX_CANDIDATES ) {
+			$phrases = array_slice( $phrases, 0, self::MAX_CANDIDATES );
+		}
+
+		// Single-word fallback only when explicitly allowed.
+		if ( $min_words <= 1 ) {
+			foreach ( self::single_words( $title ) as $word ) {
+				$phrases[] = $word;
+			}
+		}
+
+		return $phrases;
+	}
+
+	/**
+	 * Distinctive single words from a title (fallback anchors).
+	 *
+	 * @param string $title Title.
+	 * @return string[]
+	 */
+	private static function single_words( $title ) {
+		$generic = array( 'guide', 'review', 'tips', 'best', 'introduction', 'overview', 'about', 'guidelines' );
+		$out     = array();
+		if ( preg_match_all( '/\p{L}{6,}/u', $title, $m ) ) {
+			foreach ( $m[0] as $word ) {
+				$lw = self::lc( $word );
+				if ( ! isset( self::stopwords()[ $lw ] ) && ! in_array( $lw, $generic, true ) ) {
+					$out[ $word ] = true;
+				}
+			}
+		}
+		$out = array_keys( $out );
+		usort(
+			$out,
 			function ( $a, $b ) {
 				return strlen( $b ) - strlen( $a );
 			}
 		);
-		return $phrases;
+		return $out;
+	}
+
+	/**
+	 * Whether a phrase is low quality as an anchor (edge stopword, number, or
+	 * structural noise token like "Part 10").
+	 *
+	 * @param string[] $words Phrase words.
+	 * @return bool
+	 */
+	private static function is_noise_phrase( $words ) {
+		$stop  = self::stopwords();
+		$noise = array( 'part', 'parts', 'vol', 'volume', 'chapter', 'edition', 'section', 'no' );
+
+		$first = self::lc( $words[0] );
+		$last  = self::lc( $words[ count( $words ) - 1 ] );
+		if ( isset( $stop[ $first ] ) || isset( $stop[ $last ] ) ) {
+			return true;
+		}
+
+		foreach ( $words as $w ) {
+			if ( preg_match( '/^\p{Nd}+$/u', $w ) ) {
+				return true; // pure number token
+			}
+			if ( in_array( self::lc( $w ), $noise, true ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -92,7 +175,7 @@ class AnchorGenerator {
 		if ( strlen( $phrase ) < 4 ) {
 			return null;
 		}
-		$pattern = '/\b' . preg_quote( $phrase, '/' ) . '\b/ui';
+		$pattern = '/(?<![\p{L}\p{Nd}])' . preg_quote( $phrase, '/' ) . '(?![\p{L}\p{Nd}])/ui';
 		if ( ! preg_match( $pattern, $text, $m, PREG_OFFSET_CAPTURE ) ) {
 			return null;
 		}
@@ -108,7 +191,7 @@ class AnchorGenerator {
 	}
 
 	/**
-	 * Extract a readable sentence-ish context window around an offset.
+	 * Extract a readable context window around an offset.
 	 *
 	 * @param string $text   Source text.
 	 * @param int    $offset Byte offset of the match.
@@ -131,9 +214,27 @@ class AnchorGenerator {
 
 	/**
 	 * @param string $s String.
-	 * @return int Word count.
+	 * @return string Lowercased (multibyte-aware where available).
 	 */
-	private static function word_count( $s ) {
-		return (int) preg_match_all( '/\p{L}+/u', $s, $ignore );
+	private static function lc( $s ) {
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( $s, 'UTF-8' ) : strtolower( $s );
+	}
+
+	/**
+	 * Small stopword set for phrase-edge trimming.
+	 *
+	 * @return array<string,bool>
+	 */
+	private static function stopwords() {
+		static $set = null;
+		if ( null !== $set ) {
+			return $set;
+		}
+		$words = array( 'the', 'a', 'an', 'and', 'or', 'but', 'of', 'in', 'on', 'to', 'for', 'with', 'by', 'at', 'from', 'as', 'into', 'their', 'its', 'his', 'her', 'our', 'your', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'how', 'what', 'why', 'when', 'which', 'who', 'their', 'them', 'they', 'it', 'than', 'then', 'over', 'under', 'about' );
+		$set   = array();
+		foreach ( $words as $w ) {
+			$set[ $w ] = true;
+		}
+		return $set;
 	}
 }

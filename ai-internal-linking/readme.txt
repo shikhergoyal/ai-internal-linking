@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.2.1 =
+* Anchors are now descriptive 2-4 word phrases drawn from the target title (configurable via Minimum/Maximum anchor words), instead of single words. A fresh scan replaces the pending queue so new settings take effect; rejected pairs are no longer re-suggested.
 
 = 0.2.0 =
 * Phase 0b: gated non-destructive apply (revision + ledger backup), one-click undo, batched clean-removal, Link Health dashboard (orphans/dead-ends/density/click-depth). Auto-apply for Gutenberg + Classic; other builders suggest-only.
