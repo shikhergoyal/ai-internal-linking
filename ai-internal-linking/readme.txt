@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.6.3
+Stable tag: 0.6.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.6.4 =
+* Fix: on sites with a persistent object cache, the WP-Cron indexer could race itself and hit “Duplicate entry for key post_id”, which (with 0.6.3’s strict error handling) skipped most posts so only a few were indexed. Index writes are now an atomic upsert (REPLACE), and TF-IDF inserts use INSERT IGNORE — concurrent workers can no longer collide. Full re-index now stores every post.
 
 = 0.6.3 =
 * Fix: indexing could report “done” (e.g. 210/210) while saving 0 pages when the custom DB tables were missing (possible after deletes/updates). The plugin now (a) recreates missing tables automatically before indexing and on admin load, and (b) surfaces the actual database error in the dashboard and progress bar instead of failing silently. Note: the indexed total reflects your Scope — only the post types you tick under “Crawl these post types” are counted.

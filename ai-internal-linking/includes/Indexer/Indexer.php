@@ -221,16 +221,14 @@ class Indexer {
 		);
 		$format = array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s' );
 
-		$changed = true;
-		if ( $existing ) {
-			$changed = ( $existing['content_hash'] !== $content_hash );
-			$ok      = $wpdb->update( $table, $data, array( 'post_id' => $post_id ), $format, array( '%d' ) );
-		} else {
-			$ok = $wpdb->insert( $table, $data, $format );
-		}
+		$changed = ( ! $existing || $existing['content_hash'] !== $content_hash );
 
-		// Surface DB write failures (e.g. missing table) instead of silently
-		// "processing" with nothing saved. Caught by the batch loop -> shown in UI.
+		// Atomic upsert (REPLACE INTO, keyed on the unique post_id). This is
+		// race-proof: if a concurrent cron/AJAX worker already inserted this post,
+		// we overwrite instead of hitting "Duplicate entry for key post_id" (which
+		// previously caused most posts to be skipped). Also surfaces real DB errors
+		// (e.g. a missing table) instead of failing silently.
+		$ok = $wpdb->replace( $table, $data, $format );
 		if ( false === $ok ) {
 			throw new \RuntimeException( 'index write failed: ' . ( $wpdb->last_error ? $wpdb->last_error : 'unknown DB error' ) );
 		}

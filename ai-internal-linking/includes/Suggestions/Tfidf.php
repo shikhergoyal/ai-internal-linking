@@ -115,7 +115,7 @@ class Tfidf {
 				$values[] = $r[1];
 				$values[] = $r[2];
 			}
-			$sql = "INSERT INTO {$table} (post_id,term,tf) VALUES " . implode( ',', $place ); // phpcs:ignore WordPress.DB.PreparedSQL
+			$sql = "INSERT IGNORE INTO {$table} (post_id,term,tf) VALUES " . implode( ',', $place ); // phpcs:ignore WordPress.DB.PreparedSQL
 			$wpdb->query( $wpdb->prepare( $sql, $values ) ); // phpcs:ignore WordPress.DB.PreparedSQL
 		}
 	}
