@@ -37,6 +37,19 @@ class AnchorGenerator {
 	}
 
 	/**
+	 * Locate an exact phrase (e.g. an imported ranking keyword) in the source
+	 * text as a whole-word, case-insensitive match. Wrap-first: returns null
+	 * when the phrase does not already exist in the text.
+	 *
+	 * @param string $text   Source text.
+	 * @param string $phrase Phrase to find.
+	 * @return array{anchor:string,context:string,offset:int}|null
+	 */
+	public static function locate_phrase( $text, $phrase ) {
+		return self::locate( (string) $text, (string) $phrase );
+	}
+
+	/**
 	 * Build candidate anchor phrases from a title, most-specific first:
 	 * longer multi-word phrases before shorter, single words last (if allowed).
 	 *

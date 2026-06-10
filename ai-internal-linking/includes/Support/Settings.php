@@ -30,6 +30,7 @@ class Settings {
 			'max_suggestions_post' => 8,      // cap suggestions generated per source post
 			'min_anchor_words'     => 2,      // 1 allows single-word anchors as a fallback
 			'max_anchor_words'     => 4,      // longest anchor phrase to consider
+			'keyword_suggestions'  => true,   // use imported keywords (GSC/Semrush) as a suggestion source
 			// AI provider configuration (Phase 1).
 			'chat_provider'             => 'none',
 			'chat_model'                => '',

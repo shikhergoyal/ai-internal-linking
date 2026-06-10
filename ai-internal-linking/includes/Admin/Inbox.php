@@ -141,6 +141,11 @@ class Inbox {
 												number_format_i18n( (float) $row['naturalness_score'], 2 )
 											)
 										);
+										if ( 'keyword' === $row['engine'] ) {
+											echo ' <span class="ailinking-badge ailinking-badge-kw" title="' . esc_attr__( 'The target page ranks for this keyword (imported from GSC/Semrush) and it appears here unlinked.', 'ai-internal-linking' ) . '">' . esc_html__( 'keyword', 'ai-internal-linking' ) . '</span>';
+										} elseif ( 'embedding' === $row['engine'] ) {
+											echo ' <span class="ailinking-badge" title="' . esc_attr__( 'Re-ranked with semantic embeddings.', 'ai-internal-linking' ) . '">' . esc_html__( 'semantic', 'ai-internal-linking' ) . '</span>';
+										}
 										?>
 									</div>
 								</td>

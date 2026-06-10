@@ -90,61 +90,127 @@ class SuggestionEngine {
 		}
 
 		$targets = Settings::target_post_types();
-		$candidates = Tfidf::candidates( $source_id, $source['lang_code'], $targets, ( $limit * 4 ) + 10 );
+		$created = 0;
 
-		// Optional embedding re-rank (precision) on top of TF-IDF recall.
-		if ( Gateway::embeddings_enabled() ) {
-			$candidates = VectorStore::rerank( $source_id, $candidates );
+		// Pass 1 — keyword evidence: imported queries (GSC/Semrush) another page
+		// ranks for that this post mentions without linking. Intent-grounded, so
+		// it runs first and consumes capacity before TF-IDF.
+		if ( ! empty( $settings['keyword_suggestions'] ) ) {
+			$kw_candidates = KeywordSuggester::find( $source_id, $text, $source['lang_code'], $targets, $min_words, $max_words, $skip, $limit );
+			foreach ( $kw_candidates as $cand ) {
+				if ( $created >= $limit ) {
+					break;
+				}
+				$tid = (int) $cand['post_id'];
+				if ( isset( $skip[ $tid ] ) ) {
+					continue;
+				}
+				$relevance   = (float) $cand['score'];
+				$naturalness = Naturalness::score( $cand['anchor'], $relevance );
+
+				$inserted = self::insert_suggestion(
+					$source_id,
+					$source['lang_code'],
+					array(
+						'target_post_id' => $tid,
+						'target_url'     => $cand['url'],
+						'anchor_text'    => $cand['anchor'],
+						'context'        => $cand['context'],
+						'relevance'      => $relevance,
+						'naturalness'    => $naturalness,
+						'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
+						'engine'         => 'keyword',
+					)
+				);
+				if ( $inserted ) {
+					$skip[ $tid ] = true;
+					$created++;
+				}
+			}
 		}
 
-		$created = 0;
-		foreach ( $candidates as $cand ) {
-			if ( $created >= $limit ) {
-				break;
-			}
-			$tid = (int) $cand['post_id'];
-			if ( isset( $skip[ $tid ] ) || $tid === (int) $source_id ) {
-				continue;
-			}
-			if ( (float) $cand['score'] < $min_rel ) {
-				continue;
+		// Pass 2 — TF-IDF relevance (always available) fills the remaining capacity.
+		if ( $created < $limit ) {
+			$candidates = Tfidf::candidates( $source_id, $source['lang_code'], $targets, ( $limit * 4 ) + 10 );
+
+			// Optional embedding re-rank (precision) on top of TF-IDF recall.
+			if ( Gateway::embeddings_enabled() ) {
+				$candidates = VectorStore::rerank( $source_id, $candidates );
 			}
 
-			$anchor = AnchorGenerator::find( $text, $cand['title'], $min_words, $max_words );
-			if ( null === $anchor ) {
-				continue; // wrap-first: no natural anchor, no suggestion.
-			}
+			foreach ( $candidates as $cand ) {
+				if ( $created >= $limit ) {
+					break;
+				}
+				$tid = (int) $cand['post_id'];
+				if ( isset( $skip[ $tid ] ) || $tid === (int) $source_id ) {
+					continue;
+				}
+				if ( (float) $cand['score'] < $min_rel ) {
+					continue;
+				}
 
-			$relevance   = (float) $cand['score'];
-			$naturalness = Naturalness::score( $anchor['anchor'], $relevance );
-			$confidence  = Naturalness::confidence( $relevance, $naturalness );
+				$anchor = AnchorGenerator::find( $text, $cand['title'], $min_words, $max_words );
+				if ( null === $anchor ) {
+					continue; // wrap-first: no natural anchor, no suggestion.
+				}
 
-			$inserted = $wpdb->insert(
-				$sugg,
-				array(
-					'source_post_id'    => $source_id,
-					'target_post_id'    => $tid,
-					'target_url'        => $cand['url'],
-					'anchor_text'       => self::trim_len( $anchor['anchor'], 255 ),
-					'suggested_context' => $anchor['context'],
-					'relevance_score'   => $relevance,
-					'naturalness_score' => $naturalness,
-					'confidence_score'  => $confidence,
-					'type'              => 'outbound',
-					'engine'            => isset( $cand['engine'] ) ? $cand['engine'] : 'tfidf',
-					'lang_code'         => $source['lang_code'],
-					'status'            => 'pending',
-				),
-				array( '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
-			);
+				$relevance   = (float) $cand['score'];
+				$naturalness = Naturalness::score( $anchor['anchor'], $relevance );
 
-			if ( $inserted ) {
-				$skip[ $tid ] = true;
-				$created++;
+				$inserted = self::insert_suggestion(
+					$source_id,
+					$source['lang_code'],
+					array(
+						'target_post_id' => $tid,
+						'target_url'     => $cand['url'],
+						'anchor_text'    => $anchor['anchor'],
+						'context'        => $anchor['context'],
+						'relevance'      => $relevance,
+						'naturalness'    => $naturalness,
+						'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
+						'engine'         => isset( $cand['engine'] ) ? $cand['engine'] : 'tfidf',
+					)
+				);
+				if ( $inserted ) {
+					$skip[ $tid ] = true;
+					$created++;
+				}
 			}
 		}
 
 		return $created;
+	}
+
+	/**
+	 * Insert a pending suggestion row.
+	 *
+	 * @param int    $source_id Source post ID.
+	 * @param string $lang_code Source language.
+	 * @param array  $s         target_post_id, target_url, anchor_text, context,
+	 *                          relevance, naturalness, confidence, engine.
+	 * @return bool Whether the row was inserted.
+	 */
+	private static function insert_suggestion( $source_id, $lang_code, array $s ) {
+		global $wpdb;
+		return (bool) $wpdb->insert(
+			Tables::suggestions(),
+			array(
+				'source_post_id'    => (int) $source_id,
+				'target_post_id'    => (int) $s['target_post_id'],
+				'target_url'        => $s['target_url'],
+				'anchor_text'       => self::trim_len( $s['anchor_text'], 255 ),
+				'suggested_context' => $s['context'],
+				'relevance_score'   => $s['relevance'],
+				'naturalness_score' => $s['naturalness'],
+				'confidence_score'  => $s['confidence'],
+				'type'              => 'outbound',
+				'engine'            => $s['engine'],
+				'lang_code'         => $lang_code,
+				'status'            => 'pending',
+			),
+			array( '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
+		);
 	}
 
 	/**
