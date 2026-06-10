@@ -79,6 +79,7 @@ class KeywordsPage {
 				<?php wp_nonce_field( 'ailinking_import_keywords' ); ?>
 				<h2><?php esc_html_e( 'Import keyword CSV', 'ai-internal-linking' ); ?></h2>
 				<p class="description"><?php esc_html_e( 'Upload a Google Search Console performance export, a Semrush export, or any CSV with Query/Keyword, Clicks, Impressions, CTR, Position (and optionally Page/URL).', 'ai-internal-linking' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Keywords with a mapped page feed the suggestion engine: when another post mentions one of these queries without linking to its page, the next suggestion scan proposes that link with the keyword as the anchor (badge: “keyword”). Include the Page/URL column so keywords can be mapped.', 'ai-internal-linking' ); ?></p>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="source"><?php esc_html_e( 'Source', 'ai-internal-linking' ); ?></label></th>

@@ -67,6 +67,7 @@ class SettingsPage {
 				'max_links_per_1000'        => $density,
 				'min_anchor_words'          => $min_words,
 				'max_anchor_words'          => $max_words,
+				'keyword_suggestions'       => ! empty( $_POST['keyword_suggestions'] ),
 				'chat_provider'             => $chat_provider,
 				'chat_model'                => isset( $_POST['chat_model'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model'] ) ) : '',
 				'embedding_provider'        => $emb_provider,
@@ -142,6 +143,13 @@ class SettingsPage {
 					<tr>
 						<th scope="row"><label for="max_links_per_1000"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="number" min="1" max="20" id="max_links_per_1000" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Keyword suggestions', 'ai-internal-linking' ); ?></th>
+						<td>
+							<label><input type="checkbox" name="keyword_suggestions" value="1" <?php checked( ! empty( $settings['keyword_suggestions'] ) ); ?> /> <?php esc_html_e( 'Use imported keywords (GSC/Semrush) as a suggestion source', 'ai-internal-linking' ); ?></label>
+							<p class="description"><?php esc_html_e( 'When a post mentions a query that another page already ranks for — without linking to it — that mention becomes a high-priority suggestion with the keyword as the anchor. Import keywords under the Keywords tab; striking-distance keywords (positions 5–20) are favoured.', 'ai-internal-linking' ); ?></p>
+						</td>
 					</tr>
 
 					<tr><th colspan="2"><h2 style="margin:0;"><?php esc_html_e( 'AI provider (optional)', 'ai-internal-linking' ); ?></h2>
