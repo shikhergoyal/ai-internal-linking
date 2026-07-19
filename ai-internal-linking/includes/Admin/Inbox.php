@@ -41,13 +41,41 @@ class Inbox {
 			$counts[ $s ] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", $s ) ); // phpcs:ignore WordPress.DB.PreparedSQL
 		}
 
-		$total = $counts[ $status ];
-		$rows  = $wpdb->get_results(
+		// Source (engine) filter within the current status.
+		$engine_map = array(
+			'ai'      => array( 'llm' ),
+			'gsc'     => array( 'keyword' ),
+			'content' => array( 'tfidf', 'embedding' ),
+		);
+		$engine = isset( $_GET['engine'] ) ? sanitize_key( wp_unslash( $_GET['engine'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $engine_map[ $engine ] ) ) {
+			$engine = 'all';
+		}
+
+		// Per-source counts within the current status (for the filter row).
+		$src_counts = array( 'all' => $counts[ $status ] );
+		foreach ( $engine_map as $k => $engs ) {
+			$ph               = implode( ',', array_fill( 0, count( $engs ), '%s' ) );
+			$src_counts[ $k ] = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s AND engine IN ($ph)", array_merge( array( $status ), $engs ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
+
+		// Engine WHERE fragment for the list query.
+		$engine_where  = '';
+		$engine_params = array();
+		if ( 'all' !== $engine ) {
+			$engs          = $engine_map[ $engine ];
+			$ph            = implode( ',', array_fill( 0, count( $engs ), '%s' ) );
+			$engine_where  = " AND engine IN ($ph)";
+			$engine_params = $engs;
+		}
+
+		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s{$engine_where}", array_merge( array( $status ), $engine_params ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		$list_args = array_merge( array( $status ), $engine_params, array( self::PER_PAGE, $offset ) );
+		$rows      = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE status = %s ORDER BY confidence_score DESC, id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL
-				$status,
-				self::PER_PAGE,
-				$offset
+				"SELECT * FROM {$table} WHERE status = %s{$engine_where} ORDER BY confidence_score DESC, id DESC LIMIT %d OFFSET %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				$list_args
 			),
 			ARRAY_A
 		);
@@ -87,11 +115,46 @@ class Inbox {
 				endforeach;
 				?>
 			</ul>
+			<div style="clear:both;"></div>
+
+			<ul class="subsubsub" style="float:none; margin: 2px 0 10px;">
+				<li><span style="color:#646970;"><?php esc_html_e( 'Source:', 'ai-internal-linking' ); ?></span> </li>
+				<?php
+				$src_labels = array(
+					'all'     => __( 'All', 'ai-internal-linking' ),
+					'ai'      => __( 'AI Suggestion', 'ai-internal-linking' ),
+					'gsc'     => __( 'GSC keyword', 'ai-internal-linking' ),
+					'content' => __( 'Content match', 'ai-internal-linking' ),
+				);
+				$sfirst = true;
+				foreach ( $src_labels as $k => $label ) :
+					$surl = add_query_arg(
+						array(
+							'page'   => 'ailinking',
+							'tab'    => 'suggestions',
+							'status' => $status,
+							'engine' => $k,
+						),
+						admin_url( 'admin.php' )
+					);
+					?>
+					<li>
+						<?php echo $sfirst ? '' : '| '; ?>
+						<a href="<?php echo esc_url( $surl ); ?>" class="<?php echo ( $k === $engine ) ? 'current' : ''; ?>">
+							<?php echo esc_html( $label ); ?> <span class="count">(<?php echo esc_html( number_format_i18n( $src_counts[ $k ] ) ); ?>)</span>
+						</a>
+					</li>
+					<?php
+					$sfirst = false;
+				endforeach;
+				?>
+			</ul>
+			<div style="clear:both;"></div>
 
 			<table class="wp-list-table widefat fixed striped ailinking-inbox">
 				<thead>
 					<tr>
-						<th class="col-score"><?php esc_html_e( 'Confidence', 'ai-internal-linking' ); ?></th>
+						<th class="col-score" title="<?php esc_attr_e( 'Overall score blending relevance and naturalness', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'Relevance', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'From (source page)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'To (target page)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Anchor & context', 'ai-internal-linking' ); ?></th>
@@ -201,6 +264,7 @@ class Inbox {
 							'page'   => 'ailinking',
 							'tab'    => 'suggestions',
 							'status' => $status,
+							'engine' => $engine,
 						),
 					)
 				);

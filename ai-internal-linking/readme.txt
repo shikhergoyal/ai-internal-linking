@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.11.2
+Stable tag: 0.11.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.11.3 =
+* Suggestions inbox: renamed the "Confidence" column to "Relevance" (with a tooltip clarifying it is the overall score blending relevance and naturalness). Added a Source filter row — All / AI Suggestion / GSC keyword / Content match, each with a live count — so you can quickly see and review suggestions by where they came from. The filter combines with the status tabs (Pending/Approved/…) and paginates correctly.
 
 = 0.11.2 =
 * Renamed the "Keywords" tab to "Connect GSC" (Search Console is the primary source now). Removed the Semrush import option — Google Search Console (plus generic CSV as a fallback) is enough. In the review inbox, both suggestion badges are now blue: the generative one reads "AI Suggestion" and keyword-evidence suggestions read "GSC keyword".
