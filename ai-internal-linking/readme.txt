@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.10.0
+Stable tag: 0.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.10.1 =
+* "Build embeddings" now reports why it did nothing when no embeddings provider is configured, instead of completing silently. Anthropic/Claude has no embeddings API, so with only a Claude key (and no embeddings provider set) the build had nothing to do; the button now explains this and points you to add an embedding-capable key or to use "AI link suggestions" for Claude.
 
 = 0.10.0 =
 * Generative AI suggestions (any chat model): a new "AI link suggestions" toggle (Settings) lets your chat provider propose contextual links directly — and unlike the embedding re-ranker, it works with chat-only keys such as Claude, Groq, xAI, DeepSeek, OpenRouter, and Perplexity, as well as OpenAI/Gemini/local models. During a suggestion scan the model receives each page plus a shortlist of genuinely related pages (real TF-IDF recall) and returns the best links with a natural anchor. Nothing is fabricated: candidate targets are constrained to existing pages, and every proposed anchor is verified to appear verbatim in the page body (wrap-first, never in a heading) before it becomes a suggestion — anything invented is dropped. Runs after keyword-evidence and before the TF-IDF fill, respects the monthly spend cap, and falls back to the free engine if the model is unavailable. AI picks carry an "AI" badge in the review inbox. Add a chat key under "AI Keys", set the chat provider under Settings, enable the toggle, then run a scan.
