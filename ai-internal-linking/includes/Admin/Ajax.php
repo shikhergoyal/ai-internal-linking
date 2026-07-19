@@ -10,6 +10,7 @@ namespace AILinking\Admin;
 
 use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
+use AILinking\Support\Settings;
 use AILinking\Indexer\Indexer;
 use AILinking\Suggestions\SuggestionEngine;
 use AILinking\Suggestions\VectorStore;
@@ -135,18 +136,26 @@ class Ajax {
 	public function run_suggest() {
 		$this->guard();
 
-		$start = ! empty( $_POST['start'] );
-		if ( $start ) {
-			SuggestionEngine::start_scan();
+		// Starting a scan returns immediately so the progress bar appears at 0%
+		// right away. The work runs on the follow-up polls: with AI suggestions
+		// on, each post is a network round-trip to the model, so a single request
+		// must not block on many (that reads as a "frozen" scan / a timeout).
+		if ( ! empty( $_POST['start'] ) ) {
+			$progress = SuggestionEngine::start_scan();
+			wp_send_json_success( $this->shape( $progress ) );
 		}
 
+		$llm      = Settings::get( 'llm_suggestions', false ) && Gateway::chat_enabled();
+		$per      = $llm ? 1 : 8;                // posts per chunk
+		$deadline = time() + ( $llm ? 12 : 20 ); // wall-clock budget per request (seconds)
+
 		$progress = array();
-		for ( $i = 0; $i < self::BATCHES_PER_REQUEST; $i++ ) {
-			$progress = SuggestionEngine::scan_batch( 8 );
+		do {
+			$progress = SuggestionEngine::scan_batch( $per );
 			if ( ! empty( $progress['done'] ) ) {
 				break;
 			}
-		}
+		} while ( time() < $deadline );
 
 		wp_send_json_success( $this->shape( $progress ) );
 	}
