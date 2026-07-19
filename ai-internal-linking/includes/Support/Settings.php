@@ -39,6 +39,14 @@ class Settings {
 			'reuse_chat_for_embeddings' => false,
 			'rotation'                  => 'round_robin', // or primary_failover
 			'monthly_cap_usd'           => 0,             // 0 = no cap
+			// Google Search Console API fetch.
+			'gsc_client_email'          => '',    // service-account email (display)
+			'gsc_property'              => '',    // selected Search Console property
+			'gsc_range_days'            => 90,    // performance window
+			'gsc_auto_sync'             => false, // daily cron refresh
+			'gsc_last_sync'             => 0,     // unix ts of last fetch
+			'gsc_last_status'           => '',    // complete|paused
+			'gsc_last_count'            => 0,     // rows stored on last fetch
 		);
 	}
 

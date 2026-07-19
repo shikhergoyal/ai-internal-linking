@@ -11,6 +11,7 @@
 namespace AILinking\Jobs;
 
 use AILinking\Indexer\Indexer;
+use AILinking\Integrations\GscFetcher;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -30,6 +31,14 @@ class Scheduler {
 	 */
 	public function register() {
 		add_action( 'ailinking_cron_index', array( __CLASS__, 'cron_index_tick' ) );
+		add_action( 'ailinking_cron_gsc', array( __CLASS__, 'cron_gsc_tick' ) );
+	}
+
+	/**
+	 * Daily hands-off Search Console refresh (only when auto-sync is on).
+	 */
+	public static function cron_gsc_tick() {
+		GscFetcher::run_scheduled();
 	}
 
 	/**

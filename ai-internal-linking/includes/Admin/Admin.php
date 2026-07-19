@@ -163,6 +163,7 @@ class Admin {
 					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
 					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
+					'fetchingGsc'   => __( 'Fetching from Search Console…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
 					'analyzing'     => __( 'Analyzing…', 'ai-internal-linking' ),
 					'noClusters'    => __( 'No clusters to analyze yet — create one below first (name + pillar post ID), add spoke posts, then Analyze.', 'ai-internal-linking' ),
