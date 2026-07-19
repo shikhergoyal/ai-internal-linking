@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.12.0
+Stable tag: 0.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.12.1 =
+* Renamed the "Content match" source filter to "Related Content".
 
 = 0.12.0 =
 * Scan controls: the suggestion scan now has Pause, Resume and Stop buttons (on both the Setup dashboard and the Suggestions tab). Pause it to go review what has been found so far, then Resume to continue from exactly where it stopped — the scan position is saved on the server, so you can even navigate to the Suggestions tab and back and still resume. Stop ends the run while keeping everything found. Starting a fresh scan asks for confirmation first (it replaces the current Pending suggestions).
