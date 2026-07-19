@@ -140,16 +140,12 @@ class Wizard {
 					<h3><?php esc_html_e( 'Run', 'ai-internal-linking' ); ?></h3>
 					<p>
 						<button class="button button-primary" id="ailinking-run-index"><?php esc_html_e( 'Index / Re-index site', 'ai-internal-linking' ); ?></button>
-						<button class="button" id="ailinking-run-suggest"><?php esc_html_e( 'Scan for suggestions', 'ai-internal-linking' ); ?></button>
 					</p>
 					<div class="ailinking-progress" id="ailinking-progress-index" style="display:none;">
 						<div class="ailinking-bar"><span></span></div>
 						<p class="ailinking-progress-label"></p>
 					</div>
-					<div class="ailinking-progress" id="ailinking-progress-suggest" style="display:none;">
-						<div class="ailinking-bar"><span></span></div>
-						<p class="ailinking-progress-label"></p>
-					</div>
+					<?php echo \AILinking\Admin\Inbox::scan_controls_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped in helper ?>
 					<p><a class="button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=ailinking&tab=suggestions' ) ); ?>"><?php esc_html_e( 'Review suggestions →', 'ai-internal-linking' ); ?></a></p>
 				</div>
 			</div>

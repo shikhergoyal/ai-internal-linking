@@ -12,12 +12,52 @@ namespace AILinking\Admin;
 use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Detectors\BuilderDetector;
+use AILinking\Jobs\ProgressStore;
 
 defined( 'ABSPATH' ) || exit;
 
 class Inbox {
 
 	const PER_PAGE = 30;
+
+	/**
+	 * Scan controls: Start / Pause / Resume / Stop + progress bar. Shared by the
+	 * Suggestions tab and the Setup dashboard. Initial button visibility reflects
+	 * the server scan state so an in-progress scan stays resumable across page
+	 * loads (JS refines it live).
+	 *
+	 * @return string HTML (already escaped).
+	 */
+	public static function scan_controls_html() {
+		$sug       = ProgressStore::get( 'suggest' );
+		$status    = isset( $sug['status'] ) ? (string) $sug['status'] : 'complete';
+		$total     = (int) ( isset( $sug['total'] ) ? $sug['total'] : 0 );
+		$proc      = (int) ( isset( $sug['processed'] ) ? $sug['processed'] : 0 );
+		$resumable = in_array( $status, array( 'running', 'paused' ), true ) && $proc < $total;
+		$pct       = $total > 0 ? min( 100, (int) round( ( $proc / $total ) * 100 ) ) : 0;
+		$scan_disp = $resumable ? 'none' : 'inline-block';
+		$res_disp  = $resumable ? 'inline-block' : 'none';
+
+		ob_start();
+		?>
+		<p class="ailinking-scan-controls">
+			<button class="button button-primary" id="ailinking-run-suggest" style="display:<?php echo esc_attr( $scan_disp ); ?>;"><?php esc_html_e( 'Scan for suggestions', 'ai-internal-linking' ); ?></button>
+			<button class="button button-primary" id="ailinking-resume-suggest" style="display:<?php echo esc_attr( $res_disp ); ?>;"><?php esc_html_e( 'Resume', 'ai-internal-linking' ); ?></button>
+			<button class="button" id="ailinking-pause-suggest" style="display:none;"><?php esc_html_e( 'Pause', 'ai-internal-linking' ); ?></button>
+			<button class="button" id="ailinking-stop-suggest" style="display:<?php echo esc_attr( $res_disp ); ?>;"><?php esc_html_e( 'Stop', 'ai-internal-linking' ); ?></button>
+		</p>
+		<div class="ailinking-progress" id="ailinking-progress-suggest"
+			data-scan-status="<?php echo esc_attr( $status ); ?>"
+			data-scan-percent="<?php echo esc_attr( (string) $pct ); ?>"
+			data-scan-processed="<?php echo esc_attr( (string) $proc ); ?>"
+			data-scan-total="<?php echo esc_attr( (string) $total ); ?>"
+			style="display:<?php echo $resumable ? 'block' : 'none'; ?>;">
+			<div class="ailinking-bar"><span style="width:<?php echo esc_attr( (string) $pct ); ?>%;"></span></div>
+			<p class="ailinking-progress-label"><?php echo $resumable ? esc_html( sprintf( /* translators: 1: done, 2: total */ __( 'Paused %1$d / %2$d', 'ai-internal-linking' ), $proc, $total ) ) : ''; ?></p>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
 
 	/**
 	 * Render the inbox.
@@ -83,13 +123,7 @@ class Inbox {
 		<div class="wrap ailinking-wrap">
 			<h1><?php esc_html_e( 'AI Internal Linking — Suggestions', 'ai-internal-linking' ); ?></h1>
 
-			<p>
-				<button class="button button-primary" id="ailinking-run-suggest"><?php esc_html_e( 'Scan for suggestions', 'ai-internal-linking' ); ?></button>
-			</p>
-			<div class="ailinking-progress" id="ailinking-progress-suggest" style="display:none;">
-				<div class="ailinking-bar"><span></span></div>
-				<p class="ailinking-progress-label"></p>
-			</div>
+			<?php echo self::scan_controls_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped in helper ?>
 
 			<ul class="subsubsub">
 				<?php

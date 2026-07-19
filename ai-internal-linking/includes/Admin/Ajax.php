@@ -41,6 +41,45 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_run_embed', array( $this, 'run_embed' ) );
 		add_action( 'wp_ajax_ailinking_test_connection', array( $this, 'test_connection' ) );
 		add_action( 'wp_ajax_ailinking_gsc_fetch', array( $this, 'gsc_fetch' ) );
+		add_action( 'wp_ajax_ailinking_scan_control', array( $this, 'scan_control' ) );
+	}
+
+	/**
+	 * Pause / resume / stop the suggestion scan. The scan is server-resumable:
+	 * the cursor lives in ProgressStore, so pausing here and resuming later (even
+	 * after navigating away) continues from where it left off. A separate control
+	 * flag (option) is the source of truth, so it can never be clobbered by an
+	 * in-flight scan batch.
+	 */
+	public function scan_control() {
+		$this->guard();
+		$do       = isset( $_POST['do'] ) ? sanitize_key( wp_unslash( $_POST['do'] ) ) : '';
+		$progress = \AILinking\Jobs\ProgressStore::get( 'suggest' );
+		if ( empty( $progress ) ) {
+			$progress = array( 'status' => 'complete', 'total' => 0, 'processed' => 0, 'created' => 0 );
+		}
+
+		if ( 'pause' === $do ) {
+			update_option( 'ailinking_suggest_ctl', 'pause', false );
+			if ( 'complete' !== ( isset( $progress['status'] ) ? $progress['status'] : '' ) ) {
+				$progress['status'] = 'paused';
+				\AILinking\Jobs\ProgressStore::set( 'suggest', $progress );
+			}
+		} elseif ( 'resume' === $do ) {
+			delete_option( 'ailinking_suggest_ctl' );
+			if ( isset( $progress['status'] ) && 'complete' !== $progress['status'] ) {
+				$progress['status'] = 'running';
+				unset( $progress['done'] );
+				\AILinking\Jobs\ProgressStore::set( 'suggest', $progress );
+			}
+		} elseif ( 'stop' === $do ) {
+			update_option( 'ailinking_suggest_ctl', 'stop', false );
+			$progress['status'] = 'complete';
+			$progress['done']   = true;
+			\AILinking\Jobs\ProgressStore::set( 'suggest', $progress );
+		}
+
+		wp_send_json_success( $this->shape( $progress ) );
 	}
 
 	/**
@@ -130,16 +169,33 @@ class Ajax {
 		// on, each post is a network round-trip to the model, so a single request
 		// must not block on many (that reads as a "frozen" scan / a timeout).
 		if ( ! empty( $_POST['start'] ) ) {
+			delete_option( 'ailinking_suggest_ctl' ); // clear any prior pause/stop.
 			$progress = SuggestionEngine::start_scan();
 			wp_send_json_success( $this->shape( $progress ) );
+		}
+
+		// Continue / resume an existing run.
+		$progress = \AILinking\Jobs\ProgressStore::get( 'suggest' );
+		if ( empty( $progress ) || 'complete' === ( isset( $progress['status'] ) ? $progress['status'] : '' ) ) {
+			wp_send_json_success( $this->shape( empty( $progress ) ? array( 'status' => 'complete' ) : $progress ) );
 		}
 
 		$llm      = Settings::get( 'llm_suggestions', false ) && Gateway::chat_enabled();
 		$per      = $llm ? 1 : 8;                // posts per chunk
 		$deadline = time() + ( $llm ? 12 : 20 ); // wall-clock budget per request (seconds)
 
-		$progress = array();
 		do {
+			$ctl = (string) get_option( 'ailinking_suggest_ctl', '' );
+			if ( 'pause' === $ctl || 'stop' === $ctl ) {
+				$progress           = \AILinking\Jobs\ProgressStore::get( 'suggest' );
+				$progress['status'] = ( 'stop' === $ctl ) ? 'complete' : 'paused';
+				$progress['done']   = true;
+				\AILinking\Jobs\ProgressStore::set( 'suggest', $progress );
+				if ( 'stop' === $ctl ) {
+					delete_option( 'ailinking_suggest_ctl' );
+				}
+				break;
+			}
 			$progress = SuggestionEngine::scan_batch( $per );
 			if ( ! empty( $progress['done'] ) ) {
 				break;
@@ -327,6 +383,7 @@ class Ajax {
 			'created'    => (int) ( $progress['created'] ?? 0 ),
 			'percent'    => $percent,
 			'done'       => $done,
+			'status'     => isset( $progress['status'] ) ? (string) $progress['status'] : '',
 			'last_error' => isset( $progress['last_error'] ) ? (string) $progress['last_error'] : '',
 		);
 	}
