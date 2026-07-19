@@ -4,8 +4,8 @@
  * canonical content is plain post_content HTML: Gutenberg and Classic. Other
  * systems are suggest-only and never reach this writer.
  *
- * Every write is validated: exactly one eligible occurrence, and a visible-text
- * integrity check (the rewrite must change nothing but wrap the anchor).
+ * Every write is validated: the first eligible occurrence is linked, and a
+ * visible-text integrity check (the rewrite must change nothing but wrap the anchor).
  *
  * @package AILinking
  */
@@ -82,10 +82,11 @@ class ContentWriter {
 
 		$blocks = parse_blocks( $before );
 
-		// Global single-occurrence guard across eligible leaf blocks.
+		// Require at least one eligible occurrence; the first one (document order)
+		// is linked.
 		$total = self::count_blocks( $blocks, $anchor );
-		if ( 1 !== $total ) {
-			return array( 'ok' => false, 'reason' => 0 === $total ? 'anchor_not_found' : 'anchor_ambiguous' );
+		if ( 0 === $total ) {
+			return array( 'ok' => false, 'reason' => 'anchor_not_found' );
 		}
 
 		$inserted = self::insert_into_blocks( $blocks, $anchor, $href, $data_id );
@@ -146,7 +147,7 @@ class ContentWriter {
 				}
 				continue;
 			}
-			if ( self::is_text_block( $block ) && WriteGuards::count_in_html( (string) $block['innerHTML'], $anchor ) === 1 ) {
+			if ( self::is_text_block( $block ) && WriteGuards::count_in_html( (string) $block['innerHTML'], $anchor ) >= 1 ) {
 				$res = WriteGuards::insert_anchor( (string) $block['innerHTML'], $anchor, $href, $data_id );
 				if ( ! empty( $res['ok'] ) ) {
 					$block['innerHTML']    = $res['html'];
