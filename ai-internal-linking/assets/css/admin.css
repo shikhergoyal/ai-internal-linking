@@ -126,6 +126,11 @@
 	color: #8a4d00;
 }
 
+.ailinking-badge-ai {
+	background: #e5f0fb;
+	color: #0a4b8c;
+}
+
 /* Reset / danger zone */
 .ailinking-danger-zone {
 	border-color: #f0b9b9;

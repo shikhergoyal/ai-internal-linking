@@ -142,11 +142,11 @@ class Inbox {
 											)
 										);
 										if ( 'keyword' === $row['engine'] ) {
-											echo ' <span class="ailinking-badge ailinking-badge-kw" title="' . esc_attr__( 'The target page ranks for this keyword (imported from GSC/Semrush) and it appears here unlinked.', 'ai-internal-linking' ) . '">' . esc_html__( 'keyword', 'ai-internal-linking' ) . '</span>';
+											echo ' <span class="ailinking-badge ailinking-badge-kw" title="' . esc_attr__( 'The target page ranks for this keyword (imported from Google Search Console) and it appears here unlinked.', 'ai-internal-linking' ) . '">' . esc_html__( 'GSC keyword', 'ai-internal-linking' ) . '</span>';
 										} elseif ( 'embedding' === $row['engine'] ) {
 											echo ' <span class="ailinking-badge" title="' . esc_attr__( 'Re-ranked with semantic embeddings.', 'ai-internal-linking' ) . '">' . esc_html__( 'semantic', 'ai-internal-linking' ) . '</span>';
 										} elseif ( 'llm' === $row['engine'] ) {
-											echo ' <span class="ailinking-badge ailinking-badge-ai" title="' . esc_attr__( 'Proposed by your chat model from real page content.', 'ai-internal-linking' ) . '">' . esc_html__( 'AI', 'ai-internal-linking' ) . '</span>';
+											echo ' <span class="ailinking-badge ailinking-badge-ai" title="' . esc_attr__( 'Proposed by your chat model from real page content.', 'ai-internal-linking' ) . '">' . esc_html__( 'AI Suggestion', 'ai-internal-linking' ) . '</span>';
 										}
 										?>
 									</div>
