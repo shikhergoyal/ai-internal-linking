@@ -120,8 +120,6 @@ class Schema {
 		$keywords      = Tables::keywords();
 		$keyword_map   = Tables::keyword_map();
 		$embeddings    = Tables::embeddings();
-		$clusters      = Tables::clusters();
-		$cluster_members = Tables::cluster_members();
 
 		$statements = array();
 
@@ -343,36 +341,6 @@ class Schema {
 			PRIMARY KEY  (id),
 			UNIQUE KEY post_id (post_id),
 			KEY model (model)
-		) {$charset_collate};";
-
-		$statements[] = "CREATE TABLE {$clusters} (
-			cluster_id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			name varchar(191) NOT NULL DEFAULT '',
-			slug varchar(191) NOT NULL DEFAULT '',
-			pillar_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
-			authority_score float NOT NULL DEFAULT 0,
-			is_flat tinyint(1) NOT NULL DEFAULT 0,
-			flat_severity varchar(10) NOT NULL DEFAULT '',
-			member_count int unsigned NOT NULL DEFAULT 0,
-			lang_code varchar(10) NOT NULL DEFAULT 'und',
-			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			PRIMARY KEY  (cluster_id),
-			KEY pillar_post_id (pillar_post_id)
-		) {$charset_collate};";
-
-		$statements[] = "CREATE TABLE {$cluster_members} (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			cluster_id bigint(20) unsigned NOT NULL,
-			post_id bigint(20) unsigned NOT NULL,
-			role varchar(10) NOT NULL DEFAULT 'spoke',
-			in_degree int unsigned NOT NULL DEFAULT 0,
-			links_to_hub tinyint(1) NOT NULL DEFAULT 0,
-			added_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY cluster_post (cluster_id,post_id),
-			KEY post_id (post_id),
-			KEY cluster_role (cluster_id,role)
 		) {$charset_collate};";
 
 		return $statements;

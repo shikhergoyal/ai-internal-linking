@@ -66,20 +66,12 @@ class Tables {
 		return self::name( 'embeddings' );
 	}
 
-	public static function clusters() {
-		return self::name( 'clusters' );
-	}
-
-	public static function cluster_members() {
-		return self::name( 'cluster_members' );
-	}
-
 	/**
-	 * All logical table keys (used by install/uninstall).
+	 * All logical table keys (used by install/reset).
 	 *
 	 * @return string[]
 	 */
 	public static function all_keys() {
-		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map', 'embeddings', 'clusters', 'cluster_members' );
+		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map', 'embeddings' );
 	}
 }

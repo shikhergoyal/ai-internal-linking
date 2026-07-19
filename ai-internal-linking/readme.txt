@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.10.3
+Stable tag: 0.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.11.0 =
+* Removed the Clusters and GEO Readiness features. Both were standalone dashboards that did not influence the core index → suggest → review → apply workflow: Clusters produced a hub-and-spoke authority report that never fed the suggestion engine, and GEO Readiness was a heuristic "AI-citation likelihood" score that was speculative and not directly actionable. The admin now shows only the tabs that matter (Setup & Dashboard, Suggestions, Link Health, Keywords, AI Keys, Settings). The clusters/cluster_members tables are no longer created on new installs and are dropped on uninstall of existing installs. Link Health (orphans, dead-ends, broken links, PageRank, anchor diversity) is unchanged.
 
 = 0.10.3 =
 * Apply now links the first eligible occurrence of an anchor instead of refusing when the phrase appears more than once. Key terms repeat across a heading, a summary list, a caption, and a practice question in rich posts, so requiring exactly one occurrence made many good, high-confidence suggestions un-appliable ("Could not place this link automatically — the anchor wasn't found uniquely"). Headings, existing links, code, and tag attributes are still never linked, and the byte-splice + visible-text integrity check are unchanged, so no structural corruption is possible. Only a genuinely absent anchor (zero eligible occurrences) is still declined.
