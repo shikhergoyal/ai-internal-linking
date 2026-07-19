@@ -16,6 +16,7 @@ use AILinking\Suggestions\VectorStore;
 use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
+use AILinking\Providers\Gateway;
 use AILinking\Clusters\ClusterAnalyzer;
 use AILinking\Integrations\GscFetcher;
 use AILinking\Integrations\GoogleServiceAccount;
@@ -233,6 +234,22 @@ class Ajax {
 	 */
 	public function run_embed() {
 		$this->guard();
+
+		// No embeddings provider -> the build has nothing to do. Say so, instead
+		// of silently completing (Anthropic/Claude has no embeddings API).
+		if ( ! Gateway::embeddings_enabled() ) {
+			wp_send_json_success(
+				array(
+					'total'      => 0,
+					'processed'  => 0,
+					'created'    => 0,
+					'percent'    => 100,
+					'done'       => true,
+					'last_error' => __( 'No embeddings provider is set, so there is nothing to build. Anthropic/Claude has no embeddings API — add an embedding-capable key (OpenAI, Voyage, Gemini, Mistral…) and select it as the Embeddings provider under Settings. For Claude-powered links, enable “AI link suggestions” under Settings instead (no embeddings needed).', 'ai-internal-linking' ),
+				)
+			);
+		}
+
 		if ( ! empty( $_POST['start'] ) ) {
 			VectorStore::start_build();
 		}
