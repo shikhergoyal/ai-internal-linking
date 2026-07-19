@@ -1,10 +1,11 @@
 <?php
 /**
- * Keyword CSV import (Google Search Console / Semrush / generic exports).
+ * Keyword import (Google Search Console / Semrush / generic exports).
  * Detects columns, computes striking-distance (position 5-20) + an opportunity
  * score, resolves landing pages to post IDs, and stores rows for the suggestion
- * engine. OAuth-based GSC sync is a later phase; the `source` column is forward
- * compatible.
+ * engine. Rows arrive either from a CSV upload (import_csv) or the Search Console
+ * API fetch (GscFetcher) — both build rows through build_row() so scoring is
+ * identical regardless of source.
  *
  * @package AILinking
  */
@@ -82,6 +83,69 @@ class KeywordImporter {
 	}
 
 	/**
+	 * Build one normalized keyword row from raw values. Shared by the CSV import
+	 * and the Search Console API fetch so both score identically. (pure aside from
+	 * the URL->post-id lookup)
+	 *
+	 * @param string $keyword     Query / keyword.
+	 * @param string $page        Landing page URL ('' if none).
+	 * @param int    $clicks      Clicks.
+	 * @param int    $impressions Impressions.
+	 * @param float  $ctr         Click-through rate.
+	 * @param float  $position    Average position.
+	 * @param string $source      'gsc'|'semrush'|'csv'.
+	 * @return array
+	 */
+	public static function build_row( $keyword, $page, $clicks, $impressions, $ctr, $position, $source ) {
+		$keyword = (string) $keyword;
+		$page    = (string) $page;
+		$post_id = ( '' !== $page ) ? UrlResolver::to_post_id( $page ) : 0;
+		$source  = in_array( $source, array( 'gsc', 'semrush', 'csv' ), true ) ? $source : 'csv';
+
+		return array(
+			'keyword'           => substr( $keyword, 0, 500 ),
+			'keyword_norm'      => substr( strtolower( $keyword ), 0, 191 ),
+			'source'            => $source,
+			'page_url'          => substr( $page, 0, 2048 ),
+			'post_id'           => $post_id > 0 ? $post_id : null,
+			'clicks'            => (int) $clicks,
+			'impressions'       => (int) $impressions,
+			'position'          => (float) $position,
+			'ctr'               => (float) $ctr,
+			'is_striking'       => self::is_striking( (float) $position ) ? 1 : 0,
+			'opportunity_score' => self::opportunity( (int) $impressions, (float) $position ),
+		);
+	}
+
+	/**
+	 * Delete all keyword rows from one source (used before a clean re-import).
+	 *
+	 * @param string $source Source slug.
+	 */
+	public static function delete_source( $source ) {
+		global $wpdb;
+		$wpdb->delete( Tables::keywords(), array( 'source' => (string) $source ), array( '%s' ) );
+	}
+
+	/**
+	 * Insert a batch of rows built by build_row().
+	 *
+	 * @param array[] $rows Rows.
+	 * @return int Number of rows inserted.
+	 */
+	public static function insert_rows( array $rows ) {
+		global $wpdb;
+		$table = Tables::keywords();
+		$n     = 0;
+		foreach ( $rows as $r ) {
+			if ( $wpdb->insert( $table, $r, array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%d', '%f' ) ) ) {
+				$n++;
+			}
+		}
+		return $n;
+	}
+
+	/**
 	 * Import a CSV file.
 	 *
 	 * @param string $path   Server path to the uploaded CSV.
@@ -128,21 +192,8 @@ class KeywordImporter {
 			$ctr         = isset( $map['ctr'], $row[ $map['ctr'] ] ) ? self::parse_number( $row[ $map['ctr'] ] ) : 0.0;
 			$position    = isset( $map['position'], $row[ $map['position'] ] ) ? self::parse_number( $row[ $map['position'] ] ) : 0.0;
 			$page        = isset( $map['page'], $row[ $map['page'] ] ) ? trim( (string) $row[ $map['page'] ] ) : '';
-			$post_id     = ( '' !== $page ) ? UrlResolver::to_post_id( $page ) : 0;
 
-			$batch[] = array(
-				'keyword'           => substr( $keyword, 0, 500 ),
-				'keyword_norm'      => substr( strtolower( $keyword ), 0, 191 ),
-				'source'            => $source,
-				'page_url'          => substr( $page, 0, 2048 ),
-				'post_id'           => $post_id > 0 ? $post_id : null,
-				'clicks'            => $clicks,
-				'impressions'       => $impressions,
-				'position'          => $position,
-				'ctr'               => $ctr,
-				'is_striking'       => self::is_striking( $position ) ? 1 : 0,
-				'opportunity_score' => self::opportunity( $impressions, $position ),
-			);
+			$batch[] = self::build_row( $keyword, $page, $clicks, $impressions, $ctr, $position, $source );
 			$imported++;
 
 			if ( count( $batch ) >= 100 ) {
@@ -164,14 +215,6 @@ class KeywordImporter {
 	 * @param array[] $rows Rows.
 	 */
 	private static function flush( array $rows ) {
-		global $wpdb;
-		$table = Tables::keywords();
-		foreach ( $rows as $r ) {
-			$wpdb->insert(
-				$table,
-				$r,
-				array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%d', '%f' )
-			);
-		}
+		self::insert_rows( $rows );
 	}
 }

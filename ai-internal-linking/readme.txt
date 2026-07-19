@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.8.0
+Stable tag: 0.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,7 +32,7 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 
 **Coming next**
 
-* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, Google Search Console OAuth sync, Elementor auto-apply, and cluster-aware suggestion ranking.
+* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, generative LLM suggestions (bring any chat model's key), Elementor auto-apply, and cluster-aware suggestion ranking.
 
 == Installation ==
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.9.0 =
+* Google Search Console fetch (API): pull performance data (queries + pages) directly, no CSV export step. Connect with a Google service-account JSON key — the key is stored encrypted at rest, and access tokens are minted on the fly by signing a JWT (the OAuth 2.0 JWT-bearer flow), so there are no redirect URLs, no consent screen, and it works headless. Add the service-account email as a user on your Search Console property, pick the property and date window on the Keywords tab, and click "Fetch now"; an optional daily auto-sync keeps it current. Fetched rows flow through the same striking-distance/opportunity scoring as CSV imports and feed the keyword-evidence suggestion engine (0.8.0). Bounded by a max-rows ceiling (filter: ailinking_gsc_max_rows) so it stays safe on very large sites; rows arrive click-descending, so the highest-value keywords are always kept. Requires the PHP OpenSSL (or Sodium) extension for secure key storage and signing.
 
 = 0.8.0 =
 * Keyword-evidence suggestions: imported keywords (GSC/Semrush, Keywords tab) now feed the suggestion engine. When a post mentions a query that another page already ranks for — without linking to that page — the scan proposes the link with the ranking keyword as its anchor (the model Ahrefs/Screaming Frog use for link opportunities). Wrap-first still holds: the keyword must literally appear in the post's body text. Striking-distance keywords (positions 5–20) and high-opportunity keywords rank first; keyword suggestions run before TF-IDF and carry a "keyword" badge in the inbox (embedding-re-ranked ones now show a "semantic" badge). Includes an exact-anchor over-optimization guard: at most 3 identical exact-match anchors per target (filter: ailinking_max_exact_anchors_per_target; pool size: ailinking_keyword_pool_max). Toggle under Settings → "Keyword suggestions" (on by default; inactive until keywords are imported). Run a new suggestion scan after importing keywords.

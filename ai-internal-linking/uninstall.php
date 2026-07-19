@@ -83,3 +83,4 @@ $wpdb->query(
 // 5. Clear any scheduled cron events.
 wp_clear_scheduled_hook( 'ailinking_cron_index' );
 wp_clear_scheduled_hook( 'ailinking_cron_suggest' );
+wp_clear_scheduled_hook( 'ailinking_cron_gsc' );

@@ -222,6 +222,43 @@
 			} );
 		}
 
+		// Fetch Search Console data (Keywords page), one API page per request.
+		var gscBtn = document.getElementById( 'ailinking-gsc-fetch' );
+		if ( gscBtn ) {
+			gscBtn.addEventListener( 'click', function ( e ) {
+				e.preventDefault();
+				var box = document.querySelector( '#ailinking-progress-gsc' );
+				var start = 1;
+				gscBtn.disabled = true;
+
+				function loop() {
+					post( 'ailinking_gsc_fetch', { start: start } ).then( function ( res ) {
+						start = 0;
+						if ( ! res || ! res.success ) {
+							setBar( box, 100, cfg.i18n.error );
+							gscBtn.disabled = false;
+							return;
+						}
+						var d = res.data;
+						var problem = d.last_error || '';
+						if ( d.done ) {
+							setBar( box, 100, problem ? ( cfg.i18n.error + ': ' + problem ) : ( cfg.i18n.done + ' (' + d.created + ')' ) );
+							window.setTimeout( function () {
+								window.location.reload();
+							}, 900 );
+						} else {
+							setBar( box, d.percent, cfg.i18n.fetchingGsc + ' ' + d.processed );
+							loop();
+						}
+					} ).catch( function () {
+						setBar( box, 100, cfg.i18n.error );
+						gscBtn.disabled = false;
+					} );
+				}
+				loop();
+			} );
+		}
+
 		// Test a provider connection (add-key form).
 		var testBtn = document.getElementById( 'ailinking-test-conn' );
 		if ( testBtn ) {

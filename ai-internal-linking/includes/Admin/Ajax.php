@@ -17,6 +17,8 @@ use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
 use AILinking\Clusters\ClusterAnalyzer;
+use AILinking\Integrations\GscFetcher;
+use AILinking\Integrations\GoogleServiceAccount;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -38,6 +40,51 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_run_embed', array( $this, 'run_embed' ) );
 		add_action( 'wp_ajax_ailinking_test_connection', array( $this, 'test_connection' ) );
 		add_action( 'wp_ajax_ailinking_run_clusters', array( $this, 'run_clusters' ) );
+		add_action( 'wp_ajax_ailinking_gsc_fetch', array( $this, 'gsc_fetch' ) );
+	}
+
+	/**
+	 * Fetch one page of Search Console data (drives the progress bar).
+	 */
+	public function gsc_fetch() {
+		$this->guard();
+
+		if ( ! GoogleServiceAccount::is_connected() ) {
+			wp_send_json_success(
+				array(
+					'total'      => 0,
+					'processed'  => 0,
+					'created'    => 0,
+					'percent'    => 100,
+					'done'       => true,
+					'last_error' => __( 'Not connected to Search Console.', 'ai-internal-linking' ),
+				)
+			);
+		}
+
+		if ( ! empty( $_POST['start'] ) ) {
+			GscFetcher::start_fetch();
+		}
+
+		// One API page per request (each page can carry thousands of rows).
+		$progress = GscFetcher::fetch_batch();
+
+		$imported = (int) ( $progress['imported'] ?? 0 );
+		$done     = ! empty( $progress['done'] );
+		$error    = isset( $progress['error'] ) ? (string) $progress['error'] : '';
+		$total    = $done ? max( 1, $imported ) : $imported + GscFetcher::ROW_LIMIT;
+		$percent  = $done ? 100 : ( $total > 0 ? min( 95, (int) floor( ( $imported / $total ) * 100 ) ) : 10 );
+
+		wp_send_json_success(
+			array(
+				'total'      => $total,
+				'processed'  => $imported,
+				'created'    => $imported,
+				'percent'    => $percent,
+				'done'       => $done,
+				'last_error' => $error,
+			)
+		);
 	}
 
 	/**
