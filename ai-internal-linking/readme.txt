@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.9.0
+Stable tag: 0.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -32,7 +32,7 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 
 **Coming next**
 
-* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, generative LLM suggestions (bring any chat model's key), Elementor auto-apply, and cluster-aware suggestion ranking.
+* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, Elementor auto-apply, and cluster-aware suggestion ranking.
 
 == Installation ==
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.10.0 =
+* Generative AI suggestions (any chat model): a new "AI link suggestions" toggle (Settings) lets your chat provider propose contextual links directly — and unlike the embedding re-ranker, it works with chat-only keys such as Claude, Groq, xAI, DeepSeek, OpenRouter, and Perplexity, as well as OpenAI/Gemini/local models. During a suggestion scan the model receives each page plus a shortlist of genuinely related pages (real TF-IDF recall) and returns the best links with a natural anchor. Nothing is fabricated: candidate targets are constrained to existing pages, and every proposed anchor is verified to appear verbatim in the page body (wrap-first, never in a heading) before it becomes a suggestion — anything invented is dropped. Runs after keyword-evidence and before the TF-IDF fill, respects the monthly spend cap, and falls back to the free engine if the model is unavailable. AI picks carry an "AI" badge in the review inbox. Add a chat key under "AI Keys", set the chat provider under Settings, enable the toggle, then run a scan.
 
 = 0.9.0 =
 * Google Search Console fetch (API): pull performance data (queries + pages) directly, no CSV export step. Connect with a Google service-account JSON key — the key is stored encrypted at rest, and access tokens are minted on the fly by signing a JWT (the OAuth 2.0 JWT-bearer flow), so there are no redirect URLs, no consent screen, and it works headless. Add the service-account email as a user on your Search Console property, pick the property and date window on the Keywords tab, and click "Fetch now"; an optional daily auto-sync keeps it current. Fetched rows flow through the same striking-distance/opportunity scoring as CSV imports and feed the keyword-evidence suggestion engine (0.8.0). Bounded by a max-rows ceiling (filter: ailinking_gsc_max_rows) so it stays safe on very large sites; rows arrive click-descending, so the highest-value keywords are always kept. Requires the PHP OpenSSL (or Sodium) extension for secure key storage and signing.

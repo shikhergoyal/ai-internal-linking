@@ -71,6 +71,22 @@ class Gateway {
 	}
 
 	/**
+	 * Whether a chat provider is configured (powers generative suggestions).
+	 * Does not verify a key is in the pool — the run loop degrades gracefully
+	 * if no usable key is present.
+	 *
+	 * @return bool
+	 */
+	public static function chat_enabled() {
+		$provider_id = (string) Settings::get( 'chat_provider', 'none' );
+		if ( 'none' === $provider_id ) {
+			return false;
+		}
+		$provider = Registry::get( $provider_id );
+		return $provider && $provider->supports_chat();
+	}
+
+	/**
 	 * Resolve the embedding plane: explicit provider, or reuse chat provider.
 	 *
 	 * @return array{0:string,1:string} [provider_id, model]

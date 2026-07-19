@@ -68,6 +68,7 @@ class SettingsPage {
 				'min_anchor_words'          => $min_words,
 				'max_anchor_words'          => $max_words,
 				'keyword_suggestions'       => ! empty( $_POST['keyword_suggestions'] ),
+				'llm_suggestions'           => ! empty( $_POST['llm_suggestions'] ),
 				'chat_provider'             => $chat_provider,
 				'chat_model'                => isset( $_POST['chat_model'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model'] ) ) : '',
 				'embedding_provider'        => $emb_provider,
@@ -160,6 +161,13 @@ class SettingsPage {
 						<td>
 							<?php $this->provider_select( 'chat_provider', 'chat', (string) $settings['chat_provider'] ); ?>
 							<input type="text" name="chat_model" value="<?php echo esc_attr( (string) $settings['chat_model'] ); ?>" placeholder="<?php esc_attr_e( 'model id (optional)', 'ai-internal-linking' ); ?>" />
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'AI link suggestions', 'ai-internal-linking' ); ?></th>
+						<td>
+							<label><input type="checkbox" name="llm_suggestions" value="1" <?php checked( ! empty( $settings['llm_suggestions'] ) ); ?> /> <?php esc_html_e( 'Let the chat model propose contextual links', 'ai-internal-linking' ); ?></label>
+							<p class="description"><?php esc_html_e( 'When on, each suggestion scan asks your chat provider to pick the best links for every page from a shortlist of genuinely related pages, choosing a natural anchor already in the text. Works with any chat key (OpenAI, Claude, Gemini, Groq, local, and more). Targets and anchors are verified against real content, so nothing is fabricated; picks carry an “AI” badge in the inbox. Uses your monthly spend cap, and falls back to the free engine if the model is unavailable.', 'ai-internal-linking' ); ?></p>
 						</td>
 					</tr>
 					<tr>
