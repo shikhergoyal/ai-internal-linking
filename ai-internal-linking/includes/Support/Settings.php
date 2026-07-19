@@ -31,6 +31,7 @@ class Settings {
 			'min_anchor_words'     => 2,      // 1 allows single-word anchors as a fallback
 			'max_anchor_words'     => 4,      // longest anchor phrase to consider
 			'keyword_suggestions'  => true,   // use imported keywords (GSC/Semrush) as a suggestion source
+			'llm_suggestions'      => false,  // let a chat model propose contextual links (any provider key)
 			// AI provider configuration (Phase 1).
 			'chat_provider'             => 'none',
 			'chat_model'                => '',

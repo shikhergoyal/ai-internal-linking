@@ -32,7 +32,7 @@ class SuggestionEngine {
 
 		$source = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT post_id, parsed_text, lang_code, word_count, post_status, is_excluded FROM {$index} WHERE post_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				"SELECT post_id, title, parsed_text, lang_code, word_count, post_status, is_excluded FROM {$index} WHERE post_id = %d", // phpcs:ignore WordPress.DB.PreparedSQL
 				$source_id
 			),
 			ARRAY_A
@@ -129,7 +129,58 @@ class SuggestionEngine {
 			}
 		}
 
-		// Pass 2 — TF-IDF relevance (always available) fills the remaining capacity.
+		// Pass 2 — generative LLM: let a chat model pick contextual links from a
+		// grounded candidate pool (works with any chat key, incl. Claude). Every
+		// target is a real page and every anchor is verified verbatim in the body,
+		// so nothing is fabricated. Skipped entirely when no chat provider is set.
+		if ( $created < $limit && Settings::get( 'llm_suggestions', false ) && Gateway::chat_enabled() ) {
+			$pool = Tfidf::candidates( $source_id, $source['lang_code'], $targets, 18 );
+			$pool = array_values(
+				array_filter(
+					$pool,
+					function ( $c ) use ( $skip, $source_id ) {
+						$tid = (int) $c['post_id'];
+						return $tid !== (int) $source_id && ! isset( $skip[ $tid ] );
+					}
+				)
+			);
+
+			if ( ! empty( $pool ) ) {
+				$picks = LlmSuggester::find( $source_id, $text, (string) $source['title'], $pool, $min_words, $max_words, $limit - $created );
+				foreach ( $picks as $pick ) {
+					if ( $created >= $limit ) {
+						break;
+					}
+					$tid = (int) $pick['post_id'];
+					if ( isset( $skip[ $tid ] ) ) {
+						continue;
+					}
+					$relevance   = (float) $pick['score'];
+					$naturalness = Naturalness::score( $pick['anchor'], $relevance );
+
+					$inserted = self::insert_suggestion(
+						$source_id,
+						$source['lang_code'],
+						array(
+							'target_post_id' => $tid,
+							'target_url'     => $pick['url'],
+							'anchor_text'    => $pick['anchor'],
+							'context'        => $pick['context'],
+							'relevance'      => $relevance,
+							'naturalness'    => $naturalness,
+							'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
+							'engine'         => 'llm',
+						)
+					);
+					if ( $inserted ) {
+						$skip[ $tid ] = true;
+						$created++;
+					}
+				}
+			}
+		}
+
+		// Pass 3 — TF-IDF relevance (always available) fills the remaining capacity.
 		if ( $created < $limit ) {
 			$candidates = Tfidf::candidates( $source_id, $source['lang_code'], $targets, ( $limit * 4 ) + 10 );
 
