@@ -158,7 +158,7 @@ class Inbox {
 					'all'     => __( 'All', 'ai-internal-linking' ),
 					'ai'      => __( 'AI Suggestion', 'ai-internal-linking' ),
 					'gsc'     => __( 'GSC keyword', 'ai-internal-linking' ),
-					'content' => __( 'Content match', 'ai-internal-linking' ),
+					'content' => __( 'Related Content', 'ai-internal-linking' ),
 				);
 				$sfirst = true;
 				foreach ( $src_labels as $k => $label ) :
