@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.11.1
+Stable tag: 0.11.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,8 +43,8 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 
 == Changelog ==
 
-= 0.11.1 =
-* Renamed the "Keywords" tab to "Connect GSC" (Search Console is the primary source now). Removed the Semrush import option — Google Search Console (plus generic CSV as a fallback) is enough. In the review inbox, the generative-suggestion badge now reads "AI Suggestion" in blue, and keyword-evidence suggestions read "GSC keyword".
+= 0.11.2 =
+* Renamed the "Keywords" tab to "Connect GSC" (Search Console is the primary source now). Removed the Semrush import option — Google Search Console (plus generic CSV as a fallback) is enough. In the review inbox, both suggestion badges are now blue: the generative one reads "AI Suggestion" and keyword-evidence suggestions read "GSC keyword".
 
 = 0.11.0 =
 * Removed the Clusters and GEO Readiness features. Both were standalone dashboards that did not influence the core index → suggest → review → apply workflow: Clusters produced a hub-and-spoke authority report that never fed the suggestion engine, and GEO Readiness was a heuristic "AI-citation likelihood" score that was speculative and not directly actionable. The admin now shows only the tabs that matter (Setup & Dashboard, Suggestions, Link Health, Keywords, AI Keys, Settings). The clusters/cluster_members tables are no longer created on new installs and are dropped on uninstall of existing installs. Link Health (orphans, dead-ends, broken links, PageRank, anchor diversity) is unchanged.
