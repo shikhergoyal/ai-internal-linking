@@ -66,25 +66,35 @@ class Schema {
 	}
 
 	/**
-	 * Reset: empty ALL plugin data tables and clear progress/caches/locks, so the
-	 * next scan starts completely from scratch. Keeps the table schema (does not
-	 * drop tables) and does NOT touch any WordPress posts. Links already inserted
-	 * into content remain in the posts.
+	 * Reset the SCAN data (index, suggestions, link graph, keywords, embeddings,
+	 * jobs) and clear progress/caches/locks, so the next scan starts from scratch.
+	 * Keeps the table schema, does NOT touch any WordPress posts, and deliberately
+	 * PRESERVES your configuration: saved API keys (provider_keys) and their spend
+	 * history (spend_log), plus all settings and the Search Console connection
+	 * (which live in options, not these tables). Links already inserted into
+	 * content remain in the posts.
 	 */
 	public static function reset_data() {
 		global $wpdb;
 		self::ensure_installed();
 
+		// Configuration tables that must survive a data reset (your API keys and
+		// their usage/spend history). Everything else is scan data and is cleared.
+		$keep = array( 'provider_keys', 'spend_log' );
+
 		foreach ( Tables::all_keys() as $key ) {
+			if ( in_array( $key, $keep, true ) ) {
+				continue;
+			}
 			$table = Tables::name( $key );
 			$wpdb->query( "DELETE FROM `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL
 		}
 
-		// Clear job progress, the spend window, the audit cache, and any locks.
+		// Clear job progress, the audit cache, and any locks. The monthly spend
+		// window is left intact so the cap keeps tracking against your keys.
 		delete_option( 'ailinking_progress_index' );
 		delete_option( 'ailinking_progress_suggest' );
 		delete_option( 'ailinking_progress_embed' );
-		delete_option( 'ailinking_spend_month' );
 		delete_transient( 'ailinking_audit_summary' );
 		delete_transient( 'ailinking_lock_index' );
 		delete_transient( 'ailinking_lock_suggest' );

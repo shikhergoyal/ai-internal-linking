@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.11.3
+Stable tag: 0.11.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.11.4 =
+* Fix: "Reset all data" no longer removes your saved API keys. Reset is meant to clear scan data (index, suggestions, link graph, keywords, embeddings) so you can rescan, but it was also emptying the key pool, forcing you to re-enter your key every time. It now preserves your API keys and their spend history, your settings, and the Search Console connection — only scan data is cleared. Copy on the Reset card updated to say so.
 
 = 0.11.3 =
 * Suggestions inbox: renamed the "Confidence" column to "Relevance" (with a tooltip clarifying it is the overall score blending relevance and naturalness). Added a Source filter row — All / AI Suggestion / GSC keyword / Content match, each with a live count — so you can quickly see and review suggestions by where they came from. The filter combines with the status tabs (Pending/Approved/…) and paginates correctly.
