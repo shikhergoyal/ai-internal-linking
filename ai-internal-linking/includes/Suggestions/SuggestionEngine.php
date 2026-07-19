@@ -333,9 +333,16 @@ class SuggestionEngine {
 		try {
 			$index    = Tables::index();
 			$progress = ProgressStore::get( 'suggest' );
-			if ( empty( $progress ) || 'running' !== $progress['status'] ) {
-				$progress           = self::start_scan();
-				$progress['status'] = $progress['total'] > 0 ? 'running' : 'complete';
+			if ( empty( $progress ) || 'running' !== ( isset( $progress['status'] ) ? $progress['status'] : '' ) ) {
+				// Not an active run (paused / stopped / complete / never started). Do
+				// NOT auto-start here — the caller owns starts (run_suggest start=1, or
+				// a resume). This is what lets a paused scan stay paused and later
+				// resume from its saved cursor instead of restarting from scratch.
+				if ( empty( $progress ) ) {
+					$progress = array( 'total' => 0, 'processed' => 0, 'created' => 0, 'status' => 'complete' );
+				}
+				$progress['done'] = true;
+				return $progress;
 			}
 
 			$cursor = (int) $progress['cursor'];

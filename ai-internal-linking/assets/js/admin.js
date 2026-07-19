@@ -117,13 +117,129 @@
 			} );
 		}
 
-		var sugBtn = document.getElementById( 'ailinking-run-suggest' );
-		if ( sugBtn ) {
-			sugBtn.addEventListener( 'click', function ( e ) {
+		// Suggestion scan: Start / Pause / Resume / Stop (server-resumable).
+		( function () {
+			var box     = document.querySelector( '#ailinking-progress-suggest' );
+			var scanBtn = document.getElementById( 'ailinking-run-suggest' );
+			var pauseB  = document.getElementById( 'ailinking-pause-suggest' );
+			var resumeB = document.getElementById( 'ailinking-resume-suggest' );
+			var stopB   = document.getElementById( 'ailinking-stop-suggest' );
+			if ( ! box || ! scanBtn ) {
+				return;
+			}
+			var looping = false;
+
+			function shown( el, on ) {
+				if ( el ) {
+					el.style.display = on ? 'inline-block' : 'none';
+				}
+			}
+			function ui( state ) { // 'idle' | 'running' | 'paused'
+				shown( scanBtn, state === 'idle' );
+				shown( pauseB, state === 'running' );
+				shown( resumeB, state === 'paused' );
+				shown( stopB, state === 'running' || state === 'paused' );
+			}
+			function scanLabel( d ) {
+				return cfg.i18n.scanning + ' ' + d.processed + ' / ' + d.total + '  (' + d.created + ' ' + cfg.i18n.found + ')';
+			}
+			function pausedLabel( d ) {
+				return cfg.i18n.paused + ' ' + ( d.processed || 0 ) + ' / ' + ( d.total || 0 );
+			}
+
+			function tick( start ) {
+				post( 'ailinking_run_suggest', { start: start } ).then( function ( res ) {
+					if ( ! looping ) {
+						return;
+					}
+					if ( ! res || ! res.success ) {
+						setBar( box, 100, cfg.i18n.error );
+						looping = false;
+						ui( 'idle' );
+						return;
+					}
+					var d = res.data;
+					var problem = d.last_error || '';
+					if ( 'paused' === d.status ) {
+						setBar( box, d.percent, pausedLabel( d ) );
+						looping = false;
+						ui( 'paused' );
+						return;
+					}
+					if ( d.done ) {
+						setBar( box, 100, problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done );
+						looping = false;
+						ui( 'idle' );
+						return;
+					}
+					setBar( box, d.percent, scanLabel( d ) );
+					tick( 0 );
+				} ).catch( function () {
+					if ( looping ) {
+						setBar( box, 100, cfg.i18n.error );
+						looping = false;
+						ui( 'idle' );
+					}
+				} );
+			}
+			function drive( start ) {
+				looping = true;
+				ui( 'running' );
+				setBar( box, start ? 0 : ( parseInt( box.getAttribute( 'data-scan-percent' ), 10 ) || 0 ), cfg.i18n.scanning );
+				tick( start ? 1 : 0 );
+			}
+
+			scanBtn.addEventListener( 'click', function ( e ) {
 				e.preventDefault();
-				runJob( 'ailinking_run_suggest', '#ailinking-progress-suggest', cfg.i18n.scanning, true );
+				if ( ! window.confirm( cfg.i18n.confirmScan ) ) {
+					return;
+				}
+				drive( 1 );
 			} );
-		}
+			if ( resumeB ) {
+				resumeB.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					resumeB.disabled = true;
+					post( 'ailinking_scan_control', { do: 'resume' } ).then( function () {
+						resumeB.disabled = false;
+						drive( 0 );
+					} ).catch( function () {
+						resumeB.disabled = false;
+					} );
+				} );
+			}
+			if ( pauseB ) {
+				pauseB.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					looping = false;
+					pauseB.disabled = true;
+					post( 'ailinking_scan_control', { do: 'pause' } ).then( function ( res ) {
+						pauseB.disabled = false;
+						var d = ( res && res.data ) ? res.data : {};
+						setBar( box, d.percent || 0, pausedLabel( d ) );
+						ui( 'paused' );
+					} ).catch( function () {
+						pauseB.disabled = false;
+						ui( 'paused' );
+					} );
+				} );
+			}
+			if ( stopB ) {
+				stopB.addEventListener( 'click', function ( e ) {
+					e.preventDefault();
+					looping = false;
+					post( 'ailinking_scan_control', { do: 'stop' } ).then( function () {
+						setBar( box, 100, cfg.i18n.done );
+						ui( 'idle' );
+					} );
+				} );
+			}
+
+			// Initial state from the server (survives navigation): resumable if a
+			// scan was left running/paused mid-way.
+			var st = box.getAttribute( 'data-scan-status' );
+			ui( ( 'running' === st || 'paused' === st ) ? 'paused' : 'idle' );
+		} )();
 
 		// Suggestion approve/reject/restore (status only).
 		bindAll( '.ailinking-act', function ( btn, row ) {
