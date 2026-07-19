@@ -64,7 +64,7 @@ class Admin {
 			'dashboard'   => array( __( 'Setup & Dashboard', 'ai-internal-linking' ), $this->wizard ),
 			'suggestions' => array( __( 'Suggestions', 'ai-internal-linking' ), $this->inbox ),
 			'health'      => array( __( 'Link Health', 'ai-internal-linking' ), $this->health ),
-			'keywords'    => array( __( 'Keywords', 'ai-internal-linking' ), $this->keywords ),
+			'keywords'    => array( __( 'Connect GSC', 'ai-internal-linking' ), $this->keywords ),
 			'keys'        => array( __( 'AI Keys', 'ai-internal-linking' ), $this->keys ),
 			'settings'    => array( __( 'Settings', 'ai-internal-linking' ), $this->settings ),
 		);

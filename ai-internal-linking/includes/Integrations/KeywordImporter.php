@@ -1,6 +1,6 @@
 <?php
 /**
- * Keyword import (Google Search Console / Semrush / generic exports).
+ * Keyword import (Google Search Console / generic CSV exports).
  * Detects columns, computes striking-distance (position 5-20) + an opportunity
  * score, resolves landing pages to post IDs, and stores rows for the suggestion
  * engine. Rows arrive either from a CSV upload (import_csv) or the Search Console
@@ -93,14 +93,14 @@ class KeywordImporter {
 	 * @param int    $impressions Impressions.
 	 * @param float  $ctr         Click-through rate.
 	 * @param float  $position    Average position.
-	 * @param string $source      'gsc'|'semrush'|'csv'.
+	 * @param string $source      'gsc'|'csv'.
 	 * @return array
 	 */
 	public static function build_row( $keyword, $page, $clicks, $impressions, $ctr, $position, $source ) {
 		$keyword = (string) $keyword;
 		$page    = (string) $page;
 		$post_id = ( '' !== $page ) ? UrlResolver::to_post_id( $page ) : 0;
-		$source  = in_array( $source, array( 'gsc', 'semrush', 'csv' ), true ) ? $source : 'csv';
+		$source  = in_array( $source, array( 'gsc', 'csv' ), true ) ? $source : 'csv';
 
 		return array(
 			'keyword'           => substr( $keyword, 0, 500 ),
@@ -149,7 +149,7 @@ class KeywordImporter {
 	 * Import a CSV file.
 	 *
 	 * @param string $path   Server path to the uploaded CSV.
-	 * @param string $source 'gsc'|'semrush'|'csv'.
+	 * @param string $source 'gsc'|'csv'.
 	 * @return array{ok:bool,imported?:int,reason?:string}
 	 */
 	public static function import_csv( $path, $source = 'csv' ) {
@@ -174,7 +174,7 @@ class KeywordImporter {
 
 		global $wpdb;
 		$table  = Tables::keywords();
-		$source = in_array( $source, array( 'gsc', 'semrush', 'csv' ), true ) ? $source : 'csv';
+		$source = in_array( $source, array( 'gsc', 'csv' ), true ) ? $source : 'csv';
 
 		// Replace previous rows from the same source for a clean re-import.
 		$wpdb->delete( $table, array( 'source' => $source ), array( '%s' ) );

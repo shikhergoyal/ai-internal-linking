@@ -148,8 +148,8 @@ class SettingsPage {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Keyword suggestions', 'ai-internal-linking' ); ?></th>
 						<td>
-							<label><input type="checkbox" name="keyword_suggestions" value="1" <?php checked( ! empty( $settings['keyword_suggestions'] ) ); ?> /> <?php esc_html_e( 'Use imported keywords (GSC/Semrush) as a suggestion source', 'ai-internal-linking' ); ?></label>
-							<p class="description"><?php esc_html_e( 'When a post mentions a query that another page already ranks for — without linking to it — that mention becomes a high-priority suggestion with the keyword as the anchor. Import keywords under the Keywords tab; striking-distance keywords (positions 5–20) are favoured.', 'ai-internal-linking' ); ?></p>
+							<label><input type="checkbox" name="keyword_suggestions" value="1" <?php checked( ! empty( $settings['keyword_suggestions'] ) ); ?> /> <?php esc_html_e( 'Use imported Google Search Console keywords as a suggestion source', 'ai-internal-linking' ); ?></label>
+							<p class="description"><?php esc_html_e( 'When a post mentions a query that another page already ranks for — without linking to it — that mention becomes a high-priority suggestion with the keyword as the anchor. Connect Google Search Console under the Connect GSC tab; striking-distance keywords (positions 5–20) are favoured.', 'ai-internal-linking' ); ?></p>
 						</td>
 					</tr>
 
