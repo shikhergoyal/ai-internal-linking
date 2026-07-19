@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.10.2
+Stable tag: 0.10.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.10.3 =
+* Apply now links the first eligible occurrence of an anchor instead of refusing when the phrase appears more than once. Key terms repeat across a heading, a summary list, a caption, and a practice question in rich posts, so requiring exactly one occurrence made many good, high-confidence suggestions un-appliable ("Could not place this link automatically — the anchor wasn't found uniquely"). Headings, existing links, code, and tag attributes are still never linked, and the byte-splice + visible-text integrity check are unchanged, so no structural corruption is possible. Only a genuinely absent anchor (zero eligible occurrences) is still declined.
 
 = 0.10.2 =
 * Fix: the suggestion scan froze / returned "Something went wrong" when "AI link suggestions" was on. Each post is a live model round-trip, but the scan processed up to 24 posts per AJAX request, so a single request could exceed the server's PHP time limit and 500 before the progress bar ever appeared. The scan now returns immediately on start (bar shows at 0% right away) and processes only a small, wall-clock-bounded chunk of posts per request when AI suggestions are enabled (one post at a time under a ~12s budget), so requests always return well within the time limit and the bar advances steadily. Free (TF-IDF) scans are likewise time-bounded per request.

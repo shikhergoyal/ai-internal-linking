@@ -6,8 +6,9 @@
  * real-world markup), this scans the raw string, skips tags and the contents of
  * <a>/<code>/<pre>/<script>/<style>, finds a whole-word (Unicode-aware) match, and
  * splices the new <a> in at the exact byte offset. Every other byte of the source
- * is preserved verbatim — no structural corruption is possible. The anchor must
- * occur exactly once among eligible text, or the write is refused (suggest-only).
+ * is preserved verbatim — no structural corruption is possible. The first eligible
+ * occurrence is linked; if the anchor has no eligible occurrence the write is
+ * refused (suggest-only).
  *
  * @package AILinking
  */
@@ -48,11 +49,15 @@ class WriteGuards {
 		}
 
 		$matches = self::eligible_matches( $html, $anchor );
-		if ( 1 !== count( $matches ) ) {
-			$reason = empty( $matches ) ? 'anchor_not_found' : 'anchor_ambiguous';
-			return array( 'ok' => false, 'reason' => $reason );
+		if ( empty( $matches ) ) {
+			return array( 'ok' => false, 'reason' => 'anchor_not_found' );
 		}
 
+		// Link the first eligible occurrence (document order). Key terms repeat in
+		// rich posts (a heading, a summary list, an MCQ, a caption); linking the
+		// first is the standard, reader-first choice and keeps a good suggestion
+		// appliable instead of refusing it. The byte-splice + visible-text
+		// integrity check still make structural corruption impossible.
 		list( $offset, $length ) = $matches[0];
 		$matched = substr( $html, $offset, $length );
 
