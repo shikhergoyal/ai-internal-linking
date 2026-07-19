@@ -31,12 +31,6 @@ class Admin {
 	/** @var KeywordsPage */
 	private $keywords;
 
-	/** @var ClustersPage */
-	private $clusters;
-
-	/** @var GeoDashboard */
-	private $geo;
-
 	public function __construct() {
 		$this->wizard   = new Wizard();
 		$this->inbox    = new Inbox();
@@ -44,8 +38,6 @@ class Admin {
 		$this->health   = new HealthDashboard();
 		$this->keys     = new KeyPoolPage();
 		$this->keywords = new KeywordsPage();
-		$this->clusters = new ClustersPage();
-		$this->geo      = new GeoDashboard();
 	}
 
 	/**
@@ -60,7 +52,6 @@ class Admin {
 		$this->settings->register();
 		$this->keys->register();
 		$this->keywords->register();
-		$this->clusters->register();
 	}
 
 	/**
@@ -73,8 +64,6 @@ class Admin {
 			'dashboard'   => array( __( 'Setup & Dashboard', 'ai-internal-linking' ), $this->wizard ),
 			'suggestions' => array( __( 'Suggestions', 'ai-internal-linking' ), $this->inbox ),
 			'health'      => array( __( 'Link Health', 'ai-internal-linking' ), $this->health ),
-			'clusters'    => array( __( 'Clusters', 'ai-internal-linking' ), $this->clusters ),
-			'geo'         => array( __( 'GEO Readiness', 'ai-internal-linking' ), $this->geo ),
 			'keywords'    => array( __( 'Keywords', 'ai-internal-linking' ), $this->keywords ),
 			'keys'        => array( __( 'AI Keys', 'ai-internal-linking' ), $this->keys ),
 			'settings'    => array( __( 'Settings', 'ai-internal-linking' ), $this->settings ),
@@ -165,8 +154,6 @@ class Admin {
 					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
 					'fetchingGsc'   => __( 'Fetching from Search Console…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
-					'analyzing'     => __( 'Analyzing…', 'ai-internal-linking' ),
-					'noClusters'    => __( 'No clusters to analyze yet — create one below first (name + pillar post ID), add spoke posts, then Analyze.', 'ai-internal-linking' ),
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
 					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),
