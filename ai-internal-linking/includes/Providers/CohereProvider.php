@@ -1,6 +1,6 @@
 <?php
 /**
- * Cohere adapter (v2 chat + embed). Best-effort; verify against a live key.
+ * Cohere adapter (v2 chat). Best-effort; verify against a live key.
  *
  * @package AILinking
  */
@@ -23,10 +23,6 @@ class CohereProvider implements ProviderInterface {
 		return true;
 	}
 
-	public function supports_embeddings() {
-		return true;
-	}
-
 	public function default_base_url() {
 		return 'https://api.cohere.com';
 	}
@@ -38,7 +34,6 @@ class CohereProvider implements ProviderInterface {
 	public function default_models() {
 		return array(
 			'chat'      => array( 'command-r-plus', 'command-r' ),
-			'embedding' => array( 'embed-english-v3.0', 'embed-multilingual-v3.0' ),
 		);
 	}
 
@@ -83,36 +78,6 @@ class CohereProvider implements ProviderInterface {
 				'output_tokens' => isset( $decoded['usage']['tokens']['output_tokens'] ) ? (int) $decoded['usage']['tokens']['output_tokens'] : 0,
 			),
 			'model'         => $ctx['model'],
-		);
-	}
-
-	public function embed( array $request, array $ctx ) {
-		$body = array(
-			'model'           => $ctx['model'],
-			'texts'           => array_values( (array) $request['input'] ),
-			'input_type'      => 'search_document',
-			'embedding_types' => array( 'float' ),
-		);
-
-		$res     = Http::post( $this->base( $ctx ) . '/v2/embed', $this->headers( $ctx ), wp_json_encode( $body ), $this->timeout( $ctx ) );
-		$decoded = json_decode( (string) $res['body'], true );
-
-		if ( $res['status'] < 200 || $res['status'] >= 300 ) {
-			return array( 'ok' => false, 'error' => Errors::classify( $res['status'], $decoded ? $decoded : $res['body'], $res['headers'], isset( $res['error'] ) ? (string) $res['error'] : '' ) );
-		}
-
-		$vectors = array();
-		if ( isset( $decoded['embeddings']['float'] ) && is_array( $decoded['embeddings']['float'] ) ) {
-			foreach ( $decoded['embeddings']['float'] as $vec ) {
-				$vectors[] = array_map( 'floatval', $vec );
-			}
-		}
-
-		return array(
-			'ok'      => true,
-			'vectors' => $vectors,
-			'usage'   => array( 'input_tokens' => 0 ),
-			'model'   => $ctx['model'],
 		);
 	}
 

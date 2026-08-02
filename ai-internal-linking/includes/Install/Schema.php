@@ -34,7 +34,22 @@ class Schema {
 			dbDelta( $sql );
 		}
 
+		self::drop_retired_tables();
+
 		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+	}
+
+	/**
+	 * Drop tables belonging to features that no longer exist, so an upgraded
+	 * site does not carry dead data forever. Retired in 0.14.0: embeddings,
+	 * when the semantic re-ranker was removed.
+	 */
+	private static function drop_retired_tables() {
+		global $wpdb;
+		foreach ( array( 'embeddings' ) as $retired ) {
+			$table = $wpdb->prefix . 'ailinking_' . $retired;
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
 	}
 
 	/**
@@ -66,8 +81,8 @@ class Schema {
 	}
 
 	/**
-	 * Reset the SCAN data (index, suggestions, link graph, keywords, embeddings,
-	 * jobs) and clear progress/caches/locks, so the next scan starts from scratch.
+	 * Reset the SCAN data (index, suggestions, link graph, keywords, jobs) and
+	 * clear progress/caches/locks, so the next scan starts from scratch.
 	 * Keeps the table schema, does NOT touch any WordPress posts, and deliberately
 	 * PRESERVES your configuration: saved API keys (provider_keys) and their spend
 	 * history (spend_log), plus all settings and the Search Console connection
@@ -129,7 +144,6 @@ class Schema {
 		$spend_log     = Tables::spend_log();
 		$keywords      = Tables::keywords();
 		$keyword_map   = Tables::keyword_map();
-		$embeddings    = Tables::embeddings();
 
 		$statements = array();
 
@@ -337,21 +351,6 @@ class Schema {
 			PRIMARY KEY  (id),
 			UNIQUE KEY kw_target (keyword_id,target_post_id),
 			KEY target_post_id (target_post_id)
-		) {$charset_collate};";
-
-		$statements[] = "CREATE TABLE {$embeddings} (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			post_id bigint(20) unsigned NOT NULL,
-			provider varchar(30) NOT NULL DEFAULT '',
-			model varchar(100) NOT NULL DEFAULT '',
-			dims int unsigned NOT NULL DEFAULT 0,
-			vector longtext NULL,
-			norm float NOT NULL DEFAULT 0,
-			content_hash char(32) NOT NULL DEFAULT '',
-			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY post_id (post_id),
-			KEY model (model)
 		) {$charset_collate};";
 
 		return $statements;

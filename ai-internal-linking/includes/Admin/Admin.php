@@ -151,7 +151,6 @@ class Admin {
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
 					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
-					'embedding'     => __( 'Building embeddings…', 'ai-internal-linking' ),
 					'fetchingGsc'   => __( 'Fetching from Search Console…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),

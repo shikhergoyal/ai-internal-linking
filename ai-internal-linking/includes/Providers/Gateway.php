@@ -47,30 +47,6 @@ class Gateway {
 	}
 
 	/**
-	 * Run an embeddings request.
-	 *
-	 * @param string[] $inputs Texts.
-	 * @return array ['ok'=>bool,'vectors'=>..,'model'=>..] or error.
-	 */
-	public static function embed( array $inputs ) {
-		list( $provider_id, $model_cfg ) = self::resolve_embedding();
-		if ( 'none' === $provider_id ) {
-			return array( 'ok' => false, 'error' => array( 'class' => 'disabled', 'message' => 'No embeddings provider configured' ) );
-		}
-		return self::run( 'embedding', $provider_id, $model_cfg, array( 'input' => array_values( $inputs ) ) );
-	}
-
-	/**
-	 * Whether an embeddings provider is configured/usable.
-	 *
-	 * @return bool
-	 */
-	public static function embeddings_enabled() {
-		list( $provider_id ) = self::resolve_embedding();
-		return 'none' !== $provider_id;
-	}
-
-	/**
 	 * Whether a chat provider is configured (powers generative suggestions).
 	 * Does not verify a key is in the pool — the run loop degrades gracefully
 	 * if no usable key is present.
@@ -87,32 +63,9 @@ class Gateway {
 	}
 
 	/**
-	 * Resolve the embedding plane: explicit provider, or reuse chat provider.
-	 *
-	 * @return array{0:string,1:string} [provider_id, model]
-	 */
-	private static function resolve_embedding() {
-		$emb = (string) Settings::get( 'embedding_provider', 'none' );
-		if ( 'none' !== $emb ) {
-			$p = Registry::get( $emb );
-			if ( $p && $p->supports_embeddings() ) {
-				return array( $emb, (string) Settings::get( 'embedding_model', '' ) );
-			}
-		}
-		if ( Settings::get( 'reuse_chat_for_embeddings', false ) ) {
-			$chat = (string) Settings::get( 'chat_provider', 'none' );
-			$p    = ( 'none' !== $chat ) ? Registry::get( $chat ) : null;
-			if ( $p && $p->supports_embeddings() ) {
-				return array( $chat, (string) Settings::get( 'embedding_model', '' ) );
-			}
-		}
-		return array( 'none', '' );
-	}
-
-	/**
 	 * Shared call runner with cap check + failover.
 	 *
-	 * @param string $plane       'chat'|'embedding'.
+	 * @param string $plane       Operation label, recorded against spend ('chat').
 	 * @param string $provider_id Provider slug.
 	 * @param string $model_cfg   Configured model fallback.
 	 * @param array  $request     Request payload.
@@ -157,7 +110,7 @@ class Gateway {
 
 			$err = null;
 			for ( $attempt = 0; $attempt < self::MAX_RETRIES; $attempt++ ) {
-				$resp = ( 'chat' === $plane ) ? $provider->chat( $request, $ctx ) : $provider->embed( $request, $ctx );
+				$resp = $provider->chat( $request, $ctx );
 
 				if ( ! empty( $resp['ok'] ) ) {
 					self::record_success( $plane, $provider_id, $ctx['model'], $lease['key_id'], $resp );
@@ -208,12 +161,6 @@ class Gateway {
 	 */
 	private static function estimate_cents( $plane, $provider_id, $model, array $request ) {
 		$chars = 0;
-		if ( 'embedding' === $plane ) {
-			foreach ( (array) $request['input'] as $t ) {
-				$chars += strlen( (string) $t );
-			}
-			return Pricing::cents( $provider_id, $model, (int) ceil( $chars / 4 ), 0, 'embedding' );
-		}
 		if ( ! empty( $request['system'] ) ) {
 			$chars += strlen( (string) $request['system'] );
 		}
@@ -235,7 +182,7 @@ class Gateway {
 			return $cfg_model;
 		}
 		$models = $provider->default_models();
-		$list   = ( 'embedding' === $plane ) ? $models['embedding'] : $models['chat'];
+		$list   = isset( $models['chat'] ) ? $models['chat'] : array();
 		return ! empty( $list ) ? $list[0] : '';
 	}
 }

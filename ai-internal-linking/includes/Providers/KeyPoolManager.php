@@ -90,7 +90,7 @@ class KeyPoolManager {
 	 * (with the decrypted key) or null if none available.
 	 *
 	 * @param string $provider Provider slug.
-	 * @param string $plane    'chat' | 'embedding'.
+	 * @param string $plane    Capability plane ('chat').
 	 * @param string $strategy 'round_robin' | 'primary_failover'.
 	 * @param int[]  $skip     Key ids to skip (already tried this request).
 	 * @return array|null
@@ -152,7 +152,7 @@ class KeyPoolManager {
 	 * @param int    $key_id     Key id.
 	 * @param string $provider   Provider.
 	 * @param string $model      Model.
-	 * @param string $operation  'chat'|'embedding'.
+	 * @param string $operation  Operation label ('chat').
 	 * @param int    $tokens_in  Prompt tokens.
 	 * @param int    $tokens_out Completion tokens.
 	 * @param int        $cost_cents Estimated cost (whole cents, rounded up).

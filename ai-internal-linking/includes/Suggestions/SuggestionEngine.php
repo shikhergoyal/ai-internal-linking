@@ -185,11 +185,6 @@ class SuggestionEngine {
 		if ( $created < $limit ) {
 			$candidates = Tfidf::candidates( $source_id, $source['lang_code'], $targets, ( $limit * 4 ) + 10 );
 
-			// Optional embedding re-rank (precision) on top of TF-IDF recall.
-			if ( Gateway::embeddings_enabled() ) {
-				$candidates = VectorStore::rerank( $source_id, $candidates );
-			}
-
 			foreach ( $candidates as $cand ) {
 				if ( $created >= $limit ) {
 					break;

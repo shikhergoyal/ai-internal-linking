@@ -49,10 +49,6 @@ class SettingsPage {
 		if ( 'none' !== $chat_provider && ! Registry::has( $chat_provider ) ) {
 			$chat_provider = 'none';
 		}
-		$emb_provider = isset( $_POST['embedding_provider'] ) ? sanitize_key( wp_unslash( $_POST['embedding_provider'] ) ) : 'none';
-		if ( 'none' !== $emb_provider && ! Registry::has( $emb_provider ) ) {
-			$emb_provider = 'none';
-		}
 		$rotation = isset( $_POST['rotation'] ) ? sanitize_key( wp_unslash( $_POST['rotation'] ) ) : 'round_robin';
 		if ( ! in_array( $rotation, array( 'round_robin', 'primary_failover' ), true ) ) {
 			$rotation = 'round_robin';
@@ -71,9 +67,6 @@ class SettingsPage {
 				'llm_suggestions'           => ! empty( $_POST['llm_suggestions'] ),
 				'chat_provider'             => $chat_provider,
 				'chat_model'                => isset( $_POST['chat_model'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model'] ) ) : '',
-				'embedding_provider'        => $emb_provider,
-				'embedding_model'           => isset( $_POST['embedding_model'] ) ? sanitize_text_field( wp_unslash( $_POST['embedding_model'] ) ) : '',
-				'reuse_chat_for_embeddings' => ! empty( $_POST['reuse_chat_for_embeddings'] ),
 				'rotation'                  => $rotation,
 				'monthly_cap_usd'           => $cap,
 			)
@@ -87,7 +80,7 @@ class SettingsPage {
 	 * Render a provider <select> for a capability plane.
 	 *
 	 * @param string $name    Field name.
-	 * @param string $plane   'chat'|'embedding'.
+	 * @param string $plane   Capability plane ('chat').
 	 * @param string $current Currently selected id.
 	 */
 	private function provider_select( $name, $plane, $current ) {
@@ -154,7 +147,7 @@ class SettingsPage {
 					</tr>
 
 					<tr><th colspan="2"><h2 style="margin:0;"><?php esc_html_e( 'AI provider (optional)', 'ai-internal-linking' ); ?></h2>
-						<p class="description"><?php esc_html_e( 'Leave as “None” to run fully on the zero-cost TF-IDF engine. Add API keys under “AI Keys”. Embeddings improve relevance; Claude has no embeddings API, so pick Voyage/OpenAI (or reuse a chat provider that supports them).', 'ai-internal-linking' ); ?></p></th></tr>
+						<p class="description"><?php esc_html_e( 'Leave as “None” to run fully on the zero-cost engines. Add API keys under “AI Keys”.', 'ai-internal-linking' ); ?></p></th></tr>
 
 					<tr>
 						<th scope="row"><label for="chat_provider"><?php esc_html_e( 'Chat provider', 'ai-internal-linking' ); ?></label></th>
@@ -168,16 +161,6 @@ class SettingsPage {
 						<td>
 							<label><input type="checkbox" name="llm_suggestions" value="1" <?php checked( ! empty( $settings['llm_suggestions'] ) ); ?> /> <?php esc_html_e( 'Let the chat model propose contextual links', 'ai-internal-linking' ); ?></label>
 							<p class="description"><?php esc_html_e( 'When on, each suggestion scan asks your chat provider to pick the best links for every page from a shortlist of genuinely related pages, choosing a natural anchor already in the text. Works with any chat key (OpenAI, Claude, Gemini, Groq, local, and more). Targets and anchors are verified against real content, so nothing is fabricated; picks carry an “AI” badge in the inbox. Uses your monthly spend cap, and falls back to the free engine if the model is unavailable.', 'ai-internal-linking' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="embedding_provider"><?php esc_html_e( 'Embeddings provider', 'ai-internal-linking' ); ?></label></th>
-						<td>
-							<?php $this->provider_select( 'embedding_provider', 'embedding', (string) $settings['embedding_provider'] ); ?>
-							<input type="text" name="embedding_model" value="<?php echo esc_attr( (string) $settings['embedding_model'] ); ?>" placeholder="<?php esc_attr_e( 'model id (optional)', 'ai-internal-linking' ); ?>" />
-							<p class="description">
-								<label><input type="checkbox" name="reuse_chat_for_embeddings" value="1" <?php checked( ! empty( $settings['reuse_chat_for_embeddings'] ) ); ?> /> <?php esc_html_e( 'Reuse the chat provider for embeddings when it supports them', 'ai-internal-linking' ); ?></label>
-							</p>
 						</td>
 					</tr>
 					<tr>

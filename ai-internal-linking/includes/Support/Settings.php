@@ -35,9 +35,6 @@ class Settings {
 			// AI provider configuration (Phase 1).
 			'chat_provider'             => 'none',
 			'chat_model'                => '',
-			'embedding_provider'        => 'none',
-			'embedding_model'           => '',
-			'reuse_chat_for_embeddings' => false,
 			'rotation'                  => 'round_robin', // or primary_failover
 			'monthly_cap_usd'           => 0,             // 0 = no cap
 			// Google Search Console API fetch.

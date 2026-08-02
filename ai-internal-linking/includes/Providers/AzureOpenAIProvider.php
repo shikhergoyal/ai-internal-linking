@@ -22,21 +22,15 @@ class AzureOpenAIProvider extends OpenAICompatibleProvider {
 			'Azure OpenAI',
 			'',
 			array(
-				'supports_embeddings' => true,
-				'needs_base_url'      => true,
-				'auth_style'          => 'api_key_header',
-				'chat_models'         => array(),
-				'embed_models'        => array(),
+				'needs_base_url' => true,
+				'auth_style'     => 'api_key_header',
+				'chat_models'    => array(),
 			)
 		);
 	}
 
 	protected function chat_url( array $ctx ) {
 		return $this->base( $ctx ) . '/openai/deployments/' . rawurlencode( $ctx['model'] ) . '/chat/completions?api-version=' . rawurlencode( $this->api_version( $ctx ) );
-	}
-
-	protected function embed_url( array $ctx ) {
-		return $this->base( $ctx ) . '/openai/deployments/' . rawurlencode( $ctx['model'] ) . '/embeddings?api-version=' . rawurlencode( $this->api_version( $ctx ) );
 	}
 
 	private function api_version( array $ctx ) {
