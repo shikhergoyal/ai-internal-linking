@@ -62,6 +62,63 @@ temperature    = 0</div>
 <div class="formula">relevance = clamp(model_confidence, 0, 1)
             default 0.7 when the model returns no confidence value</div>
 
+<h3>How the link is actually chosen, step by step</h3>
+
+<p>This is the part that decides everything, and it is more constrained than "the AI picks a link" suggests. Two facts do most of the work:</p>
+
+<div class="key"><strong>The model never sees a URL, and never writes one.</strong> It is shown a numbered list of page titles and replies with a number. The address is looked up afterwards, by the plugin, from its own index.<br /><br /><strong>The wording that gets saved is your text, not the model's text.</strong> Whatever phrase the model quotes is searched for in your page, and the version found in your page is the one stored, including your capitalisation.</div>
+
+<p><strong>What the model receives.</strong> Three things, and nothing else:</p>
+
+<div class="formula">ARTICLE TITLE: How to Build a Content Calendar
+
+ARTICLE TEXT:
+...planning ahead means your content marketing strategy stays
+consistent across the quarter...          (the first N words)
+
+CANDIDATE PAGES:
+1. Content Marketing Strategy: A Complete Guide
+2. Social Media Scheduling Tools
+3. Editorial Workflow for Small Teams
+   ... up to 15</div>
+
+<p>No addresses, no page IDs, no database values. Just your title, part of your text, and a numbered list of titles.</p>
+
+<p><strong>What the model must reply.</strong> JSON in one fixed shape, nothing else:</p>
+
+<div class="formula">{"links":[
+  {"n": 1,
+   "anchor": "content marketing strategy",
+   "reason": "the article is about planning a strategy",
+   "confidence": 0.86}
+]}</div>
+
+<p><strong>What the plugin then does with that reply.</strong> Every step can reject it:</p>
+
+<table>
+<tr><th>#</th><th>Step</th><th>If it fails</th></tr>
+<tr><td>1</td><td>Is <code>n</code> between 1 and the number of candidates shown?</td><td>Discarded. A number outside the list is meaningless</td></tr>
+<tr><td>2</td><td>Look up candidate 1. That is a real page: its ID and its address come from the plugin's own index</td><td>Cannot fail. The model had no say in the address</td></tr>
+<tr><td>3</td><td>Is it a different page from the one being scanned, and not already used in this batch?</td><td>Discarded</td></tr>
+<tr><td>4</td><td>Search your article for the quoted phrase, whole word, ignoring capitals</td><td>Discarded. This is the step that kills invented wording</td></tr>
+<tr><td>5</td><td>Keep the text <em>as it appears in your article</em>, plus about 90 characters either side as context</td><td>Cannot fail</td></tr>
+<tr><td>6</td><td>Take the model's confidence as the relevance score, clamped to 0 and 1</td><td>0.7 assumed if absent</td></tr>
+</table>
+
+<p><strong>The result stored for review:</strong></p>
+
+<div class="formula">target page  = candidate 1        -> post 482
+target URL   = from the plugin's index, never from the model
+anchor text  = "Content Marketing Strategy"
+               (your capitalisation, because that is what was
+                found in your article, not the lowercase the
+                model typed)
+context      = "...planning ahead means your Content Marketing
+                Strategy stays consistent across the quarter..."
+relevance    = 0.86</div>
+
+<p><strong>Why it is built this way.</strong> A model asked to produce a URL will eventually produce a plausible one that does not exist. A model asked to produce anchor text will eventually produce a tidier phrasing than the one on the page. Neither failure is possible here: the address is never in the model's hands, and the wording is re-found in your own text before anything is saved. The model's job is narrow on purpose, choose a number and quote a phrase, and both answers are checked against facts the plugin already holds.</p>
+
 <h3>The three checks that make fabrication impossible</h3>
 
 <table>
