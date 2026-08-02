@@ -1,5 +1,6 @@
-# Claude Code local settings (machine-specific)
+# Claude Code local settings (machine-specific) and scratch worktrees
 .claude/settings.local.json
+.claude/worktrees/
 
 # OS / editor
 .DS_Store
