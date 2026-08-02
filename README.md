@@ -75,6 +75,29 @@ powershell -ExecutionPolicy Bypass -File tools\build-zip.ps1
 
 That writes `Plugin Zip files/ai-internal-linking-vX.Y.Z.zip` from the committed content of `HEAD`, then verifies it: forward slash paths only, exactly one top level folder, and an embedded version matching the header. Add `-AlsoDownloads` to refresh the copy in your Downloads folder, or `-Ref v0.12.1` to rebuild an older tag.
 
+## Keeping a local copy of every release
+
+Releases are built by CI, so the zip lives on GitHub and never lands on your disk. To pull the whole history down into `Plugin Zip files/`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\sync-release-zips.ps1
+```
+
+Existing files are skipped, so re-running after each release only fetches the new one. That folder is gitignored: these are build artifacts, and GitHub Releases is the real distribution point.
+
+## Deploying to a site
+
+```powershell
+python tools\deploy.py                  # dry run: connect and report versions
+python tools\deploy.py --yes --prune    # deploy
+```
+
+Prefer `--yes --prune` for a real release. Uploading alone never removes files that were **deleted** from the plugin, so a release that drops a class would leave it orphaned on the server; `--prune` diffs the remote file list against the local one and removes the difference, scoped strictly to the plugin directory.
+
+Site specifics live in `tools/deploy.local.json`, which is gitignored. Copy [`tools/deploy.local.example.json`](tools/deploy.local.example.json) to create it. The SSH key passphrase is deliberately **never** stored in that file: supply it through an environment variable, or point the script at an existing folder of automation scripts to discover from. It is held in memory only, and output masks the host.
+
+The script is non-interactive by design, reading nothing from stdin, so it runs the same from a terminal or a tool. It lints every PHP file with the server's own PHP after uploading and reports a failure rather than leaving you guessing.
+
 ## Repository layout
 
 ```
@@ -84,10 +107,15 @@ ai-internal-linking/       the plugin itself, this is what ships in the zip
   assets/                  admin CSS and JS
   readme.txt               WordPress readme, the single source of truth for the changelog
   uninstall.php            ledger based content restore, then table drop
-docs/                      plugin overview document
+docs/                      plugin overview and scoring formulas
+tests/run-unit.php         unit tests for the pure decision functions
 tools/build-zip.ps1        local release zip builder
+tools/sync-release-zips.ps1  pull every GitHub Release zip into "Plugin Zip files/"
+tools/deploy.py            SSH deploy, config from gitignored deploy.local.json
 .github/workflows/         release automation
 ```
+
+Nothing outside `ai-internal-linking/` ships in the release zip, so repository tooling, tests and docs stay out of what users install.
 
 Build artifacts (`Plugin Zip files/`, any `*.zip`) are deliberately not tracked. Released zips live on the Releases page, which is what a git repository is for.
 
