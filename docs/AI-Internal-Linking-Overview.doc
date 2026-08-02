@@ -96,6 +96,31 @@ relevance   = the model's own confidence, 0 to 1
 
 <p><strong>In plain words:</strong> the free engine finds the candidates; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
 
+<p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of page titles, and it replies with a number:</p>
+
+<div class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
+
+ARTICLE TITLE: Build a Content Calendar   {"n": 1,
+ARTICLE TEXT: ...your content marketing    "anchor": "content marketing strategy",
+strategy stays consistent...               "reason": "the article plans a strategy",
+                                           "confidence": 0.86}
+CANDIDATE PAGES:
+  1. Content Marketing Strategy: A Guide
+  2. Social Media Scheduling Tools
+  3. Editorial Workflow for Small Teams</div>
+
+<p>Notice what is missing: <strong>no web addresses anywhere</strong>. The model picks number 1. The plugin then looks up which page that is and takes its address from its own index. The model never handles a URL, so it cannot invent one.</p>
+
+<p>Then the quoted phrase is searched for in your article. If it is not there, the whole suggestion is thrown away. If it is there, <strong>the version saved is the one from your article, not the one the model typed</strong>. The model wrote "content marketing strategy" in lower case; your page says "Content Marketing Strategy", so that is what is stored and that is what gets linked.</p>
+
+<table>
+<tr><th>Decision</th><th>Made by</th></tr>
+<tr><td>Which pages are even eligible</td><td>The free engine, before the model is asked</td></tr>
+<tr><td>Which of them to link, and roughly what wording</td><td>The model</td></tr>
+<tr><td>The exact anchor text saved</td><td>Your article, by exact match</td></tr>
+<tr><td>The web address</td><td>The plugin's index</td></tr>
+</table>
+
 <p>Three checks make a fabricated link impossible:</p>
 
 <table>
