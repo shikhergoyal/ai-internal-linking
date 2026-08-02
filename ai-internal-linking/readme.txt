@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.14.1
+Stable tag: 0.14.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.14.2 =
+* Security hardening: API keys can no longer be captured out of a provider's error message. Error text comes back from someone else's server and was stored verbatim in the key pool's last_error column, and some APIs quote the submitted credential in failure messages ("Incorrect API key provided: sk-..."). One such reply would have written a plaintext key into the database, and into every backup taken afterwards, defeating the encryption that protects the key everywhere else. Nothing was exposed in the admin screens, and no key is known to have leaked; this closes the path before it can be used. Error text is now scrubbed in two layers: the exact key used for the call is removed regardless of its format, which also covers custom and self-hosted endpoints whose key shape nothing could anticipate, and recognised credential shapes (OpenAI, Anthropic, Google, Groq, xAI, Perplexity, Hugging Face, Replicate, bearer tokens, long opaque blobs) are matched and removed even when the plugin did not send them. Ordinary diagnostics are left readable, so "Rate limit exceeded, try again in 20 seconds" still reads exactly like that, and identifiers short enough to be useful, such as request UUIDs, are preserved. Covered by 17 unit tests.
 
 = 0.14.1 =
 * Fix: the clusters and cluster_members tables were never actually removed from upgraded sites. Version 0.11.0 retired the Clusters feature but only dropped its tables on uninstall, so every site that upgraded in place has been carrying them ever since, and 0.14.0's new retired-table cleanup only listed the embeddings table. Both are now dropped on upgrade alongside it (DB version 1.4.0 to 1.5.0). Found by a post-deploy database check, not by anything user visible: the tables were inert, just wasting space.

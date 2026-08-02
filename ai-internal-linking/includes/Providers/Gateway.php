@@ -10,6 +10,7 @@
 namespace AILinking\Providers;
 
 use AILinking\Support\Settings;
+use AILinking\Security\Redactor;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -119,7 +120,12 @@ class Gateway {
 					return $resp;
 				}
 
-				$err      = isset( $resp['error'] ) ? $resp['error'] : array( 'class' => 'unknown' );
+				$err = isset( $resp['error'] ) ? $resp['error'] : array( 'class' => 'unknown' );
+				// Exact scrub with the key this call used: format independent, so it
+				// catches vendors whose key shape no pattern anticipates.
+				if ( isset( $err['message'] ) ) {
+					$err['message'] = Redactor::scrub( $err['message'], array( $lease['api_key'] ) );
+				}
 				$last_err = $err;
 				$action   = self::next_action( $err );
 
