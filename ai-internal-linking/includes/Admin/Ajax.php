@@ -18,6 +18,7 @@ use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
 use AILinking\Providers\Gateway;
 use AILinking\Providers\UsageStats;
+use AILinking\Security\Redactor;
 use AILinking\Integrations\GscFetcher;
 use AILinking\Integrations\GoogleServiceAccount;
 
@@ -317,6 +318,8 @@ class Ajax {
 			wp_send_json_success( array( 'ok' => true, 'message' => __( 'Connection OK.', 'ai-internal-linking' ) ) );
 		}
 		$msg = isset( $resp['error']['message'] ) ? $resp['error']['message'] : __( 'Connection failed.', 'ai-internal-linking' );
+		// The key under test arrived with the request, so it is a known secret.
+		$msg = Redactor::scrub( $msg, array( $key ) );
 		wp_send_json_success( array( 'ok' => false, 'message' => $msg ) );
 	}
 
