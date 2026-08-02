@@ -1,20 +1,21 @@
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta charset="utf-8" />
-<title>AI Internal Linking, Scoring Formulas</title>
+<title>AI Internal Linking, How It Decides</title>
 <style>
-body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.55; }
 h1 { font-size: 22pt; color: #1a3d6d; margin-bottom: 2pt; }
-h2 { font-size: 15pt; color: #1a3d6d; margin-top: 22pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
-h3 { font-size: 12pt; color: #2f5c96; margin-top: 14pt; margin-bottom: 4pt; }
+h2 { font-size: 15pt; color: #1a3d6d; margin-top: 24pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
+h3 { font-size: 12pt; color: #2f5c96; margin-top: 16pt; margin-bottom: 4pt; }
 .sub { color: #5a6673; font-size: 10pt; margin-top: 0; }
 .formula { font-family: Consolas, "Courier New", monospace; font-size: 10pt; background: #f4f6f9;
-           border-left: 3pt solid #2f5c96; padding: 8pt 10pt; margin: 8pt 0; white-space: pre-wrap; }
-table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
+           border-left: 3pt solid #2f5c96; padding: 9pt 11pt; margin: 9pt 0; white-space: pre-wrap; }
+table { border-collapse: collapse; width: 100%; margin: 9pt 0; font-size: 10pt; }
 th { background: #1a3d6d; color: #ffffff; text-align: left; padding: 5pt 7pt; }
 td { border-bottom: 1pt solid #d8dee6; padding: 5pt 7pt; vertical-align: top; }
-.note { background: #fff8e6; border-left: 3pt solid #d8a12a; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
-.key { background: #eef5ee; border-left: 3pt solid #3d7a3d; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
+.note { background: #fff8e6; border-left: 3pt solid #d8a12a; padding: 8pt 11pt; margin: 11pt 0; font-size: 10pt; }
+.key { background: #eef5ee; border-left: 3pt solid #3d7a3d; padding: 8pt 11pt; margin: 11pt 0; font-size: 10pt; }
+.word { background: #f7f7f7; border: 1pt solid #dcdcde; padding: 8pt 11pt; margin: 9pt 0; font-size: 10pt; }
 code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; padding: 1pt 3pt; }
 .footer { margin-top: 28pt; padding-top: 8pt; border-top: 1pt solid #c8d4e3; color: #5a6673; font-size: 9pt; }
 </style>
@@ -22,408 +23,301 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 
 <h1>AI Internal Linking</h1>
-<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.15.1.</p>
+<p class="sub">How it decides which page should link to which, and using which words. Written to be readable without any technical background. Version 0.15.1.</p>
 
-<h2>How a suggestion is produced</h2>
+<h2>First, the six words this document needs</h2>
 
-<p>For each published page the plugin runs three suggestion engines in a fixed order. Each one consumes the same link budget, so an earlier engine wins when both would propose a link to the same target. Every engine, without exception, must find an anchor phrase that already exists in the source page's body text. If no such phrase exists, no suggestion is created.</p>
+<p>Every field has its own vocabulary, and most of it is unnecessary. These six are genuinely needed, so here they are in plain English. Nothing else in this document assumes you know anything.</p>
 
 <table>
-<tr><th>Order</th><th>Engine</th><th>Evidence it uses</th><th>Cost</th></tr>
-<tr><td>Pass 1</td><td>GSC keyword</td><td>Search Console: a query the target already ranks for</td><td>Free</td></tr>
-<tr><td>Pass 2</td><td>AI Suggestion</td><td>A chat model reading the page and a shortlist</td><td>Your API key</td></tr>
-<tr><td>Pass 3</td><td>Related Content</td><td>Local TF-IDF vocabulary overlap</td><td>Free</td></tr>
+<tr><th>Word</th><th>What it actually means</th></tr>
+<tr><td><strong>Shortlist</strong></td><td>A small group of pages worth thinking about. Your site might have 350 pages, but only about 18 of them could sensibly be linked from any given article. That smaller group is the shortlist. Working it out first is what stops the plugin comparing every page against every other page.</td></tr>
+<tr><td><strong>Possible destination</strong></td><td>One page on that shortlist. A page that <em>might</em> end up being linked to, once the wording has been checked.</td></tr>
+<tr><td><strong>Wording</strong></td><td>The words that become clickable. If a sentence reads "your content marketing strategy should be planned", the wording might be "content marketing strategy". Often called anchor text.</td></tr>
+<tr><td><strong>Relevance</strong></td><td>A number from 0 to 1 answering one question: should these two pages be connected at all? Higher is better.</td></tr>
+<tr><td><strong>Naturalness</strong></td><td>A number from 0 to 1 answering a different question: does this particular wording read well where it sits? Higher is better.</td></tr>
+<tr><td><strong>Striking distance</strong></td><td>Ranking between 5th and 20th on Google. Close enough that a page is being taken seriously, far enough that there is real room to climb. This is where an internal link helps most.</td></tr>
 </table>
 
-<div class="key"><strong>The one rule that governs everything:</strong> the plugin links text that is already on the page. It never writes new sentences, never invents an anchor, and never inserts anything without your approval.</div>
+<div class="note"><strong>One more, only if you use the AI engine.</strong> A <strong>token</strong> is roughly three quarters of a word. AI providers bill by the token, so a 1,000 word page costs about 1,300 tokens to send. That is the only reason the word appears in this document at all.</div>
 
-<h2>1. AI suggestion formula</h2>
+<h2>The short version</h2>
 
-<p>Runs only when "AI link suggestions" is enabled in Settings and a chat provider key is configured. Works with any chat model, including Claude, OpenAI, Gemini, Groq, xAI, DeepSeek, OpenRouter, Perplexity, and local models.</p>
+<p>For every page on your site, the plugin asks three separate questions, in order. Each one can propose links until the page's link budget is used up.</p>
 
-<h3>What the model is allowed to see</h3>
+<table>
+<tr><th>Order</th><th>The question</th><th>Answered using</th><th>Cost</th></tr>
+<tr><td>1</td><td>Does this page mention a phrase that another of my pages already ranks for on Google, without linking to it?</td><td>Google Search Console</td><td>Free</td></tr>
+<tr><td>2</td><td>Reading this page, which of these related pages would an editor link to?</td><td>An AI model, using your own key</td><td>Your API key</td></tr>
+<tr><td>3</td><td>Which pages talk about the same things as this one?</td><td>Word comparison, done on your own server</td><td>Free</td></tr>
+</table>
 
-<p>The model never browses your site and never chooses freely from all pages. It receives a closed shortlist produced by the free engine:</p>
+<p>They run in that order because the evidence gets weaker as you go down. What people actually search for beats what a model thinks, and what a model thinks beats counting shared words. The last one runs on every page regardless, so you always get suggestions even with no key.</p>
 
-<div class="formula">candidate_pool = top 18 TF-IDF candidates for this page
-                 minus the page itself
-                 minus every target already linked or already suggested
+<div class="key"><strong>The rule that governs all three:</strong> the plugin can only link words that are already written on your page. It never writes a new sentence, never rephrases you, and never adds a link without you approving it.</div>
 
-sent_to_model  = first 15 of that pool     (MAX_CANDIDATES)
-page_excerpt   = first N words of the body  (Setup and Dashboard setting,
-                 default 1,000 words, maximum 2,500)
-max_tokens     = 800
-temperature    = 0</div>
+<h2>Engine 1 of 3: AI Suggestion</h2>
 
-<div class="note"><strong>The AI engine does not read the whole page.</strong> It reads the first N words, where N is the "Words per page sent to the AI" setting on Setup and Dashboard. At the default of 1,000 words, a 3,000 word article is about one third visible, so AI suggestions cluster near the opening of long posts. Raise the setting to widen that window; the token bill scales almost linearly with it, because every post in a scan is one request.<br /><br />This limit applies to the AI engine ONLY. GSC keyword evidence and Related Content always read the entire page, and a proposed anchor is always verified against the full text rather than the excerpt.</div>
+<p class="sub">Optional. Needs an API key, which is yours and stays yours.</p>
 
-<h3>How a returned link is scored</h3>
+<h3>What the model is given</h3>
 
-<div class="formula">relevance = clamp(model_confidence, 0, 1)
-            default 0.7 when the model returns no confidence value</div>
+<p>The model does not browse your website and does not get to choose freely from all your pages. Before it is asked anything, the free engine has already narrowed 350 pages down to a shortlist:</p>
 
-<h3>How the link is actually chosen, step by step</h3>
+<div class="formula">The shortlist   the 18 closest matches for this page,
+                minus the page itself,
+                minus anything it already links to,
+                minus anything already suggested before.
 
-<p>This is the part that decides everything, and it is more constrained than "the AI picks a link" suggests. Two facts do most of the work:</p>
+Sent to the model   the first 15 of those, as a numbered list of titles.
 
-<div class="key"><strong>The model never sees a URL, and never writes one.</strong> It is shown a numbered list of page titles and replies with a number. The address is looked up afterwards, by the plugin, from its own index.<br /><br /><strong>The wording that gets saved is your text, not the model's text.</strong> Whatever phrase the model quotes is searched for in your page, and the version found in your page is the one stored, including your capitalisation.</div>
+Also sent   your page's title, and the opening part of your page
+            (how much is your setting: 1,000 words by default,
+             up to 3,000 from the menu, or any number up to 20,000
+             if you choose Custom).
 
-<p><strong>What the model receives.</strong> Three things, and nothing else:</p>
+Reply limit   short, roughly 600 words, which is plenty for a list of links.
+Creativity    turned off completely, so the same page gives the same answer.</div>
 
-<div class="formula">ARTICLE TITLE: How to Build a Content Calendar
+<h3>What the model gets back, and what it must return</h3>
 
-ARTICLE TEXT:
-...planning ahead means your content marketing strategy stays
-consistent across the quarter...          (the first N words)
+<div class="formula">SHOWN TO THE MODEL                        THE MODEL REPLIES
 
-CANDIDATE PAGES:
-1. Content Marketing Strategy: A Complete Guide
-2. Social Media Scheduling Tools
-3. Editorial Workflow for Small Teams
-   ... up to 15</div>
+Article title: Build a Content Calendar     Page number: 1
+Article text:  ...your content marketing    Wording:     content marketing strategy
+strategy stays consistent...                Reason:      the article plans a strategy
+                                            Confidence:  0.86
+Possible destinations:
+  1. Content Marketing Strategy: A Guide
+  2. Social Media Scheduling Tools
+  3. Editorial Workflow for Small Teams</div>
 
-<p>No addresses, no page IDs, no database values. Just your title, part of your text, and a numbered list of titles.</p>
+<p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
 
-<p><strong>What the model must reply.</strong> JSON in one fixed shape, nothing else:</p>
-
-<div class="formula">{"links":[
-  {"n": 1,
-   "anchor": "content marketing strategy",
-   "reason": "the article is about planning a strategy",
-   "confidence": 0.86}
-]}</div>
-
-<p><strong>What the plugin then does with that reply.</strong> Every step can reject it:</p>
+<h3>What the plugin does with that reply</h3>
 
 <table>
 <tr><th>#</th><th>Step</th><th>If it fails</th></tr>
-<tr><td>1</td><td>Is <code>n</code> between 1 and the number of candidates shown?</td><td>Discarded. A number outside the list is meaningless</td></tr>
-<tr><td>2</td><td>Look up candidate 1. That is a real page: its ID and its address come from the plugin's own index</td><td>Cannot fail. The model had no say in the address</td></tr>
-<tr><td>3</td><td>Is it a different page from the one being scanned, and not already used in this batch?</td><td>Discarded</td></tr>
-<tr><td>4</td><td>Search your article for the quoted phrase, whole word, ignoring capitals</td><td>Discarded. This is the step that kills invented wording</td></tr>
-<tr><td>5</td><td>Keep the text <em>as it appears in your article</em>, plus about 90 characters either side as context</td><td>Cannot fail</td></tr>
-<tr><td>6</td><td>Take the model's confidence as the relevance score, clamped to 0 and 1</td><td>0.7 assumed if absent</td></tr>
+<tr><td>1</td><td>Is the page number one of the ones actually shown?</td><td>Thrown away. A number outside the list means nothing</td></tr>
+<tr><td>2</td><td>Look up that page. Its address comes from the plugin's own records</td><td>Cannot fail. The model had no say in the address</td></tr>
+<tr><td>3</td><td>Is it a different page from the one being read, and not already used?</td><td>Thrown away</td></tr>
+<tr><td>4</td><td>Search your article for the wording it quoted, whole words, ignoring capitals</td><td>Thrown away. <strong>This is the step that kills invented wording</strong></td></tr>
+<tr><td>5</td><td>Keep the wording <em>exactly as your article writes it</em>, plus the sentence around it</td><td>Cannot fail</td></tr>
+<tr><td>6</td><td>Use the model's confidence as the relevance score, kept between 0 and 1</td><td>0.7 assumed if it gives none</td></tr>
 </table>
 
-<p><strong>The result stored for review:</strong></p>
+<div class="formula">What gets saved:
 
-<div class="formula">target page  = candidate 1        -> post 482
-target URL   = from the plugin's index, never from the model
-anchor text  = "Content Marketing Strategy"
-               (your capitalisation, because that is what was
-                found in your article, not the lowercase the
-                model typed)
-context      = "...planning ahead means your Content Marketing
-                Strategy stays consistent across the quarter..."
-relevance    = 0.86</div>
+Destination   page number 1  ->  the guide
+Address       from the plugin's records, never from the model
+Wording       "Content Marketing Strategy"
+              Your capitals, because that is how your article writes it.
+              The model typed it in lower case; your version wins.
+Relevance     0.86</div>
 
-<p><strong>Why it is built this way.</strong> A model asked to produce a URL will eventually produce a plausible one that does not exist. A model asked to produce anchor text will eventually produce a tidier phrasing than the one on the page. Neither failure is possible here: the address is never in the model's hands, and the wording is re-found in your own text before anything is saved. The model's job is narrow on purpose, choose a number and quote a phrase, and both answers are checked against facts the plugin already holds.</p>
+<p><strong>Why it is built this way.</strong> A model asked to produce a web address will eventually produce a believable one that does not exist. A model asked to produce wording will eventually tidy up your phrasing. Neither can happen here: the address is never in its hands, and the wording is looked up in your own article before anything is saved. Its job is deliberately narrow, choose a number and quote a phrase, and both answers are checked against things the plugin already knows.</p>
 
-<h3>The three checks that make fabrication impossible</h3>
-
-<table>
-<tr><th>Check</th><th>Rule</th><th>If it fails</th></tr>
-<tr><td>Real target</td><td>The chosen page must be one of the candidates that was sent</td><td>Pick discarded</td></tr>
-<tr><td>Real anchor</td><td>The proposed anchor must appear word for word in the body text</td><td>Pick discarded</td></tr>
-<tr><td>Not a heading</td><td>Headings and the page title are stripped before the model ever sees the text</td><td>Cannot be chosen</td></tr>
-</table>
-
-<div class="key">A model that invents a page, invents a phrase, or paraphrases your wording produces nothing. The suggestion is dropped silently and the free engines fill the gap.</div>
+<div class="note"><strong>The one limitation worth knowing.</strong> The model reads the beginning of a page, not all of it. At the default of 1,000 words, a 3,000 word article is about one third visible, so this engine suggests links from the opening section. Increase "Words per page sent to the AI" on the Setup screen to widen that. The other two engines always read the whole page.</div>
 
 <h3>What one page costs</h3>
 
-<div class="formula">per page:  about 2,400 input tokens  (1,500 body + 750 candidates + 200 system)
-           up to    800 output tokens
-           exactly    1 request
+<div class="formula">Per page, at the default setting:
 
-a 300 page site: roughly 720,000 input and up to 240,000 output tokens per scan</div>
+   about 1,300 tokens for your text
+   about   750 tokens for the list of titles and instructions
+   up to    800 tokens for the reply
+   ---------------------------------------------------------
+   roughly 2,900 tokens, and exactly one request
 
-<h2>2. GSC keyword evidence formula</h2>
+A 300 page site is therefore around 900,000 tokens per full scan.
+Doubling the words setting roughly doubles that.</div>
 
-<p>The strongest signal available, because it is grounded in what people actually search for rather than in what your pages resemble. The model is: page B already ranks for query Q, page A says Q in its body, page A does not link to B, therefore link it using Q as the anchor. Runs first and takes budget before the other engines.</p>
+<h2>Engine 2 of 3: GSC keyword</h2>
 
-<h3>Step 1, click through rate by position</h3>
+<p class="sub">Free. Needs Google Search Console connected.</p>
 
-<p>Opportunity is expressed in clicks rather than impressions, which needs an estimate of how often a result at a given position is clicked.</p>
+<div class="key"><strong>Neither half of this link is chosen by the plugin.</strong> Google chooses the destination, because Search Console already knows which of your pages answers a given search. The people searching choose the wording, because it is the phrase they typed. The plugin's only job is to notice where one of your pages says that phrase without linking.</div>
+
+<h3>What Search Console provides</h3>
+
+<div class="formula">Search phrase   content marketing strategy
+Your page       /guides/content-marketing-strategy/
+Seen by         1,200 people
+Your position   7th</div>
+
+<h3>Step 1: how much is this search phrase worth?</h3>
+
+<p>Not every phrase is worth spending a link on. A phrase you already rank first for has nothing to gain. A phrase you rank 80th for is out of reach. The useful ones sit in between.</p>
+
+<div class="formula">Possible gain   how much more often people would click if this
+                page reached the top 3, instead of where it sits now.
+                Never less than zero.
+
+Realistic?      full value if you already rank 20th or better.
+                Reduced the further past 20th you are, because one
+                internal link will not lift a page from 50th to 3rd.
+
+Worth           how many people saw it  x  possible gain  x  realistic</div>
 
 <table>
-<tr><th>Position</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr>
-<tr><td>CTR</td><td>0.280</td><td>0.150</td><td>0.110</td><td>0.080</td><td>0.060</td><td>0.048</td><td>0.039</td><td>0.032</td><td>0.028</td><td>0.025</td></tr>
+<tr><th>You currently rank</th><th>1st</th><th>3rd</th><th>5th</th><th>10th</th><th>20th</th><th>40th</th><th>99th</th></tr>
+<tr><td>Worth, per 1,000 people who saw it</td><td>0</td><td>0</td><td>50</td><td>85</td><td>102</td><td>53</td><td>21</td></tr>
 </table>
 
-<div class="formula">positions 11 to 20:  ctr = max(0.008, 0.025 - (position - 10) * 0.0017)
-position 21 and up:  ctr = 0.005</div>
+<p><strong>Reading that table:</strong> ranking 1st scores zero, because you have already won. Ranking 20th scores highest, because you are one nudge from the top of page one. Ranking 99th scores low, because no single internal link will fix that.</p>
 
-<h3>Step 2, opportunity score</h3>
+<h3>Step 2: turn that into a relevance score</h3>
 
-<div class="formula">gain        = ctr(position 3) - ctr(current position), floored at 0
-reach       = 1.0            when position is 20 or better
-            = 20 / position  when position is worse than 20
+<div class="formula">Relevance   starts at                                     0.50
+            add 0.20 if you rank between 5th and 20th
+            add up to 0.28, depending on how this phrase
+              compares to the best phrase you have
+            never more than                                 0.98</div>
 
-opportunity = impressions * gain * reach</div>
+<p>The starting point of 0.50 is deliberate. A phrase people genuinely search for is stronger evidence than any amount of word similarity, so these suggestions begin above what the other engines normally reach.</p>
 
-<p>In words: the extra clicks this keyword could realistically win if the page reached the top three, discounted by how plausible that jump is. Positions 1, 2 and 3 score exactly zero, because a page already at the top has nothing to gain from another internal link. The score peaks around position 20 and falls away below it, since one internal link will not lift page five into the top three.</p>
-
-<table>
-<tr><th>Position</th><th>1</th><th>3</th><th>5</th><th>10</th><th>15</th><th>20</th><th>40</th><th>99</th></tr>
-<tr><td>Score per 1,000 impressions</td><td>0</td><td>0</td><td>50.0</td><td>85.0</td><td>93.5</td><td>102.0</td><td>52.5</td><td>21.2</td></tr>
-</table>
-
-<div class="note"><strong>Changed in 0.13.0.</strong> The previous formula was <code>impressions * (21 - min(20, position)) / 20</code>, which peaked at position 1. Keywords you already ranked first for scored highest and consumed the link budget, which is backwards, and it fought the striking distance bonus it was paired with. Existing keyword rows keep their old scores until you re-fetch from Search Console or re-import your CSV.</div>
-
-<h3>Step 3, striking distance</h3>
-
-<div class="formula">is_striking = position is between 5 and 20 inclusive</div>
-
-<p>This is the band where one more internal link measurably moves a ranking. High enough that the page is already credible to the search engine, low enough that there is real room to climb.</p>
-
-<h3>Step 4, relevance</h3>
-
-<div class="formula">relevance = min(0.98,  0.50                                          base
-                     + 0.20  if is_striking
-                     + 0.28 * min(1, opportunity / best_opportunity_in_pool))</div>
-
-<p>The base of 0.50 sits deliberately above what vocabulary overlap normally produces, so a keyword backed suggestion outranks a merely similar page. The pool is the top 500 keywords by opportunity.</p>
-
-<h3>How the link is actually chosen, step by step</h3>
-
-<div class="key"><strong>Neither half of this link is chosen by the plugin.</strong> Google decides the destination, because Search Console already knows which of your pages answers that query. The people searching decide the wording, because the anchor is the phrase they actually typed. The plugin's only job is to notice where you forgot to link.</div>
-
-<p><strong>What Search Console hands over.</strong> One row per query and landing page:</p>
-
-<div class="formula">query        content marketing strategy
-page         /guides/content-marketing-strategy/
-impressions  1,200
-position     7</div>
-
-<p><strong>Turning that into a link, step by step:</strong></p>
+<h3>How the link is actually chosen</h3>
 
 <table>
 <tr><th>#</th><th>Step</th><th>If it fails</th></tr>
-<tr><td>1</td><td>Resolve the landing page address to a post on this site</td><td>The row is dropped. A query that ranks a page the plugin cannot identify is unusable</td></tr>
-<tr><td>2</td><td><strong>The target is now decided.</strong> That post is the destination, chosen by Google's index, not by any scoring the plugin performs</td><td>Cannot fail</td></tr>
-<tr><td>3</td><td><strong>The wording is now decided.</strong> The query string itself is the candidate anchor</td><td>Cannot fail</td></tr>
-<tr><td>4</td><td>Is the query between 2 and 4 words?</td><td>Skipped. A one word anchor is not descriptive, a nine word one is a sentence</td></tr>
-<tr><td>5</td><td>Does the page being scanned contain that exact query, as whole words?</td><td>Skipped. Nothing to link</td></tr>
-<tr><td>6</td><td>Does that page already link to the target?</td><td>Skipped. It is not an unlinked mention if it is already linked</td></tr>
-<tr><td>7</td><td>Would this be the fourth identical anchor pointing at that target?</td><td>Skipped, to avoid an over-optimised pattern</td></tr>
-<tr><td>8</td><td>Keep the text <em>as it appears in the page being scanned</em>, plus context either side</td><td>Cannot fail</td></tr>
+<tr><td>1</td><td>Match the address Google reports to one of your pages</td><td>The row is dropped. A page the plugin cannot identify is unusable</td></tr>
+<tr><td>2</td><td><strong>The destination is now settled</strong>, chosen by Google, not by any scoring here</td><td>Cannot fail</td></tr>
+<tr><td>3</td><td><strong>The wording is now settled</strong>: the search phrase itself</td><td>Cannot fail</td></tr>
+<tr><td>4</td><td>Is the phrase between 2 and 4 words?</td><td>Skipped. One word is not descriptive, nine words is a sentence</td></tr>
+<tr><td>5</td><td>Does the page being read actually contain that phrase?</td><td>Skipped. Nothing to turn into a link</td></tr>
+<tr><td>6</td><td>Does it already link there?</td><td>Skipped. Then it is not a missed link</td></tr>
+<tr><td>7</td><td>Would this be the fourth identical wording pointing at the same page?</td><td>Skipped, because repeating the same wording looks manipulative to Google</td></tr>
 </table>
 
-<p><strong>The result stored for review:</strong></p>
+<p>Only the 500 most valuable phrases are considered per scan, and each destination gets at most one keyword suggestion per page, so the best phrase wins.</p>
 
-<div class="formula">target page  = the post that ranks for the query   -> post 482
-target URL   = from the plugin's index
-anchor text  = "Content Marketing Strategy"
-               (your capitalisation, taken from the page being
-                scanned, not the lowercase Google reports)
-relevance    = 0.50 base + 0.20 striking + opportunity share</div>
+<h2>Who decides what, across all three</h2>
 
-<p>Only the highest value 500 keywords are considered per scan, ordered by opportunity, and each target page receives at most one keyword suggestion per source page: the best keyword wins, because the pool is already sorted.</p>
-
-<h3>Step 5, the over optimisation guard</h3>
-
-<div class="formula">refuse the suggestion when
-  (existing links with this exact anchor to this target)
-+ (open suggestions with this exact anchor to this target)  >=  3</div>
-
-<p>Keyword anchors are exact match by nature, which is precisely the pattern that looks manipulative at scale. The cap is adjustable through the <code>ailinking_max_exact_anchors_per_target</code> filter.</p>
-
-<h2>3. Anchor selection formula</h2>
-
-<div class="note"><strong>Correction to an earlier version of this document.</strong> It said the anchor is drawn from the target page's title for every engine. That is true of one engine only. All three share the same whole-word matching step, but each supplies its own candidate phrase.</div>
+<p>Set side by side, the three engines work quite differently. This is the clearest single summary of the whole system:</p>
 
 <table>
-<tr><th>Engine</th><th>Where the candidate anchor phrase comes from</th></tr>
-<tr><td>GSC keyword</td><td>The ranking query itself, taken from Search Console. The title is not involved.</td></tr>
-<tr><td>AI Suggestion</td><td>A phrase the model picks out of the article text. The title is not involved.</td></tr>
-<tr><td>Related Content</td><td>Word sequences built from the TARGET page's title. This is the title based engine.</td></tr>
+<tr><th>Engine</th><th>Chooses the destination</th><th>Chooses the wording</th><th>In what order</th></tr>
+<tr><td>AI Suggestion</td><td>The model, by picking a number from a shortlist someone else built</td><td>The model quotes a phrase, your page supplies the exact text</td><td>Both at once</td></tr>
+<tr><td>GSC keyword</td><td>Google</td><td>The people searching</td><td>The destination arrives attached to the phrase</td></tr>
+<tr><td>Related Content</td><td>Word comparison on your own site</td><td>The destination page's own title</td><td>Destination first, wording worked out afterwards</td></tr>
 </table>
 
-<p><strong>Why the title, for that engine.</strong> The free engine knows two pages are related, but nothing about what the link should be called. A page title is a human written summary of what the destination is about, so phrases taken from it describe where the link goes. That is what good anchor text does, for a reader and for a search engine alike. The alternative, grabbing any related-looking phrase from the source, produces anchors that describe nothing.</p>
+<p>One rule closes every path: <strong>the wording must already exist on your page</strong>, matched as whole words, ignoring capitals. If it is not there, no suggestion is made. That check happens after the engine has had its say, never before, which is why the plugin can use an AI model without ever letting it write into your content.</p>
 
-<p><strong>The cost of that choice.</strong> If no phrase from the target's title appears in the source page, the Related Content engine produces nothing for that pair, however well matched the two pages are. This is the single biggest reason a page you expect to be linked is not. The other two engines are not bound by it, which is a large part of why they run first.</p>
+<p>It also means the saved wording is always <em>yours</em>. Whatever the model typed, or however Google reported the phrase, what gets saved is the wording exactly as your article writes it.</p>
 
-<p>The steps below are the Related Content path. The other engines skip to step 6 with their own phrase.</p>
+<h2>The two scores on every suggestion</h2>
 
-<div class="formula">1. Split the target title on  :  ;  ,  |  ( )  [ ]  /  and dashes
-   so a phrase never bridges a punctuation boundary.
+<div class="formula">Naturalness   start at                                        0.45
+              add 0.30 x relevance
+              add 0.15  if the wording is more than one word
+              add 0.10  if it is 8 to 60 characters long
+              take off 0.20  if it is under 5 characters
+              take off 0.15  if it is over 70 characters
 
-2. Build every word sequence inside each segment,
-   from max_anchor_words (default 4) down to min_anchor_words (default 2).
+Overall       0.60 x relevance   +   0.40 x naturalness</div>
 
-3. Reject a phrase when:
-     the first or last word is a stopword
-     any word is a pure number
-     any word is part, parts, vol, volume, chapter, edition, section, no
-     the phrase is shorter than 6 characters
+<p><strong>What each one is for.</strong> Relevance asks whether these two pages belong together. Naturalness asks whether this particular wording reads well where it sits. A link is worth making only when both are true, so the review screen shows the blend. In practice relevance carries most of the weight.</p>
 
-4. Order: most words first, then longest string. Keep the best 60.
+<h2>Engine 3 of 3: Related Content</h2>
 
-5. Optional single word fallback, only when min_anchor_words is 1:
-     6 or more letters, not a stopword,
-     not guide, review, tips, best, introduction, overview, about, guidelines
+<p class="sub">Free, always available, no key, no internet connection.</p>
 
-6. Search the body for each phrase in order, whole word, case insensitive:
-     (?&lt;![letter or digit]) phrase (?![letter or digit])
+<p>This is the engine that runs on every page no matter what. It also builds the shortlist the AI reads, so it is working even when the AI is switched on.</p>
 
-7. First match wins. No match at all means no suggestion.</div>
+<h3>Step 1: work out which words actually mean something</h3>
 
-<p>The ordering is the point: the longest and most specific phrase from the title that genuinely appears in your text becomes the anchor, so anchors describe their destination rather than being generic.</p>
+<p>Each page is reduced to the 300 words it uses most, with filler words like "the" and "with" removed. Then every word is scored on how rare it is across your whole site.</p>
 
-<h3>Never eligible as anchor text</h3>
+<div class="formula">A word's importance depends on how few of your pages use it.
+
+  Used on 2 of your 350 pages    ->  very important
+  Used on 60 of your 350 pages   ->  mildly important
+  Used on 200 of your 350 pages  ->  ignored completely
+
+Anything appearing on more than 40 percent of your pages
+is thrown out entirely.</div>
+
+<p><strong>Why.</strong> If a word appears on nearly every page of your site, it tells you nothing about which two pages belong together. A word that appears on only a handful tells you a great deal.</p>
+
+<h3>Step 2: compare two pages</h3>
+
+<div class="formula">Take the 40 words this page uses most.
+
+For each word the other page also uses, add up:
+      that word's importance
+      x  the smaller of the two pages' usage counts
+
+Then divide by this page's own total, giving a score from 0 to 1.
+
+At least 2 meaningful words must be shared, or the pair is ignored.</div>
+
+<p><strong>In plain terms:</strong> the score is the share of this page's meaningful vocabulary that the other page also covers. Taking the <em>smaller</em> of the two counts matters, because it stops a page that repeats one word two hundred times from looking related to everything on your site.</p>
+
+<h3>How the link is actually chosen</h3>
+
+<p>This engine works in the opposite order to the other two. It settles the destination first, then tries to work out the wording, and gives up on the pair if it cannot.</p>
 
 <table>
-<tr><th>Excluded</th><th>Reason</th></tr>
-<tr><td>Anything in H1 to H6</td><td>Headings are stripped from the indexed text entirely</td></tr>
-<tr><td>The page title</td><td>Removed from the body corpus before indexing</td></tr>
-<tr><td>Text already inside a link</td><td>Never nested</td></tr>
-<tr><td>Code blocks and tag attributes</td><td>Would corrupt the markup</td></tr>
-<tr><td>Text in another language</td><td>Cross language links are never proposed</td></tr>
+<tr><th>#</th><th>Step</th></tr>
+<tr><td>1</td><td>Score every other page and sort them, best first</td></tr>
+<tr><td>2</td><td>Take the best one left, skipping the page itself and anything already linked, suggested, or rejected before</td></tr>
+<tr><td>3</td><td>Ignore anything scoring below 0.08. Below that it is coincidence</td></tr>
+<tr><td>4</td><td>Take that page's <strong>title</strong>, cut it at any punctuation, and build every word group from 4 words down to 2</td></tr>
+<tr><td>5</td><td>Throw away groups starting or ending on a filler word, containing a bare number, or containing words like "part" or "chapter"</td></tr>
+<tr><td>6</td><td>Try the longest remaining group first. The first one that appears in your page becomes the wording</td></tr>
+<tr><td>7</td><td><strong>If none of them appears, give up on this pair entirely</strong> and try the next page, however high the score was</td></tr>
 </table>
 
-<h2>4. Naturalness formula</h2>
+<p><strong>Why longest first.</strong> "content marketing strategy" tells a reader where the link goes. "strategy" does not. Trying longer groups first means the most descriptive available wording always wins.</p>
 
-<p>Measures whether the link reads like something a writer would have typed, rather than something bolted on for a search engine.</p>
+<div class="note"><strong>This is the most common reason a link you expected never appears.</strong> Step 7. Two pages can be obviously about the same subject and still produce nothing, simply because your text never happens to contain a phrase from the other page's title. The other two engines are not restricted this way, which is much of why they run first.</div>
 
-<div class="formula">naturalness = 0.45
-            + 0.30 * relevance
-            + 0.15  if the anchor contains a space (multi word)
-            + 0.10  if the anchor is 8 to 60 characters
-            - 0.20  if the anchor is shorter than 5 characters
-            - 0.15  if the anchor is longer than 70 characters
-            clamped to the range 0 to 1</div>
+<div class="key"><strong>Nothing here knows your subject.</strong> The vocabulary is whatever your own pages contain, and the importance scores are worked out from your own site each time you scan. The identical method produces recipe links on a recipe site and legal links on a law firm's site, with nothing to configure.</div>
 
-<h2>5. Final confidence formula</h2>
-
-<div class="formula">confidence = 0.6 * relevance + 0.4 * naturalness</div>
-
-<div class="note">This composite is what the Suggestions tab displays in the column labelled "Relevance". Relevance answers "should these two pages be connected", naturalness answers "does this specific placement read well", and the link is worth making only when both hold.</div>
-
-<h2>6. Budget and density formulas</h2>
-
-<div class="formula">max_allowed = max(2, ceil(word_count / 1000 * max_links_per_1000))   default 5 per 1,000 words
-capacity    = max_allowed - links already in the content
-limit       = min(max_suggestions_post, capacity)                   default cap 8
-
-capacity of 0 or less  ->  the page is skipped entirely</div>
-
-<p>A target is also skipped when the source already links to it, or when a suggestion for that exact pair already exists in any state, including rejected. The same pair is never proposed twice. Candidates scoring below <code>min_relevance</code> (default 0.08) are discarded.</p>
-
-<h2>7. Token and cost formulas</h2>
-
-<div class="formula">cost_in_cents = (tokens_in * rate_in + tokens_out * rate_out) / 1,000,000
-                where the rates are cents per million tokens for the model
-
-recorded cost   = the exact value above, stored at 6 decimal places
-spend cap check = ceil(the value above), so the cap can never under enforce
-pre-flight size = characters / 4, used to estimate before a call is made</div>
-
-<div class="note"><strong>Fixed in 0.13.0.</strong> Every call used to be rounded up to a whole cent before being recorded. A typical 2,400 token request costing about 0.04 cents was logged as a full cent, over twenty times high, and a few hundred calls could trip the monthly spend cap at a small fraction of real spend. Costs are now recorded exactly.</div>
-
-<h2>8. Related Content formula (TF-IDF)</h2>
-
-<p>The always available baseline. No keys, no external calls, no cost. It runs last and fills whatever budget the other engines left. This is also the engine that builds the candidate shortlist the AI pass depends on, so it is doing work even when AI suggestions are enabled.</p>
-
-<h3>Step 1, building the vocabulary</h3>
-
-<div class="formula">Strip H1 to H6 and the page title from the body.
-Lowercase, then take every token matching:  letter followed by 2 or more letters, digits, apostrophes or hyphens
-Drop stopwords and anything shorter than 3 characters.
-Count each term. Keep the 300 most frequent per page.</div>
-
-<h3>Step 2, term weighting</h3>
-
-<div class="formula">N      = number of indexed pages
-df(t)  = number of pages containing term t
-
-Discard t when df(t) is less than 1        (too rare to matter)
-Discard t when df(t) is more than 0.4 * N  (too common to tell pages apart)
-
-idf(t) = ln(1 + N / df(t))</div>
-
-<h3>Step 3, scoring a candidate page</h3>
-
-<div class="formula">source_terms = the source page's 40 most frequent terms
-
-source_weight = sum over t of  idf(t) * source_tf(t)
-
-raw(C)        = sum over t of  idf(t) * min(source_tf(t), candidate_tf(t))
-
-Require at least 2 shared significant terms, otherwise discard C.
-
-relevance(C)  = min(1, raw(C) / source_weight)</div>
-
-<h3>How the link is actually chosen, step by step</h3>
-
-<div class="key"><strong>This engine picks the destination first and works out the wording afterwards</strong>, which is the opposite order to the other two. That ordering has a consequence worth knowing: a perfect subject match still produces nothing if no phrase from the target's title happens to appear in your text.</div>
-
-<p><strong>Step by step:</strong></p>
+<h2>The limits every suggestion must pass</h2>
 
 <table>
-<tr><th>#</th><th>Step</th><th>If it fails</th></tr>
-<tr><td>1</td><td>Score every other page by vocabulary overlap and sort, best first</td><td>No shared vocabulary anywhere means no suggestions for this page</td></tr>
-<tr><td>2</td><td>Walk that list in order. Skip the page itself, anything already linked, and anything already suggested or rejected before</td><td>Move to the next candidate</td></tr>
-<tr><td>3</td><td>Is the score at least 0.08?</td><td>Move on. Everything below is coincidence</td></tr>
-<tr><td>4</td><td><strong>The target is now provisional.</strong> Take that page's <em>title</em> and cut it at punctuation, then build every word group from 4 words down to 2</td><td>A title with no usable group is abandoned</td></tr>
-<tr><td>5</td><td>Throw away groups that begin or end on a filler word, contain a bare number, or contain words like "part" or "chapter"</td><td>Those groups are dropped</td></tr>
-<tr><td>6</td><td>Sort what is left longest first, then search your page for each in turn</td><td></td></tr>
-<tr><td>7</td><td>First group found in your page wins and becomes the anchor</td><td><strong>If none of them appears, the whole pairing is abandoned</strong> and the next candidate is tried, however high the score was</td></tr>
-<tr><td>8</td><td>Keep the text as it appears in your page, plus context either side</td><td>Cannot fail</td></tr>
+<tr><th>Limit</th><th>Default</th><th>Why it exists</th></tr>
+<tr><td>Links per 1,000 words</td><td>5</td><td>Stops a page turning into a wall of links</td></tr>
+<tr><td>New suggestions per page</td><td>8</td><td>Keeps a review session manageable</td></tr>
+<tr><td>Wording length</td><td>2 to 4 words</td><td>Descriptive, but never a whole sentence</td></tr>
+<tr><td>Same wording to the same page</td><td>3</td><td>Repetition looks manipulative to a search engine</td></tr>
+<tr><td>Lowest relevance accepted</td><td>0.08</td><td>Below this, shared words are coincidence</td></tr>
 </table>
 
-<p><strong>Why longest first.</strong> "content marketing strategy" describes its destination; "strategy" does not. Trying the longest groups first means the most specific wording available is always preferred.</p>
+<h2>A worked example, from start to finish</h2>
 
-<p><strong>The result stored for review:</strong></p>
+<p>Your page mentions "content marketing strategy". Another page is titled "Content Marketing Strategy: A Complete Guide".</p>
 
-<div class="formula">target page  = the best scoring candidate whose title
-               could be quoted from your text     -> post 482
-target URL   = from the plugin's index
-anchor text  = "Content Marketing Strategy"
-               (a word group from the TARGET page's title,
-                found in YOUR page)
-relevance    = the vocabulary overlap score       -> 0.42</div>
+<div class="formula">1. The title is cut at the colon, leaving "Content Marketing Strategy".
 
-<div class="note"><strong>The most common reason an expected link is missing.</strong> Step 7. Two pages can be plainly about the same subject and still produce nothing, because your text never happens to contain a phrase from the other page's title. The other two engines are not bound by this, which is a large part of why they run first.</div>
+2. Those three words are found in your page, so they can be the wording.
 
-<h3>Why it is shaped this way</h3>
+3. Say the word comparison scored           relevance   = 0.42
+
+4. Naturalness  start                                   = 0.45
+                add 0.30 x 0.42                         = 0.576
+                add 0.15, more than one word            = 0.726
+                add 0.10, 26 characters long            = 0.826
+
+5. Overall      (0.60 x 0.42) + (0.40 x 0.826)          = 0.58</div>
+
+<p>It arrives in your review screen showing relevance 0.42, naturalness 0.83 and 0.58 overall, with the surrounding sentence quoted so you can judge whether it reads well before approving it.</p>
+
+<h2>What it will never do</h2>
 
 <table>
-<tr><th>Choice</th><th>Effect</th></tr>
-<tr><td><code>min(source_tf, candidate_tf)</code></td><td>A page repeating a term 500 times gets credit only up to how often the source uses it, so keyword stuffed pages cannot dominate</td></tr>
-<tr><td>Dividing by <code>source_weight</code></td><td>Turns the score into "how much of this page's meaningful vocabulary does the candidate cover", which lands naturally between 0 and 1</td></tr>
-<tr><td>The <code>0.4 * N</code> ceiling</td><td>Words appearing on nearly every page carry no signal and are dropped automatically, whatever language they are in</td></tr>
-<tr><td>Two shared terms minimum</td><td>A single coincidental word cannot create a link</td></tr>
+<tr><th>Never</th><th>Why that matters</th></tr>
+<tr><td>Add a link without your approval</td><td>Everything waits in a review screen. Nothing reaches your content until you click</td></tr>
+<tr><td>Invent wording</td><td>The words must already be on your page. If they are not, no suggestion is made at all</td></tr>
+<tr><td>Link inside a heading</td><td>Headings and titles are removed before the plugin reads anything</td></tr>
+<tr><td>Link across languages</td><td>An English page is never linked to a Hindi one</td></tr>
+<tr><td>Send your content anywhere without a key</td><td>With no API key set up, the plugin makes no outside connections at all</td></tr>
 </table>
-
-<div class="key">Nothing here knows your subject matter. The vocabulary is whatever your pages actually contain, and the weights are computed from your own site at scan time. The same formulas produce recipe links on a recipe site and legal links on a law firm site, with no configuration.</div>
-
-<h3>Known limits</h3>
-
-<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the AI suggestion pass is for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
-
-<h2>Worked example</h2>
-
-<p>Source page mentions the phrase "content marketing strategy". Target page is titled "Content Marketing Strategy: A Complete Guide".</p>
-
-<div class="formula">1. Title splits at the colon, giving the segment "Content Marketing Strategy".
-2. The 3 word phrase is built, passes the noise checks, and is found in the body.
-   anchor = "Content Marketing Strategy"    (26 characters, multi word)
-
-3. Suppose the TF-IDF relevance came out at 0.42.
-
-4. naturalness = 0.45 + (0.30 * 0.42) = 0.576
-                + 0.15  multi word        = 0.726
-                + 0.10  length 8 to 60    = 0.826
-
-5. confidence = (0.6 * 0.42) + (0.4 * 0.826)
-              = 0.252 + 0.3304
-              = 0.582</div>
-
-<p>The suggestion enters the review inbox showing relevance 0.42, naturalness 0.83 and an overall 0.58, with the surrounding sentence quoted so the placement can be judged before anything is approved.</p>
 
 <div class="footer">
-AI Internal Linking, version 0.15.1. All formulas taken directly from the plugin source.<br />
+AI Internal Linking, version 0.15.1. Every number in this document is taken from the plugin itself and checked against it. The companion document "AI Internal Linking, Overview" covers what the plugin does, how it reads your site, and how applying and undoing links works.<br />
 Made by Shikher Goyal.
 </div>
 
