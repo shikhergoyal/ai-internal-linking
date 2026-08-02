@@ -1,0 +1,300 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8" />
+<title>AI Internal Linking, Scoring Formulas</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
+h1 { font-size: 22pt; color: #1a3d6d; margin-bottom: 2pt; }
+h2 { font-size: 15pt; color: #1a3d6d; margin-top: 22pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
+h3 { font-size: 12pt; color: #2f5c96; margin-top: 14pt; margin-bottom: 4pt; }
+.sub { color: #5a6673; font-size: 10pt; margin-top: 0; }
+.formula { font-family: Consolas, "Courier New", monospace; font-size: 10pt; background: #f4f6f9;
+           border-left: 3pt solid #2f5c96; padding: 8pt 10pt; margin: 8pt 0; white-space: pre-wrap; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
+th { background: #1a3d6d; color: #ffffff; text-align: left; padding: 5pt 7pt; }
+td { border-bottom: 1pt solid #d8dee6; padding: 5pt 7pt; vertical-align: top; }
+.note { background: #fff8e6; border-left: 3pt solid #d8a12a; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
+.key { background: #eef5ee; border-left: 3pt solid #3d7a3d; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
+code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; padding: 1pt 3pt; }
+.footer { margin-top: 28pt; padding-top: 8pt; border-top: 1pt solid #c8d4e3; color: #5a6673; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<h1>AI Internal Linking</h1>
+<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.13.0.</p>
+
+<h2>How a suggestion is produced</h2>
+
+<p>For each published page the plugin runs three suggestion engines in a fixed order. Each one consumes the same link budget, so an earlier engine wins when both would propose a link to the same target. Every engine, without exception, must find an anchor phrase that already exists in the source page's body text. If no such phrase exists, no suggestion is created.</p>
+
+<table>
+<tr><th>Order</th><th>Engine</th><th>Evidence it uses</th><th>Cost</th></tr>
+<tr><td>Pass 1</td><td>GSC keyword</td><td>Search Console: a query the target already ranks for</td><td>Free</td></tr>
+<tr><td>Pass 2</td><td>AI Suggestion</td><td>A chat model reading the page and a shortlist</td><td>Your API key</td></tr>
+<tr><td>Pass 3</td><td>Related Content</td><td>Local TF-IDF vocabulary overlap</td><td>Free</td></tr>
+</table>
+
+<div class="key"><strong>The one rule that governs everything:</strong> the plugin links text that is already on the page. It never writes new sentences, never invents an anchor, and never inserts anything without your approval.</div>
+
+<h2>1. AI suggestion formula</h2>
+
+<p>Runs only when "AI link suggestions" is enabled in Settings and a chat provider key is configured. Works with any chat model, including Claude, OpenAI, Gemini, Groq, xAI, DeepSeek, OpenRouter, Perplexity, and local models.</p>
+
+<h3>What the model is allowed to see</h3>
+
+<p>The model never browses your site and never chooses freely from all pages. It receives a closed shortlist produced by the free engine:</p>
+
+<div class="formula">candidate_pool = top 18 TF-IDF candidates for this page
+                 minus the page itself
+                 minus every target already linked or already suggested
+
+sent_to_model  = first 15 of that pool     (MAX_CANDIDATES)
+page_excerpt   = first 6,000 characters of the body, cut on a word boundary
+max_tokens     = 800
+temperature    = 0</div>
+
+<h3>How a returned link is scored</h3>
+
+<div class="formula">relevance = clamp(model_confidence, 0, 1)
+            default 0.7 when the model returns no confidence value</div>
+
+<h3>The three checks that make fabrication impossible</h3>
+
+<table>
+<tr><th>Check</th><th>Rule</th><th>If it fails</th></tr>
+<tr><td>Real target</td><td>The chosen page must be one of the candidates that was sent</td><td>Pick discarded</td></tr>
+<tr><td>Real anchor</td><td>The proposed anchor must appear word for word in the body text</td><td>Pick discarded</td></tr>
+<tr><td>Not a heading</td><td>Headings and the page title are stripped before the model ever sees the text</td><td>Cannot be chosen</td></tr>
+</table>
+
+<div class="key">A model that invents a page, invents a phrase, or paraphrases your wording produces nothing. The suggestion is dropped silently and the free engines fill the gap.</div>
+
+<h3>What one page costs</h3>
+
+<div class="formula">per page:  about 2,400 input tokens  (1,500 body + 750 candidates + 200 system)
+           up to    800 output tokens
+           exactly    1 request
+
+a 300 page site: roughly 720,000 input and up to 240,000 output tokens per scan</div>
+
+<h2>2. GSC keyword evidence formula</h2>
+
+<p>The strongest signal available, because it is grounded in what people actually search for rather than in what your pages resemble. The model is: page B already ranks for query Q, page A says Q in its body, page A does not link to B, therefore link it using Q as the anchor. Runs first and takes budget before the other engines.</p>
+
+<h3>Step 1, click through rate by position</h3>
+
+<p>Opportunity is expressed in clicks rather than impressions, which needs an estimate of how often a result at a given position is clicked.</p>
+
+<table>
+<tr><th>Position</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr>
+<tr><td>CTR</td><td>0.280</td><td>0.150</td><td>0.110</td><td>0.080</td><td>0.060</td><td>0.048</td><td>0.039</td><td>0.032</td><td>0.028</td><td>0.025</td></tr>
+</table>
+
+<div class="formula">positions 11 to 20:  ctr = max(0.008, 0.025 - (position - 10) * 0.0017)
+position 21 and up:  ctr = 0.005</div>
+
+<h3>Step 2, opportunity score</h3>
+
+<div class="formula">gain        = ctr(position 3) - ctr(current position), floored at 0
+reach       = 1.0            when position is 20 or better
+            = 20 / position  when position is worse than 20
+
+opportunity = impressions * gain * reach</div>
+
+<p>In words: the extra clicks this keyword could realistically win if the page reached the top three, discounted by how plausible that jump is. Positions 1, 2 and 3 score exactly zero, because a page already at the top has nothing to gain from another internal link. The score peaks around position 20 and falls away below it, since one internal link will not lift page five into the top three.</p>
+
+<table>
+<tr><th>Position</th><th>1</th><th>3</th><th>5</th><th>10</th><th>15</th><th>20</th><th>40</th><th>99</th></tr>
+<tr><td>Score per 1,000 impressions</td><td>0</td><td>0</td><td>50.0</td><td>85.0</td><td>93.5</td><td>102.0</td><td>52.5</td><td>21.2</td></tr>
+</table>
+
+<div class="note"><strong>Changed in 0.13.0.</strong> The previous formula was <code>impressions * (21 - min(20, position)) / 20</code>, which peaked at position 1. Keywords you already ranked first for scored highest and consumed the link budget, which is backwards, and it fought the striking distance bonus it was paired with. Existing keyword rows keep their old scores until you re-fetch from Search Console or re-import your CSV.</div>
+
+<h3>Step 3, striking distance</h3>
+
+<div class="formula">is_striking = position is between 5 and 20 inclusive</div>
+
+<p>This is the band where one more internal link measurably moves a ranking. High enough that the page is already credible to the search engine, low enough that there is real room to climb.</p>
+
+<h3>Step 4, relevance</h3>
+
+<div class="formula">relevance = min(0.98,  0.50                                          base
+                     + 0.20  if is_striking
+                     + 0.28 * min(1, opportunity / best_opportunity_in_pool))</div>
+
+<p>The base of 0.50 sits deliberately above what vocabulary overlap normally produces, so a keyword backed suggestion outranks a merely similar page. The pool is the top 500 keywords by opportunity.</p>
+
+<h3>Step 5, the over optimisation guard</h3>
+
+<div class="formula">refuse the suggestion when
+  (existing links with this exact anchor to this target)
++ (open suggestions with this exact anchor to this target)  >=  3</div>
+
+<p>Keyword anchors are exact match by nature, which is precisely the pattern that looks manipulative at scale. The cap is adjustable through the <code>ailinking_max_exact_anchors_per_target</code> filter.</p>
+
+<h2>3. Embedding re-rank formula</h2>
+
+<p>Optional. Applies only when an embeddings provider is configured. It never replaces the free engine, it re-orders what the free engine already found, so recall stays local and free while precision improves.</p>
+
+<div class="formula">cosine(A, B) = dot(A, B) / (norm(A) * norm(B))
+
+score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector))</div>
+
+<div class="note">Anthropic and Claude have no embeddings API. Claude keys power the AI suggestion engine above, not this one. For embeddings use OpenAI, Voyage, Gemini, Mistral or a local model.</div>
+
+<h2>4. Anchor selection formula</h2>
+
+<p>Every engine funnels through this. The anchor is drawn from the target page's title and must be found inside the source page's body.</p>
+
+<div class="formula">1. Split the target title on  :  ;  ,  |  ( )  [ ]  /  and dashes
+   so a phrase never bridges a punctuation boundary.
+
+2. Build every word sequence inside each segment,
+   from max_anchor_words (default 4) down to min_anchor_words (default 2).
+
+3. Reject a phrase when:
+     the first or last word is a stopword
+     any word is a pure number
+     any word is part, parts, vol, volume, chapter, edition, section, no
+     the phrase is shorter than 6 characters
+
+4. Order: most words first, then longest string. Keep the best 60.
+
+5. Optional single word fallback, only when min_anchor_words is 1:
+     6 or more letters, not a stopword,
+     not guide, review, tips, best, introduction, overview, about, guidelines
+
+6. Search the body for each phrase in order, whole word, case insensitive:
+     (?&lt;![letter or digit]) phrase (?![letter or digit])
+
+7. First match wins. No match at all means no suggestion.</div>
+
+<p>The ordering is the point: the longest and most specific phrase from the title that genuinely appears in your text becomes the anchor, so anchors describe their destination rather than being generic.</p>
+
+<h3>Never eligible as anchor text</h3>
+
+<table>
+<tr><th>Excluded</th><th>Reason</th></tr>
+<tr><td>Anything in H1 to H6</td><td>Headings are stripped from the indexed text entirely</td></tr>
+<tr><td>The page title</td><td>Removed from the body corpus before indexing</td></tr>
+<tr><td>Text already inside a link</td><td>Never nested</td></tr>
+<tr><td>Code blocks and tag attributes</td><td>Would corrupt the markup</td></tr>
+<tr><td>Text in another language</td><td>Cross language links are never proposed</td></tr>
+</table>
+
+<h2>5. Naturalness formula</h2>
+
+<p>Measures whether the link reads like something a writer would have typed, rather than something bolted on for a search engine.</p>
+
+<div class="formula">naturalness = 0.45
+            + 0.30 * relevance
+            + 0.15  if the anchor contains a space (multi word)
+            + 0.10  if the anchor is 8 to 60 characters
+            - 0.20  if the anchor is shorter than 5 characters
+            - 0.15  if the anchor is longer than 70 characters
+            clamped to the range 0 to 1</div>
+
+<h2>6. Final confidence formula</h2>
+
+<div class="formula">confidence = 0.6 * relevance + 0.4 * naturalness</div>
+
+<div class="note">This composite is what the Suggestions tab displays in the column labelled "Relevance". Relevance answers "should these two pages be connected", naturalness answers "does this specific placement read well", and the link is worth making only when both hold.</div>
+
+<h2>7. Budget and density formulas</h2>
+
+<div class="formula">max_allowed = max(2, ceil(word_count / 1000 * max_links_per_1000))   default 5 per 1,000 words
+capacity    = max_allowed - links already in the content
+limit       = min(max_suggestions_post, capacity)                   default cap 8
+
+capacity of 0 or less  ->  the page is skipped entirely</div>
+
+<p>A target is also skipped when the source already links to it, or when a suggestion for that exact pair already exists in any state, including rejected. The same pair is never proposed twice. Candidates scoring below <code>min_relevance</code> (default 0.08) are discarded.</p>
+
+<h2>8. Token and cost formulas</h2>
+
+<div class="formula">cost_in_cents = (tokens_in * rate_in + tokens_out * rate_out) / 1,000,000
+                where the rates are cents per million tokens for the model
+
+recorded cost   = the exact value above, stored at 6 decimal places
+spend cap check = ceil(the value above), so the cap can never under enforce
+pre-flight size = characters / 4, used to estimate before a call is made</div>
+
+<div class="note"><strong>Fixed in 0.13.0.</strong> Every call used to be rounded up to a whole cent before being recorded. A typical 2,400 token request costing about 0.04 cents was logged as a full cent, over twenty times high, and a few hundred calls could trip the monthly spend cap at a small fraction of real spend. Costs are now recorded exactly.</div>
+
+<h2>9. Related Content formula (TF-IDF)</h2>
+
+<p>The always available baseline. No keys, no external calls, no cost. It runs last and fills whatever budget the other engines left. This is also the engine that builds the candidate shortlist the AI pass depends on, so it is doing work even when AI suggestions are enabled.</p>
+
+<h3>Step 1, building the vocabulary</h3>
+
+<div class="formula">Strip H1 to H6 and the page title from the body.
+Lowercase, then take every token matching:  letter followed by 2 or more letters, digits, apostrophes or hyphens
+Drop stopwords and anything shorter than 3 characters.
+Count each term. Keep the 300 most frequent per page.</div>
+
+<h3>Step 2, term weighting</h3>
+
+<div class="formula">N      = number of indexed pages
+df(t)  = number of pages containing term t
+
+Discard t when df(t) is less than 1        (too rare to matter)
+Discard t when df(t) is more than 0.4 * N  (too common to tell pages apart)
+
+idf(t) = ln(1 + N / df(t))</div>
+
+<h3>Step 3, scoring a candidate page</h3>
+
+<div class="formula">source_terms = the source page's 40 most frequent terms
+
+source_weight = sum over t of  idf(t) * source_tf(t)
+
+raw(C)        = sum over t of  idf(t) * min(source_tf(t), candidate_tf(t))
+
+Require at least 2 shared significant terms, otherwise discard C.
+
+relevance(C)  = min(1, raw(C) / source_weight)</div>
+
+<h3>Why it is shaped this way</h3>
+
+<table>
+<tr><th>Choice</th><th>Effect</th></tr>
+<tr><td><code>min(source_tf, candidate_tf)</code></td><td>A page repeating a term 500 times gets credit only up to how often the source uses it, so keyword stuffed pages cannot dominate</td></tr>
+<tr><td>Dividing by <code>source_weight</code></td><td>Turns the score into "how much of this page's meaningful vocabulary does the candidate cover", which lands naturally between 0 and 1</td></tr>
+<tr><td>The <code>0.4 * N</code> ceiling</td><td>Words appearing on nearly every page carry no signal and are dropped automatically, whatever language they are in</td></tr>
+<tr><td>Two shared terms minimum</td><td>A single coincidental word cannot create a link</td></tr>
+</table>
+
+<div class="key">Nothing here knows your subject matter. The vocabulary is whatever your pages actually contain, and the weights are computed from your own site at scan time. The same formulas produce recipe links on a recipe site and legal links on a law firm site, with no configuration.</div>
+
+<h3>Known limits</h3>
+
+<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the embedding re-ranker and the AI pass are for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
+
+<h2>Worked example</h2>
+
+<p>Source page mentions the phrase "content marketing strategy". Target page is titled "Content Marketing Strategy: A Complete Guide".</p>
+
+<div class="formula">1. Title splits at the colon, giving the segment "Content Marketing Strategy".
+2. The 3 word phrase is built, passes the noise checks, and is found in the body.
+   anchor = "Content Marketing Strategy"    (26 characters, multi word)
+
+3. Suppose the TF-IDF relevance came out at 0.42.
+
+4. naturalness = 0.45 + (0.30 * 0.42) = 0.576
+                + 0.15  multi word        = 0.726
+                + 0.10  length 8 to 60    = 0.826
+
+5. confidence = (0.6 * 0.42) + (0.4 * 0.826)
+              = 0.252 + 0.3304
+              = 0.582</div>
+
+<p>The suggestion enters the review inbox showing relevance 0.42, naturalness 0.83 and an overall 0.58, with the surrounding sentence quoted so the placement can be judged before anything is approved.</p>
+
+<div class="footer">
+AI Internal Linking, version 0.13.0. All formulas taken directly from the plugin source.<br />
+Made by Shikher Goyal.
+</div>
+
+</body>
+</html>
