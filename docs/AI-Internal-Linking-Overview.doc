@@ -41,6 +41,153 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <div class="key"><strong>The rule behind all three:</strong> the plugin links words that are already on your page. It never writes new sentences, never invents an anchor, and never inserts anything you have not approved.</div>
 
+<h2>The formulas, engine by engine</h2>
+
+<p>Each engine answers a different question, and each produces a <strong>relevance</strong> score between 0 and 1. Everything after that is shared. They appear here in the order that matters most, ending with the engine that needs no key, no internet connection and no budget.</p>
+
+<h3>Engine 1 of 3: AI Suggestion</h3>
+
+<p class="sub">The question it answers: "reading this page, which of these related pages would a careful editor link to, and using which words?"</p>
+
+<p>The model never browses your site and never chooses freely. It is handed a closed shortlist and asked to pick from it.</p>
+
+<div class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
+page sent   = the first N words          (your setting, default 1,000)
+reply limit = 800 tokens, temperature 0  (temperature 0 = no invention)
+
+relevance   = the model's own confidence, 0 to 1
+              (0.7 is assumed if the model does not supply one)</div>
+
+<p><strong>In plain words:</strong> the free engine finds the candidates; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
+
+<p>Three checks make a fabricated link impossible:</p>
+
+<table>
+<tr><th>Check</th><th>If it fails</th></tr>
+<tr><td>The page it chose must be one of the 15 it was shown</td><td>Discarded</td></tr>
+<tr><td>The wording it chose must already appear in your page, word for word</td><td>Discarded</td></tr>
+<tr><td>Headings and the title are stripped before the model sees the text</td><td>Cannot be chosen at all</td></tr>
+</table>
+
+<div class="note"><strong>The one limit worth knowing.</strong> The model reads the first N words, not the whole page. At the default of 1,000 words, a 3,000 word article is roughly one third visible, so its suggestions come from the opening section. Raise "Words per page sent to the AI" on Setup and Dashboard to widen it. This limit applies to this engine only.</div>
+
+<h3>Engine 2 of 3: GSC keyword</h3>
+
+<p class="sub">The question it answers: "this page says a phrase another page already ranks for on Google, and does not link to it. Why not?"</p>
+
+<p>This is the strongest evidence available, because it comes from real search demand rather than from similarity. It runs first.</p>
+
+<p><strong>Step one, what is this keyword worth?</strong></p>
+
+<div class="formula">gain        = click rate at position 3, minus click rate where you rank now
+              (never below zero)
+reach       = 1          if you rank 20 or better
+            = 20 / rank  if you rank worse than 20
+
+opportunity = impressions * gain * reach</div>
+
+<p><strong>In plain words:</strong> the extra clicks this keyword could realistically win, discounted by how believable that jump is. Already in the top 3? Nothing to gain, so the score is zero. Ranked 50th? One internal link will not fix that, so the score is cut down.</p>
+
+<table>
+<tr><th>You rank at</th><th>1</th><th>3</th><th>5</th><th>10</th><th>20</th><th>40</th><th>99</th></tr>
+<tr><td>Score per 1,000 impressions</td><td>0</td><td>0</td><td>50</td><td>85</td><td>102</td><td>53</td><td>21</td></tr>
+</table>
+
+<p>The sweet spot is positions 5 to 20, known as <strong>striking distance</strong>: high enough that Google already takes the page seriously, low enough that there is real room to climb.</p>
+
+<p><strong>Step two, turn that into a relevance score:</strong></p>
+
+<div class="formula">relevance = 0.50                                    always
+          + 0.20   if you rank between 5 and 20
+          + 0.28 * (this keyword / your best keyword)
+          capped at 0.98</div>
+
+<p>The floor of 0.50 is deliberate. A proven search phrase is better evidence than any similarity measure, so these suggestions start above what the other engines normally reach.</p>
+
+<h3>How the wording is chosen</h3>
+
+<p>This step is shared, but each engine supplies its own candidate phrase:</p>
+
+<table>
+<tr><th>Engine</th><th>Where the wording comes from</th></tr>
+<tr><td>AI Suggestion</td><td>A phrase the model picked out of your article</td></tr>
+<tr><td>GSC keyword</td><td>The search phrase itself</td></tr>
+<tr><td>Related Content</td><td>Word groups taken from the target page's title</td></tr>
+</table>
+
+<p>Whatever the source, the phrase must then be found in your page as a whole word, ignoring capitals. If it is not there, no suggestion is made. That single rule is what guarantees the plugin never writes new sentences.</p>
+
+<p>For the title based engine, phrases are tried longest first, so "content marketing strategy" wins over "marketing strategy". Phrases that start or end on a filler word are rejected, as are pure numbers and words such as "part" or "chapter".</p>
+
+<h3>The two scores on every suggestion</h3>
+
+<div class="formula">naturalness = 0.45
+            + 0.30 * relevance
+            + 0.15   if the wording is more than one word
+            + 0.10   if it is 8 to 60 characters long
+            - 0.20   if it is shorter than 5 characters
+            - 0.15   if it is longer than 70 characters
+
+confidence  = 0.60 * relevance + 0.40 * naturalness</div>
+
+<p><strong>In plain words:</strong> relevance asks "should these two pages be connected at all", naturalness asks "does this exact wording read well here". The number shown in the review inbox blends the two, with relevance carrying most of the weight.</p>
+
+<h3>Engine 3 of 3: Related Content</h3>
+
+<p class="sub">The question it answers: "which pages talk about the same things as this one?" No key, no internet, no cost.</p>
+
+<p>This engine is always available and fills whatever link budget the other two leave. It also builds the shortlist the AI reads, so it is working even when the AI is switched on.</p>
+
+<p><strong>Step one, decide which words matter.</strong> Each page is reduced to its 300 most used words, filler words removed. Every word is then weighted by how rare it is across your whole site:</p>
+
+<div class="formula">weight of a word = ln(1 + total pages / pages containing it)
+
+A word appearing on more than 40 percent of your
+pages is dropped entirely.</div>
+
+<p><strong>In plain words:</strong> a word that appears everywhere on your site tells you nothing about which two pages belong together. A rare word tells you a great deal. So rare words count for more, and site-wide words are ignored outright.</p>
+
+<p><strong>Step two, compare two pages:</strong></p>
+
+<div class="formula">source words = the 40 most used words on this page
+
+overlap   = for each shared word, its weight times the smaller
+            of the two pages' counts, added up
+
+relevance = overlap / this page's own total weight
+            (at least 2 shared meaningful words required)</div>
+
+<p><strong>In plain words:</strong> the score is the share of this page's vocabulary that the other page also covers. Taking the <em>smaller</em> of the two counts is what stops a page that repeats one word two hundred times from looking relevant to everything.</p>
+
+<div class="key"><strong>Nothing here knows your subject.</strong> The vocabulary is whatever your own pages contain, and the weights are calculated from your own site at scan time. The identical formula produces recipe links on a recipe site and legal links on a law firm site, with no configuration.</div>
+
+<h3>The limits every suggestion must pass</h3>
+
+<table>
+<tr><th>Limit</th><th>Default</th><th>Why it exists</th></tr>
+<tr><td>Links per 1,000 words</td><td>5</td><td>Stops a page becoming a link farm</td></tr>
+<tr><td>New suggestions per page</td><td>8</td><td>Keeps a review session manageable</td></tr>
+<tr><td>Wording length</td><td>2 to 4 words</td><td>Descriptive, never a whole sentence</td></tr>
+<tr><td>Same wording to the same page</td><td>3</td><td>Avoids looking manipulative to a search engine</td></tr>
+<tr><td>Minimum relevance</td><td>0.08</td><td>Discards weak vocabulary matches</td></tr>
+</table>
+
+<h3>A worked example, start to finish</h3>
+
+<p>Your page mentions the phrase "content marketing strategy". Another page is titled "Content Marketing Strategy: A Complete Guide".</p>
+
+<div class="formula">1. The title splits at the colon, giving "Content Marketing Strategy".
+2. That 3 word phrase is found in your page, so it can be the wording.
+3. Say the vocabulary overlap scored     relevance   = 0.42
+
+4. naturalness = 0.45 + (0.30 x 0.42)              = 0.576
+               + 0.15  more than one word          = 0.726
+               + 0.10  26 characters, within range = 0.826
+
+5. confidence  = (0.60 x 0.42) + (0.40 x 0.826)    = 0.58</div>
+
+<p>It reaches the review inbox showing 0.42 relevance, 0.83 naturalness and 0.58 overall, with the surrounding sentence quoted so you can judge the placement before approving anything.</p>
+
 <h2>What it will never do</h2>
 
 <table>
@@ -104,7 +251,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 </table>
 
 <div class="footer">
-AI Internal Linking, version 0.15.0. For the scoring formulas behind every decision, see the companion document "AI Internal Linking, Scoring Formulas".<br />
+AI Internal Linking, version 0.15.0. Every formula above is taken directly from the plugin source and checked against it. The companion document "AI Internal Linking, Scoring Formulas" covers the same ground in more technical depth, including the anchor selection steps and the known limits of each engine.<br />
 Made by Shikher Goyal.
 </div>
 
