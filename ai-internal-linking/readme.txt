@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.12.1
+Stable tag: 0.13.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,11 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.13.0 =
+* Token usage is now visible. A live ticker under the progress bar shows tokens in, tokens out and estimated cost accumulating while a suggestion scan or an embedding build runs, so you can watch the burn instead of guessing. It survives pause, resume and page reloads, because the counter is anchored to the server-side run rather than the browser tab. The AI Keys table gains "Tokens in (mo)" and "Tokens out (mo)" columns per key, and a new "Token usage" card shows this month and all time side by side plus a per-model breakdown split by chat and embedding, which have very different cost profiles. Nothing new is collected: every provider call already reported its own token counts, they were simply never shown.
+* Fix: estimated cost was overstated, often by more than 20x. Each call's cost was rounded UP to a whole cent before being recorded, so a typical 2,400-token request costing about 0.04 cents was logged as a full cent. Costs are now stored at full precision, and the monthly spend cap reads the same precise figures, so a cap set at a few dollars is no longer tripped at a fraction of real spend. The cap itself still rounds up when deciding, so it can never be under-enforced.
+* Changed: the keyword opportunity score no longer rewards keywords you already rank first for. The old formula weighted impressions toward position 1, so a query already sitting at #1 scored highest and consumed the link budget, even though that page needs another internal link least, and it worked against the striking-distance bonus it was paired with. Opportunity is now the extra clicks a keyword could realistically win: the CTR gap between the top 3 and your current position, floored at zero so positions 1 to 3 score nothing, multiplied by a reach factor that decays past position 20 because one internal link will not lift page 5 into the top 3. The score now peaks in the striking-distance band instead of at the top of it. NOTE: existing keyword rows keep their old scores until you re-fetch from Search Console or re-import your CSV, which recomputes them.
 
 = 0.12.1 =
 * Renamed the "Content match" source filter to "Related Content".

@@ -71,15 +71,62 @@ class KeywordImporter {
 	}
 
 	/**
-	 * Opportunity score: impressions weighted toward better (lower) positions. (pure)
+	 * Approximate organic CTR at an average position. Used to express
+	 * opportunity in clicks rather than in raw impressions. (pure)
+	 *
+	 * @param float $position Avg position.
+	 * @return float CTR in 0..1.
+	 */
+	public static function ctr_at( $position ) {
+		$i = (int) round( max( 1.0, (float) $position ) );
+
+		$curve = array(
+			1 => 0.280, 2 => 0.150, 3 => 0.110, 4 => 0.080, 5 => 0.060,
+			6 => 0.048, 7 => 0.039, 8 => 0.032, 9 => 0.028, 10 => 0.025,
+		);
+		if ( isset( $curve[ $i ] ) ) {
+			return $curve[ $i ];
+		}
+		if ( $i <= 20 ) {
+			// Page-one tail: 0.025 at 10 decaying to 0.008 at 20.
+			return max( 0.008, 0.025 - ( ( $i - 10 ) * 0.0017 ) );
+		}
+		return 0.005; // page two and beyond, effectively flat.
+	}
+
+	/**
+	 * Opportunity score: the extra clicks this keyword could realistically win,
+	 * which is what an internal link is being spent on. (pure)
+	 *
+	 * Deliberately NOT "impressions weighted toward position 1". That older
+	 * shape peaked at position 1, so keywords already ranking first scored
+	 * highest and consumed the link budget, even though a page at #1 is the
+	 * one that needs another internal link least. Here:
+	 *
+	 *   gain  = CTR at the top 3 minus CTR where you sit now, floored at zero,
+	 *           so anything already at or above position 3 scores 0.
+	 *   reach = 1 inside striking distance, then decaying past position 20,
+	 *           because one internal link will not drag page 5 to the top 3.
+	 *
+	 * The result peaks around position 20 and falls away on both sides, which
+	 * lines up with is_striking() (5-20) instead of fighting it.
 	 *
 	 * @param int   $impressions Impressions.
 	 * @param float $position    Avg position.
 	 * @return float
 	 */
 	public static function opportunity( $impressions, $position ) {
-		$position = max( 1.0, (float) $position );
-		return (float) $impressions * ( 21.0 - min( 20.0, $position ) ) / 20.0;
+		$impressions = max( 0, (int) $impressions );
+		$position    = max( 1.0, (float) $position );
+
+		$gain = self::ctr_at( 3.0 ) - self::ctr_at( $position );
+		if ( $gain <= 0.0 ) {
+			return 0.0; // already at or above the target position.
+		}
+
+		$reach = ( $position <= 20.0 ) ? 1.0 : ( 20.0 / $position );
+
+		return $impressions * $gain * $reach;
 	}
 
 	/**

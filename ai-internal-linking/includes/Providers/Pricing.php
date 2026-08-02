@@ -24,9 +24,27 @@ class Pricing {
 	 * @return int
 	 */
 	public static function cents( $provider, $model, $tokens_in, $tokens_out, $operation = 'chat' ) {
+		return (int) ceil( self::cents_float( $provider, $model, $tokens_in, $tokens_out, $operation ) );
+	}
+
+	/**
+	 * Unrounded cost in cents.
+	 *
+	 * cents() rounds every call up to a whole cent, which is the right,
+	 * conservative choice for the spend cap but wildly overstates real usage:
+	 * a 2,400-token request costing 0.036c is charged a full cent, ~28x high.
+	 * Reporting uses this precise value instead. (pure)
+	 *
+	 * @param string $provider   Provider slug.
+	 * @param string $model      Model id.
+	 * @param int    $tokens_in  Input tokens.
+	 * @param int    $tokens_out Output tokens.
+	 * @param string $operation  'chat'|'embedding'.
+	 * @return float
+	 */
+	public static function cents_float( $provider, $model, $tokens_in, $tokens_out, $operation = 'chat' ) {
 		$rates = self::rate_for( $provider, $model, $operation );
-		$cost  = ( (int) $tokens_in * $rates['in'] + (int) $tokens_out * $rates['out'] ) / 1000000.0;
-		return (int) ceil( $cost );
+		return ( (int) $tokens_in * $rates['in'] + (int) $tokens_out * $rates['out'] ) / 1000000.0;
 	}
 
 	/**

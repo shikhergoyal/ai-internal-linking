@@ -13,6 +13,7 @@ use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Providers\Gateway;
+use AILinking\Providers\UsageStats;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -279,13 +280,19 @@ class SuggestionEngine {
 		$sugg_table = Tables::suggestions();
 		$wpdb->query( "DELETE FROM {$sugg_table} WHERE status = 'pending'" ); // phpcs:ignore WordPress.DB.PreparedSQL
 
+		// Baseline for the live token ticker: usage this run is everything
+		// logged after this point. Survives pause/resume and page reloads
+		// because it lives in the progress record, not the browser.
+		$usage_log_id = UsageStats::max_log_id();
+
 		if ( empty( $types ) ) {
 			$progress = array(
-				'total'     => 0,
-				'processed' => 0,
-				'created'   => 0,
-				'cursor'    => 0,
-				'status'    => 'complete',
+				'total'        => 0,
+				'processed'    => 0,
+				'created'      => 0,
+				'cursor'       => 0,
+				'status'       => 'complete',
+				'usage_log_id' => $usage_log_id,
 			);
 			ProgressStore::set( 'suggest', $progress );
 			return $progress;
@@ -301,11 +308,12 @@ class SuggestionEngine {
 		);
 
 		$progress = array(
-			'total'     => $total,
-			'processed' => 0,
-			'created'   => 0,
-			'cursor'    => 0,
-			'status'    => $total > 0 ? 'running' : 'complete',
+			'total'        => $total,
+			'processed'    => 0,
+			'created'      => 0,
+			'cursor'       => 0,
+			'status'       => $total > 0 ? 'running' : 'complete',
+			'usage_log_id' => $usage_log_id,
 		);
 		ProgressStore::set( 'suggest', $progress );
 		return $progress;
