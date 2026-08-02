@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "Copy this file to tools/deploy.local.json and fill in your site.",
+    "deploy.local.json is gitignored, so your server details never leave your machine.",
+    "NEVER put the SSH key passphrase in this file. Use ssh.passphrase_env or",
+    "ssh.passphrase_from_scripts below, both of which keep it out of any file",
+    "this repository can see."
+  ],
+
+  "wp_root": "/home/youruser/public_html/example-com",
+  "plugin_slug": "ai-internal-linking",
+  "plugin_dir": "C:\\path\\to\\repo\\ai-internal-linking",
+
+  "ssh": {
+    "host": "203.0.113.10",
+    "user": "youruser",
+    "port": 22,
+    "key_path": "C:\\path\\to\\id_rsa",
+
+    "_passphrase_note": [
+      "Pick ONE of the two below, or omit both for an unencrypted key.",
+      "passphrase_env: name of an environment variable holding the passphrase.",
+      "passphrase_from_scripts: a folder of existing .py automation scripts to",
+      "scrape connection details from, so nothing new has to be written down.",
+      "If host or user are left empty above, they are scraped from there too."
+    ],
+    "passphrase_env": "AILINKING_SSH_PASSPHRASE",
+    "passphrase_from_scripts": ""
+  }
+}
