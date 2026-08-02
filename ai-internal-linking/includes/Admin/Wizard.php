@@ -15,6 +15,7 @@ use AILinking\Install\Schema;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
+use AILinking\Suggestions\LlmSuggester;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,11 +59,17 @@ class Wizard {
 		$density = isset( $_POST['max_links_per_1000'] ) ? (int) $_POST['max_links_per_1000'] : 5;
 		$density = max( 1, min( 20, $density ) );
 
+		// Clamped, not trusted: this multiplies into the token bill on every
+		// post of every scan.
+		$ai_words = isset( $_POST['llm_max_words'] ) ? (int) $_POST['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS;
+		$ai_words = max( 100, min( LlmSuggester::MAX_WORDS_LIMIT, $ai_words ) );
+
 		Settings::update(
 			array(
 				'crawl_post_types'   => $crawl,
 				'target_post_types'  => $targets,
 				'max_links_per_1000' => $density,
+				'llm_max_words'      => $ai_words,
 				'wizard_complete'    => true,
 			)
 		);
@@ -195,6 +202,27 @@ class Wizard {
 					<tr>
 						<th scope="row"><label for="ailinking-density"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="number" min="1" max="20" id="ailinking-density" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ailinking-ai-words"><?php esc_html_e( 'Words per page sent to the AI', 'ai-internal-linking' ); ?></label></th>
+						<td>
+							<?php $ai_words = (int) ( isset( $settings['llm_max_words'] ) ? $settings['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS ); ?>
+							<input type="number" min="100" max="<?php echo esc_attr( (string) LlmSuggester::MAX_WORDS_LIMIT ); ?>" step="100"
+								id="ailinking-ai-words" name="llm_max_words" value="<?php echo esc_attr( (string) $ai_words ); ?>" />
+							<p class="description">
+								<?php
+								printf(
+									/* translators: 1: default word budget, 2: maximum allowed */
+									esc_html__( 'How much of each page the AI engine reads when "AI link suggestions" is on. Default %1$d words; maximum %2$d. Anything past this point is invisible to the AI, so on long articles it only proposes links from the opening section.', 'ai-internal-linking' ),
+									(int) LlmSuggester::DEFAULT_MAX_WORDS,
+									(int) LlmSuggester::MAX_WORDS_LIMIT
+								);
+								?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'This is the main cost lever: the bill scales almost linearly with it, because every post in a scan is one request. Doubling the words roughly doubles the input tokens. It has no effect at all unless AI link suggestions are enabled, and it never affects the free engines, which always read the whole page.', 'ai-internal-linking' ); ?>
+							</p>
+						</td>
 					</tr>
 				</table>
 				<?php submit_button( __( 'Save scope', 'ai-internal-linking' ) ); ?>

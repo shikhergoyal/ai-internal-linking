@@ -32,6 +32,7 @@ class Settings {
 			'max_anchor_words'     => 4,      // longest anchor phrase to consider
 			'keyword_suggestions'  => true,   // use imported keywords (GSC/Semrush) as a suggestion source
 			'llm_suggestions'      => false,  // let a chat model propose contextual links (any provider key)
+			'llm_max_words'        => 1000,   // words of each page sent to the chat model (cost lever)
 			// AI provider configuration (Phase 1).
 			'chat_provider'             => 'none',
 			'chat_model'                => '',

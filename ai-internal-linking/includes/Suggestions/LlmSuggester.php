@@ -16,6 +16,7 @@
 namespace AILinking\Suggestions;
 
 use AILinking\Providers\Gateway;
+use AILinking\Support\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -24,8 +25,14 @@ class LlmSuggester {
 	/** Max candidates shown to the model. */
 	const MAX_CANDIDATES = 15;
 
-	/** Max source characters sent (bounds token cost). */
-	const MAX_TEXT_CHARS = 6000;
+	/**
+	 * Words of each page sent to the model when no setting is stored.
+	 * Roughly 6,000 characters, which is what this used to hard-code.
+	 */
+	const DEFAULT_MAX_WORDS = 1000;
+
+	/** Ceiling for the setting, so a typo cannot bill for a novel per page. */
+	const MAX_WORDS_LIMIT = 2500;
 
 	/**
 	 * Ask the model to choose links from the candidate pool.
@@ -156,7 +163,7 @@ class LlmSuggester {
 	 * @return string
 	 */
 	private static function user_prompt( $title, $text, array $candidates ) {
-		$excerpt = self::truncate( $text, self::MAX_TEXT_CHARS );
+		$excerpt = self::truncate_words( $text, self::max_words() );
 
 		$lines = array();
 		$i     = 1;
@@ -214,13 +221,55 @@ class LlmSuggester {
 	 * @param int    $max  Max chars.
 	 * @return string
 	 */
-	private static function truncate( $text, $max ) {
-		$text = (string) $text;
-		if ( strlen( $text ) <= $max ) {
-			return $text;
+	/**
+	 * How many words of each page to send, from the Setup screen setting.
+	 *
+	 * Clamped rather than trusted: this multiplies directly into the token
+	 * bill on every post of every scan.
+	 *
+	 * @return int
+	 */
+	public static function max_words() {
+		$words = (int) Settings::get( 'llm_max_words', self::DEFAULT_MAX_WORDS );
+		if ( $words <= 0 ) {
+			$words = self::DEFAULT_MAX_WORDS;
 		}
-		$cut = substr( $text, 0, $max );
-		$sp  = strrpos( $cut, ' ' );
-		return ( false !== $sp && $sp > 0 ) ? substr( $cut, 0, $sp ) : $cut;
+		/**
+		 * Filter the per-page word budget sent to the chat model.
+		 *
+		 * @param int $words Words per page.
+		 */
+		$words = (int) apply_filters( 'ailinking_llm_max_words', $words );
+		return max( 100, min( self::MAX_WORDS_LIMIT, $words ) );
+	}
+
+	/**
+	 * Keep the first N words of a text. (pure)
+	 *
+	 * Words, not characters, because that is the unit the setting is expressed
+	 * in and the unit a person can reason about. Splitting on Unicode
+	 * whitespace keeps this correct for non-Latin scripts.
+	 *
+	 * @param string $text      Source text.
+	 * @param int    $max_words Word budget.
+	 * @return string
+	 */
+	public static function truncate_words( $text, $max_words ) {
+		$text      = trim( (string) $text );
+		$max_words = max( 1, (int) $max_words );
+		if ( '' === $text ) {
+			return '';
+		}
+
+		// limit+1: the final element holds the untaken remainder, so dropping
+		// it leaves exactly $max_words words without walking the whole text.
+		$parts = preg_split( '/\s+/u', $text, $max_words + 1 );
+		if ( ! is_array( $parts ) ) {
+			return $text; // pathological input: send it rather than nothing.
+		}
+		if ( count( $parts ) > $max_words ) {
+			array_pop( $parts );
+		}
+		return implode( ' ', $parts );
 	}
 }
