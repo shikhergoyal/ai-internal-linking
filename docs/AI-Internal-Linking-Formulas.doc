@@ -136,17 +136,7 @@ opportunity = impressions * gain * reach</div>
 
 <p>Keyword anchors are exact match by nature, which is precisely the pattern that looks manipulative at scale. The cap is adjustable through the <code>ailinking_max_exact_anchors_per_target</code> filter.</p>
 
-<h2>3. Embedding re-rank formula</h2>
-
-<p>Optional. Applies only when an embeddings provider is configured. It never replaces the free engine, it re-orders what the free engine already found, so recall stays local and free while precision improves.</p>
-
-<div class="formula">cosine(A, B) = dot(A, B) / (norm(A) * norm(B))
-
-score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector))</div>
-
-<div class="note">Anthropic and Claude have no embeddings API. Claude keys power the AI suggestion engine above, not this one. For embeddings use OpenAI, Voyage, Gemini, Mistral or a local model.</div>
-
-<h2>4. Anchor selection formula</h2>
+<h2>3. Anchor selection formula</h2>
 
 <div class="note"><strong>Correction to an earlier version of this document.</strong> It said the anchor is drawn from the target page's title for every engine. That is true of one engine only. All three share the same whole-word matching step, but each supplies its own candidate phrase.</div>
 
@@ -199,7 +189,7 @@ score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector)
 <tr><td>Text in another language</td><td>Cross language links are never proposed</td></tr>
 </table>
 
-<h2>5. Naturalness formula</h2>
+<h2>4. Naturalness formula</h2>
 
 <p>Measures whether the link reads like something a writer would have typed, rather than something bolted on for a search engine.</p>
 
@@ -211,13 +201,13 @@ score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector)
             - 0.15  if the anchor is longer than 70 characters
             clamped to the range 0 to 1</div>
 
-<h2>6. Final confidence formula</h2>
+<h2>5. Final confidence formula</h2>
 
 <div class="formula">confidence = 0.6 * relevance + 0.4 * naturalness</div>
 
 <div class="note">This composite is what the Suggestions tab displays in the column labelled "Relevance". Relevance answers "should these two pages be connected", naturalness answers "does this specific placement read well", and the link is worth making only when both hold.</div>
 
-<h2>7. Budget and density formulas</h2>
+<h2>6. Budget and density formulas</h2>
 
 <div class="formula">max_allowed = max(2, ceil(word_count / 1000 * max_links_per_1000))   default 5 per 1,000 words
 capacity    = max_allowed - links already in the content
@@ -227,7 +217,7 @@ capacity of 0 or less  ->  the page is skipped entirely</div>
 
 <p>A target is also skipped when the source already links to it, or when a suggestion for that exact pair already exists in any state, including rejected. The same pair is never proposed twice. Candidates scoring below <code>min_relevance</code> (default 0.08) are discarded.</p>
 
-<h2>8. Token and cost formulas</h2>
+<h2>7. Token and cost formulas</h2>
 
 <div class="formula">cost_in_cents = (tokens_in * rate_in + tokens_out * rate_out) / 1,000,000
                 where the rates are cents per million tokens for the model
@@ -238,7 +228,7 @@ pre-flight size = characters / 4, used to estimate before a call is made</div>
 
 <div class="note"><strong>Fixed in 0.13.0.</strong> Every call used to be rounded up to a whole cent before being recorded. A typical 2,400 token request costing about 0.04 cents was logged as a full cent, over twenty times high, and a few hundred calls could trip the monthly spend cap at a small fraction of real spend. Costs are now recorded exactly.</div>
 
-<h2>9. Related Content formula (TF-IDF)</h2>
+<h2>8. Related Content formula (TF-IDF)</h2>
 
 <p>The always available baseline. No keys, no external calls, no cost. It runs last and fills whatever budget the other engines left. This is also the engine that builds the candidate shortlist the AI pass depends on, so it is doing work even when AI suggestions are enabled.</p>
 
@@ -285,7 +275,7 @@ relevance(C)  = min(1, raw(C) / source_weight)</div>
 
 <h3>Known limits</h3>
 
-<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the embedding re-ranker and the AI pass are for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
+<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the AI suggestion pass is for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
 
 <h2>Worked example</h2>
 

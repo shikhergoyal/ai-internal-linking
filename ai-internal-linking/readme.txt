@@ -16,23 +16,39 @@ AI Internal Linking indexes your whole site, then proposes contextual internal l
 
 It is fully functional with **zero AI keys and zero external calls**, using a local relevance engine plus your Search Console keyword data. An optional chat model (bring your own key, any provider) can propose links on top of that.
 
-**What this build does**
+**What it does**
 
 * Auto-detects public post types, taxonomies, page builders (Gutenberg, Classic, Elementor, Divi, WPBakery, Beaver Builder, ACF), WooCommerce, and multilingual setups (WPML/Polylang).
 * Indexes your content into custom tables in the background (keyset-cursor batching; WP-Cron with an in-browser fallback).
-* Generates contextual link suggestions with relevance, naturalness, and confidence scores — wrap-first (only where a natural anchor already exists in the text).
-* Never suggests cross-language links; respects link-density limits and skips pages you already link to.
-* Presents everything in a review inbox (approve / reject). **Nothing is written to your content in this build.**
+* Generates contextual link suggestions with relevance, naturalness, and confidence scores, wrap-first, meaning only where a natural anchor already exists in the text.
+* Never suggests cross-language links, respects link-density limits, and skips pages you already link to.
+* Presents everything in a review inbox: approve, reject, apply, undo.
 
-**New in 0.2.0 (Phase 0b)**
+**Three suggestion engines**
 
-* Gated, non-destructive **apply** with a WP revision + an independent backup ledger, plus **one-click undo** and a batched "remove all inserted links" action. Auto-apply currently covers Gutenberg and Classic; Divi/WPBakery/Elementor/Beaver/ACF remain suggest-only (manual) for now.
-* Inserted links are plain `<a data-ailinking-id>` (never shortcodes) and pass a visible-text integrity check before saving.
-* **Link Health** dashboard: orphans, dead-ends, over/under-linked pages, and click-depth from the front page.
+* **GSC keyword** (free). A page mentions a query another page already ranks for, without linking to it, so the ranking query becomes the anchor. Runs first, because search demand is stronger evidence than similarity.
+* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
+* **Related Content** (free). A local relevance engine that fills whatever link budget the other two leave. Needs no keys and makes no external calls.
+
+**Applying links is gated, and reversible**
+
+Nothing is inserted without your approval. When you do approve, the plugin writes a WordPress revision AND an independent backup ledger before touching the post, so every insertion has two ways back. One click undoes a single link, and a batched action removes every link the plugin ever inserted.
+
+Insertions are a byte-preserving splice of a plain `<a data-ailinking-id>` tag, never a shortcode and never a DOM round trip, and each write passes a visible-text integrity check before it is saved. Auto-apply covers Gutenberg and Classic. Elementor, Divi, WPBakery, Beaver Builder and ACF are suggest-only, so the plugin never rewrites content a builder owns.
+
+Uninstalling restores content from the ledger first, so removing the plugin does not leave its links behind.
+
+**Link Health**
+
+Orphans, dead ends, broken links, over and under-linked pages, internal PageRank, anchor diversity, and click depth from the front page.
+
+**Cost control, if you use a key**
+
+Keys are yours and are stored encrypted. A live ticker shows tokens and estimated cost while a scan runs, the AI Keys tab breaks usage down per key and per model, and a monthly spend cap pauses AI calls before you overshoot it. How much of each page the AI reads is a setting, so the main cost lever is in your hands.
 
 **Coming next**
 
-* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, Elementor auto-apply, and cluster-aware suggestion ranking.
+* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve and apply in the inbox, and Elementor auto-apply.
 
 == Installation ==
 
