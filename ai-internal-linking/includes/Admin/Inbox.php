@@ -13,6 +13,7 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Detectors\BuilderDetector;
 use AILinking\Jobs\ProgressStore;
+use AILinking\Providers\UsageStats;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -38,6 +39,16 @@ class Inbox {
 		$scan_disp = $resumable ? 'none' : 'inline-block';
 		$res_disp  = $resumable ? 'inline-block' : 'none';
 
+		// Tokens burned by the run so far. Rendered server-side as well as live,
+		// so reloading mid-scan does not reset the counter to blank.
+		$usage_text = '';
+		if ( isset( $sug['usage_log_id'] ) ) {
+			$usage = UsageStats::since_log_id( (int) $sug['usage_log_id'] );
+			if ( $usage['requests'] > 0 ) {
+				$usage_text = UsageStats::summary_text( $usage );
+			}
+		}
+
 		ob_start();
 		?>
 		<p class="ailinking-scan-controls">
@@ -54,6 +65,7 @@ class Inbox {
 			style="display:<?php echo $resumable ? 'block' : 'none'; ?>;">
 			<div class="ailinking-bar"><span style="width:<?php echo esc_attr( (string) $pct ); ?>%;"></span></div>
 			<p class="ailinking-progress-label"><?php echo $resumable ? esc_html( sprintf( /* translators: 1: done, 2: total */ __( 'Paused %1$d / %2$d', 'ai-internal-linking' ), $proc, $total ) ) : ''; ?></p>
+			<p class="ailinking-usage" style="display:<?php echo '' !== $usage_text ? 'block' : 'none'; ?>;"><?php echo esc_html( $usage_text ); ?></p>
 		</div>
 		<?php
 		return ob_get_clean();

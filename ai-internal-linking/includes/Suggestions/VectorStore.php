@@ -12,6 +12,7 @@ namespace AILinking\Suggestions;
 use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Providers\Gateway;
+use AILinking\Providers\UsageStats;
 use AILinking\Jobs\ProgressStore;
 
 defined( 'ABSPATH' ) || exit;
@@ -229,10 +230,12 @@ class VectorStore {
 			$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$index} WHERE is_excluded=0 AND post_status='publish' AND post_type IN ($ph)", $types ) ); // phpcs:ignore WordPress.DB.PreparedSQL
 		}
 		$progress = array(
-			'total'     => $total,
-			'processed' => 0,
-			'cursor'    => 0,
-			'status'    => ( $total > 0 && Gateway::embeddings_enabled() ) ? 'running' : 'complete',
+			'total'        => $total,
+			'processed'    => 0,
+			'cursor'       => 0,
+			'status'       => ( $total > 0 && Gateway::embeddings_enabled() ) ? 'running' : 'complete',
+			// Baseline for the live token ticker (embedding builds burn tokens too).
+			'usage_log_id' => UsageStats::max_log_id(),
 		);
 		ProgressStore::set( 'embed', $progress );
 		return $progress;

@@ -18,6 +18,7 @@ use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
 use AILinking\Providers\Gateway;
+use AILinking\Providers\UsageStats;
 use AILinking\Integrations\GscFetcher;
 use AILinking\Integrations\GoogleServiceAccount;
 
@@ -385,6 +386,24 @@ class Ajax {
 			'done'       => $done,
 			'status'     => isset( $progress['status'] ) ? (string) $progress['status'] : '',
 			'last_error' => isset( $progress['last_error'] ) ? (string) $progress['last_error'] : '',
+			'usage'      => $this->run_usage( $progress ),
 		);
+	}
+
+	/**
+	 * Token/cost burned by this run so far, or null for jobs that never call a
+	 * provider. Measured as everything logged after the baseline the job
+	 * recorded when it started.
+	 *
+	 * @param array $progress Progress snapshot.
+	 * @return array|null
+	 */
+	private function run_usage( $progress ) {
+		if ( ! isset( $progress['usage_log_id'] ) ) {
+			return null;
+		}
+		$usage         = UsageStats::since_log_id( (int) $progress['usage_log_id'] );
+		$usage['text'] = UsageStats::summary_text( $usage );
+		return $usage;
 	}
 }

@@ -151,3 +151,39 @@
 	border-color: #6e1a0e !important;
 	color: #fff !important;
 }
+
+/* Live token ticker under a progress bar. */
+.ailinking-usage {
+	margin: 4px 0 0;
+	color: #50575e;
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Token usage summary (AI Keys tab). */
+.ailinking-usage-totals {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 32px;
+	margin: 12px 0 20px;
+}
+
+.ailinking-usage-block h3 {
+	margin: 0 0 4px;
+	font-size: 13px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: #646970;
+}
+
+.ailinking-usage-list {
+	margin: 4px 0 0;
+	color: #50575e;
+	font-size: 12px;
+	list-style: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.ailinking-usage-list li {
+	margin: 2px 0;
+}

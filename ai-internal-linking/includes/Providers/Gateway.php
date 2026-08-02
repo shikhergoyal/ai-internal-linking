@@ -199,7 +199,8 @@ class Gateway {
 		$tin  = isset( $resp['usage']['input_tokens'] ) ? (int) $resp['usage']['input_tokens'] : 0;
 		$tout = isset( $resp['usage']['output_tokens'] ) ? (int) $resp['usage']['output_tokens'] : 0;
 		$cents = Pricing::cents( $provider_id, $model, $tin, $tout, $plane );
-		KeyPoolManager::report_success( $key_id, $provider_id, $model, $plane, $tin, $tout, $cents );
+		$exact = Pricing::cents_float( $provider_id, $model, $tin, $tout, $plane );
+		KeyPoolManager::report_success( $key_id, $provider_id, $model, $plane, $tin, $tout, $cents, $exact );
 	}
 
 	/**

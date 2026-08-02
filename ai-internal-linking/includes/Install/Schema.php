@@ -299,7 +299,8 @@ class Schema {
 			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY key_created (key_id,created_at),
-			KEY provider_created (provider,created_at)
+			KEY provider_created (provider,created_at),
+			KEY created (created_at)
 		) {$charset_collate};";
 
 		$statements[] = "CREATE TABLE {$keywords} (
