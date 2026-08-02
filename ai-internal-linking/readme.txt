@@ -1,5 +1,5 @@
 === AI Internal Linking ===
-Contributors: you
+Contributors: Shikher Goyal
 Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
