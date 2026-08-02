@@ -1,8 +1,7 @@
 <?php
 /**
  * Generative link suggestions via a user-supplied chat model (any provider in the
- * key pool: OpenAI, Claude, Gemini, Groq, local, …). Unlike the embedding
- * re-ranker, this works with chat-only keys.
+ * key pool: OpenAI, Claude, Gemini, Groq, local, …).
  *
  * Grounding + safety: the model never invents targets or anchors. Candidate
  * targets are constrained to a real TF-IDF recall pool (existing pages), and every

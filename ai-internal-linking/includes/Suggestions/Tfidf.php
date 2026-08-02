@@ -2,7 +2,7 @@
 /**
  * Local, zero-cost TF-IDF engine: tokenisation, per-post term storage, and
  * weighted-overlap candidate generation. This is the always-available baseline;
- * the optional embedding re-ranker (Phase 1) layers on top of these candidates.
+ * the generative AI pass draws its candidate shortlist from these results.
  *
  * @package AILinking
  */

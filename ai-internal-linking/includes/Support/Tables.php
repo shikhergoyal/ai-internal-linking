@@ -62,16 +62,12 @@ class Tables {
 		return self::name( 'keyword_map' );
 	}
 
-	public static function embeddings() {
-		return self::name( 'embeddings' );
-	}
-
 	/**
 	 * All logical table keys (used by install/reset).
 	 *
 	 * @return string[]
 	 */
 	public static function all_keys() {
-		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map', 'embeddings' );
+		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map' );
 	}
 }

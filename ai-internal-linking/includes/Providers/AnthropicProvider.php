@@ -1,7 +1,6 @@
 <?php
 /**
- * Anthropic (Claude) adapter. Chat only — Anthropic has no native embeddings API
- * (the embeddings plane resolves to Voyage/OpenAI or TF-IDF instead).
+ * Anthropic (Claude) adapter. Chat only.
  *
  * @package AILinking
  */
@@ -24,10 +23,6 @@ class AnthropicProvider implements ProviderInterface {
 		return true;
 	}
 
-	public function supports_embeddings() {
-		return false;
-	}
-
 	public function default_base_url() {
 		return 'https://api.anthropic.com/v1';
 	}
@@ -39,7 +34,6 @@ class AnthropicProvider implements ProviderInterface {
 	public function default_models() {
 		return array(
 			'chat'      => array( 'claude-sonnet-4-6', 'claude-opus-4-8', 'claude-haiku-4-5-20251001' ),
-			'embedding' => array(),
 		);
 	}
 
@@ -100,17 +94,4 @@ class AnthropicProvider implements ProviderInterface {
 		);
 	}
 
-	public function embed( array $request, array $ctx ) {
-		return array(
-			'ok'    => false,
-			'error' => array(
-				'class'             => 'unsupported',
-				'message'           => 'Anthropic has no embeddings API; use Voyage/OpenAI or TF-IDF.',
-				'is_retryable'      => false,
-				'triggers_failover' => false,
-				'http_status'       => 0,
-				'retry_after'       => null,
-			),
-		);
-	}
 }

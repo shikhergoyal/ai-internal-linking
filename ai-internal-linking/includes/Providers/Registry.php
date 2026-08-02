@@ -69,17 +69,16 @@ class Registry {
 	}
 
 	/**
-	 * Providers supporting a capability plane.
+	 * Providers supporting a capability plane. Chat is the only plane; the
+	 * embeddings plane was removed in 0.14.0.
 	 *
-	 * @param string $plane 'chat' | 'embedding'.
+	 * @param string $plane 'chat'.
 	 * @return ProviderInterface[]
 	 */
 	public static function for_capability( $plane ) {
 		$out = array();
 		foreach ( self::all() as $id => $p ) {
-			if ( 'embedding' === $plane && $p->supports_embeddings() ) {
-				$out[ $id ] = $p;
-			} elseif ( 'chat' === $plane && $p->supports_chat() ) {
+			if ( 'chat' === $plane && $p->supports_chat() ) {
 				$out[ $id ] = $p;
 			}
 		}
@@ -98,7 +97,6 @@ class Registry {
 				'id'         => $id,
 				'label'      => $p->label(),
 				'chat'       => $p->supports_chat(),
-				'embeddings' => $p->supports_embeddings(),
 				'needs_base' => $p->needs_base_url(),
 				'base_url'   => $p->default_base_url(),
 				'models'     => $p->default_models(),
@@ -133,41 +131,26 @@ class Registry {
 		$site    = function_exists( 'get_bloginfo' ) ? get_bloginfo( 'name' ) : '';
 
 		self::register( 'openai', $oai( 'openai', 'OpenAI', 'https://api.openai.com/v1', array(
-			'supports_embeddings' => true,
-			'chat_models'         => array( 'gpt-4o-mini', 'gpt-4o' ),
-			'embed_models'        => array( 'text-embedding-3-small', 'text-embedding-3-large' ),
+			'chat_models' => array( 'gpt-4o-mini', 'gpt-4o' ),
 		) ) );
 		self::register( 'openrouter', $oai( 'openrouter', 'OpenRouter', 'https://openrouter.ai/api/v1', array(
-			'supports_embeddings' => false,
-			'extra_headers'       => array( 'HTTP-Referer' => $referer, 'X-Title' => $site ),
+			'extra_headers' => array( 'HTTP-Referer' => $referer, 'X-Title' => $site ),
 		) ) );
-		self::register( 'mistral', $oai( 'mistral', 'Mistral', 'https://api.mistral.ai/v1', array(
-			'supports_embeddings' => true,
-			'embed_models'        => array( 'mistral-embed' ),
-		) ) );
-		self::register( 'groq', $oai( 'groq', 'Groq', 'https://api.groq.com/openai/v1', array( 'supports_embeddings' => false ) ) );
-		self::register( 'together', $oai( 'together', 'Together AI', 'https://api.together.xyz/v1', array( 'supports_embeddings' => true ) ) );
-		self::register( 'fireworks', $oai( 'fireworks', 'Fireworks AI', 'https://api.fireworks.ai/inference/v1', array( 'supports_embeddings' => true ) ) );
-		self::register( 'deepseek', $oai( 'deepseek', 'DeepSeek', 'https://api.deepseek.com/v1', array( 'supports_embeddings' => false ) ) );
-		self::register( 'xai', $oai( 'xai', 'xAI (Grok)', 'https://api.x.ai/v1', array( 'supports_embeddings' => false ) ) );
-		self::register( 'perplexity', $oai( 'perplexity', 'Perplexity', 'https://api.perplexity.ai', array( 'supports_embeddings' => false ) ) );
-
-		// Embeddings-only (Anthropic-recommended default).
-		self::register( 'voyage', $oai( 'voyage', 'Voyage AI (embeddings)', 'https://api.voyageai.com/v1', array(
-			'supports_chat'       => false,
-			'supports_embeddings' => true,
-			'embed_models'        => array( 'voyage-3', 'voyage-3-lite' ),
-		) ) );
+		self::register( 'mistral', $oai( 'mistral', 'Mistral', 'https://api.mistral.ai/v1', array() ) );
+		self::register( 'groq', $oai( 'groq', 'Groq', 'https://api.groq.com/openai/v1', array() ) );
+		self::register( 'together', $oai( 'together', 'Together AI', 'https://api.together.xyz/v1', array() ) );
+		self::register( 'fireworks', $oai( 'fireworks', 'Fireworks AI', 'https://api.fireworks.ai/inference/v1', array() ) );
+		self::register( 'deepseek', $oai( 'deepseek', 'DeepSeek', 'https://api.deepseek.com/v1', array() ) );
+		self::register( 'xai', $oai( 'xai', 'xAI (Grok)', 'https://api.x.ai/v1', array() ) );
+		self::register( 'perplexity', $oai( 'perplexity', 'Perplexity', 'https://api.perplexity.ai', array() ) );
 
 		// Universal: custom OpenAI-compatible endpoint + local self-hosted.
 		self::register( 'custom', $oai( 'custom', 'Custom (OpenAI-compatible)', '', array(
-			'supports_embeddings' => true,
-			'needs_base_url'      => true,
+			'needs_base_url' => true,
 		) ) );
 		self::register( 'local', $oai( 'local', 'Local (Ollama/LM Studio/vLLM)', 'http://localhost:11434/v1', array(
-			'supports_embeddings' => true,
-			'needs_base_url'      => true,
-			'auth_style'          => 'none',
+			'needs_base_url' => true,
+			'auth_style'     => 'none',
 		) ) );
 
 		if ( function_exists( 'do_action' ) ) {

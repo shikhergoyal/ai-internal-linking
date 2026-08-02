@@ -20,3 +20,7 @@ wp-cli.local.yml
 # Build artifacts (zips) — never track release packages in the repo
 Plugin Zip files/
 *.zip
+
+# Python cache from local tooling
+__pycache__/
+*.pyc

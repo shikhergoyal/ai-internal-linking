@@ -1,6 +1,6 @@
 <?php
 /**
- * Google Gemini adapter (Generative Language API). Chat + embeddings; key passed
+ * Google Gemini adapter (Generative Language API). Chat only; key passed
  * as a query parameter.
  *
  * @package AILinking
@@ -24,10 +24,6 @@ class GeminiProvider implements ProviderInterface {
 		return true;
 	}
 
-	public function supports_embeddings() {
-		return true;
-	}
-
 	public function default_base_url() {
 		return 'https://generativelanguage.googleapis.com/v1beta';
 	}
@@ -39,7 +35,6 @@ class GeminiProvider implements ProviderInterface {
 	public function default_models() {
 		return array(
 			'chat'      => array( 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro' ),
-			'embedding' => array( 'text-embedding-004' ),
 		);
 	}
 
@@ -89,35 +84,6 @@ class GeminiProvider implements ProviderInterface {
 				'output_tokens' => isset( $decoded['usageMetadata']['candidatesTokenCount'] ) ? (int) $decoded['usageMetadata']['candidatesTokenCount'] : 0,
 			),
 			'model'         => $ctx['model'],
-		);
-	}
-
-	public function embed( array $request, array $ctx ) {
-		$vectors = array();
-		$tokens  = 0;
-
-		// Gemini embeds one content per call; loop the (typically small) input set.
-		foreach ( (array) $request['input'] as $text ) {
-			$url  = $this->base( $ctx ) . '/models/' . rawurlencode( $ctx['model'] ) . ':embedContent';
-			$body = array(
-				'model'   => 'models/' . $ctx['model'],
-				'content' => array( 'parts' => array( array( 'text' => (string) $text ) ) ),
-			);
-			$res     = Http::post( $url, $this->headers( $ctx ), wp_json_encode( $body ), $this->timeout( $ctx ) );
-			$decoded = json_decode( (string) $res['body'], true );
-
-			if ( $res['status'] < 200 || $res['status'] >= 300 ) {
-				return array( 'ok' => false, 'error' => Errors::classify( $res['status'], $decoded ? $decoded : $res['body'], $res['headers'], isset( $res['error'] ) ? (string) $res['error'] : '' ) );
-			}
-			$vectors[] = isset( $decoded['embedding']['values'] ) ? array_map( 'floatval', $decoded['embedding']['values'] ) : array();
-			$tokens   += (int) ceil( strlen( (string) $text ) / 4 ); // Gemini omits usage; estimate.
-		}
-
-		return array(
-			'ok'      => true,
-			'vectors' => $vectors,
-			'usage'   => array( 'input_tokens' => $tokens ),
-			'model'   => $ctx['model'],
 		);
 	}
 

@@ -142,8 +142,7 @@ class UsageStats {
 	}
 
 	/**
-	 * Usage grouped by provider + model + operation. Chat and embedding calls
-	 * have very different cost profiles, so they are never merged.
+	 * Usage grouped by provider + model + operation.
 	 *
 	 * @param string $scope 'month'|'all'.
 	 * @return array[] Each row adds provider, model, operation to the totals.
