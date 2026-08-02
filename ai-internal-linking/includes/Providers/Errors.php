@@ -13,6 +13,8 @@
 
 namespace AILinking\Providers;
 
+use AILinking\Security\Redactor;
+
 defined( 'ABSPATH' ) || exit;
 
 class Errors {
@@ -88,6 +90,17 @@ class Errors {
 	 * @return string
 	 */
 	private static function message( $body, $default ) {
+		return Redactor::scrub( self::raw_message( $body, $default ) );
+	}
+
+	/**
+	 * Pull the provider's own wording out of the response body, unscrubbed.
+	 *
+	 * @param mixed  $body    Decoded body or raw string.
+	 * @param string $default Fallback.
+	 * @return string
+	 */
+	private static function raw_message( $body, $default ) {
 		if ( is_array( $body ) ) {
 			if ( isset( $body['error']['message'] ) ) {
 				return (string) $body['error']['message'];
