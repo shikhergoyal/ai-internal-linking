@@ -155,9 +155,11 @@ class KeyPoolManager {
 	 * @param string $operation  'chat'|'embedding'.
 	 * @param int    $tokens_in  Prompt tokens.
 	 * @param int    $tokens_out Completion tokens.
-	 * @param int    $cost_cents Estimated cost (cents).
+	 * @param int        $cost_cents Estimated cost (whole cents, rounded up).
+	 * @param float|null $cost_exact Unrounded cost in cents, for the log. Falls
+	 *                               back to $cost_cents when not supplied.
 	 */
-	public static function report_success( $key_id, $provider, $model, $operation, $tokens_in, $tokens_out, $cost_cents ) {
+	public static function report_success( $key_id, $provider, $model, $operation, $tokens_in, $tokens_out, $cost_cents, $cost_exact = null ) {
 		global $wpdb;
 		self::maybe_roll_month();
 		$table = Tables::provider_keys();
@@ -183,7 +185,9 @@ class KeyPoolManager {
 				'operation'   => (string) $operation,
 				'tokens_in'   => (int) $tokens_in,
 				'tokens_out'  => (int) $tokens_out,
-				'est_cost'    => max( 0, (int) $cost_cents ) / 100,
+				// Dollars, at the column's full 6dp precision. Storing the
+				// rounded-up cents here would overstate every small call.
+				'est_cost'    => max( 0.0, (float) ( null === $cost_exact ? (int) $cost_cents : $cost_exact ) ) / 100,
 				'http_status' => 200,
 			),
 			array( '%d', '%s', '%s', '%s', '%d', '%d', '%f', '%d' )
@@ -295,13 +299,22 @@ class KeyPoolManager {
 	 * @return int
 	 */
 	public static function monthly_spend_cents( $scope = 'all' ) {
-		global $wpdb;
 		self::maybe_roll_month();
-		$table = Tables::provider_keys();
+
+		// Summed from the spend log, not the per-key integer counter: that
+		// counter adds a whole rounded-up cent per call, so a few hundred
+		// sub-cent requests could trip the cap at a fraction of real spend.
 		if ( 'all' === $scope ) {
-			return (int) $wpdb->get_var( "SELECT COALESCE(SUM(est_spend_cents),0) FROM {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL
+			return UsageStats::month_cost_cents();
 		}
-		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(est_spend_cents),0) FROM {$table} WHERE provider = %s", $scope ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		$cost = 0.0;
+		foreach ( UsageStats::breakdown( 'month' ) as $row ) {
+			if ( $row['provider'] === (string) $scope ) {
+				$cost += $row['cost'];
+			}
+		}
+		return (int) ceil( $cost * 100 );
 	}
 
 	/**

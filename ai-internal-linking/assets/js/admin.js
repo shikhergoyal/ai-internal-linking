@@ -49,6 +49,30 @@
 	}
 
 	/**
+	 * Show tokens + estimated cost burned by the current run. Stays hidden
+	 * until a provider call actually happens, so key-free runs (the TF-IDF
+	 * default) show no AI clutter.
+	 *
+	 * @param {Element} box   Progress container.
+	 * @param {Object}  usage Usage payload from the server, or null.
+	 */
+	function setUsage( box, usage ) {
+		if ( ! box ) {
+			return;
+		}
+		var el = box.querySelector( '.ailinking-usage' );
+		if ( ! el ) {
+			return;
+		}
+		if ( usage && usage.requests > 0 && usage.text ) {
+			el.textContent = usage.text;
+			el.style.display = 'block';
+		} else {
+			el.style.display = 'none';
+		}
+	}
+
+	/**
 	 * Drive a batched job to completion.
 	 *
 	 * @param {string} action     AJAX action.
@@ -75,6 +99,7 @@
 				var problem = d.error || d.last_error || '';
 				var doneLabel = problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done;
 				setBar( box, d.percent, d.done ? doneLabel : label );
+				setUsage( box, d.usage );
 				return !! d.done;
 			} ).catch( function () {
 				setBar( box, 100, cfg.i18n.error );
@@ -160,6 +185,7 @@
 					}
 					var d = res.data;
 					var problem = d.last_error || '';
+					setUsage( box, d.usage );
 					if ( 'paused' === d.status ) {
 						setBar( box, d.percent, pausedLabel( d ) );
 						looping = false;
@@ -217,6 +243,7 @@
 						pauseB.disabled = false;
 						var d = ( res && res.data ) ? res.data : {};
 						setBar( box, d.percent || 0, pausedLabel( d ) );
+						setUsage( box, d.usage );
 						ui( 'paused' );
 					} ).catch( function () {
 						pauseB.disabled = false;

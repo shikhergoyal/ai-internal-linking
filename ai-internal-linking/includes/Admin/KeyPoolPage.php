@@ -12,6 +12,7 @@ use AILinking\Security\Capabilities;
 use AILinking\Security\Crypto;
 use AILinking\Providers\Registry;
 use AILinking\Providers\KeyPoolManager;
+use AILinking\Providers\UsageStats;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -92,8 +93,12 @@ class KeyPoolPage {
 	 */
 	public function render() {
 		Capabilities::require_manage();
-		$health = KeyPoolManager::health();
-		$meta   = Registry::meta();
+		$health   = KeyPoolManager::health();
+		$meta     = Registry::meta();
+		$by_key   = UsageStats::by_key( 'month' );
+		$mtd      = UsageStats::totals( 'month' );
+		$all_time = UsageStats::totals( 'all' );
+		$rows     = UsageStats::breakdown( 'all' );
 		?>
 		<div class="wrap ailinking-wrap">
 			<h1><?php esc_html_e( 'AI Internal Linking — AI Keys', 'ai-internal-linking' ); ?></h1>
@@ -115,9 +120,10 @@ class KeyPoolPage {
 				<div class="ailinking-progress" id="ailinking-progress-embed" style="display:none;">
 					<div class="ailinking-bar"><span></span></div>
 					<p class="ailinking-progress-label"></p>
+					<p class="ailinking-usage" style="display:none;"></p>
 				</div>
 
-				<table class="wp-list-table widefat fixed striped">
+				<table class="wp-list-table widefat striped">
 					<thead><tr>
 						<th><?php esc_html_e( 'Provider', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Label', 'ai-internal-linking' ); ?></th>
@@ -126,14 +132,17 @@ class KeyPoolPage {
 						<th><?php esc_html_e( 'State', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Requests', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Errors', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Tokens in (mo)', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Tokens out (mo)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Spend (mo)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Actions', 'ai-internal-linking' ); ?></th>
 					</tr></thead>
 					<tbody>
 						<?php if ( empty( $health ) ) : ?>
-							<tr><td colspan="9"><?php esc_html_e( 'No keys yet. Add one below.', 'ai-internal-linking' ); ?></td></tr>
+							<tr><td colspan="11"><?php esc_html_e( 'No keys yet. Add one below.', 'ai-internal-linking' ); ?></td></tr>
 						<?php else : ?>
 							<?php foreach ( $health as $k ) : ?>
+								<?php $u = isset( $by_key[ (int) $k['id'] ] ) ? $by_key[ (int) $k['id'] ] : array( 'tokens_in' => 0, 'tokens_out' => 0, 'cost' => 0.0 ); ?>
 								<tr>
 									<td><?php echo esc_html( $k['provider'] ); ?></td>
 									<td><?php echo esc_html( $k['label'] ); ?></td>
@@ -142,7 +151,9 @@ class KeyPoolPage {
 									<td><?php echo esc_html( $k['enabled'] ? $k['state'] : 'disabled' ); ?></td>
 									<td><?php echo esc_html( number_format_i18n( (int) $k['request_count'] ) ); ?></td>
 									<td><?php echo esc_html( number_format_i18n( (int) $k['error_count'] ) ); ?></td>
-									<td>$<?php echo esc_html( number_format_i18n( (int) $k['est_spend_cents'] / 100, 2 ) ); ?></td>
+									<td title="<?php echo esc_attr( number_format_i18n( $u['tokens_in'] ) ); ?>"><?php echo esc_html( UsageStats::format_tokens( $u['tokens_in'] ) ); ?></td>
+									<td title="<?php echo esc_attr( number_format_i18n( $u['tokens_out'] ) ); ?>"><?php echo esc_html( UsageStats::format_tokens( $u['tokens_out'] ) ); ?></td>
+									<td><?php echo esc_html( UsageStats::format_cost( $u['cost'] ) ); ?></td>
 									<td>
 										<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline">
 											<input type="hidden" name="action" value="ailinking_toggle_key" />
@@ -158,6 +169,67 @@ class KeyPoolPage {
 											<button class="button button-small button-link-delete"><?php esc_html_e( 'Delete', 'ai-internal-linking' ); ?></button>
 										</form>
 									</td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</tbody>
+				</table>
+			</div>
+
+			<div class="ailinking-card">
+				<h2><?php esc_html_e( 'Token usage', 'ai-internal-linking' ); ?></h2>
+				<p class="description">
+					<?php esc_html_e( 'Every provider call is logged with the token counts the provider itself reported. Cost is an estimate from published list prices, so treat it as a close guide rather than an invoice.', 'ai-internal-linking' ); ?>
+				</p>
+
+				<div class="ailinking-usage-totals">
+					<?php
+					$blocks = array(
+						array( __( 'This month', 'ai-internal-linking' ), $mtd ),
+						array( __( 'All time', 'ai-internal-linking' ), $all_time ),
+					);
+					foreach ( $blocks as $block ) :
+						list( $heading, $t ) = $block;
+						?>
+						<div class="ailinking-usage-block">
+							<h3><?php echo esc_html( $heading ); ?></h3>
+							<p class="ailinking-stat">
+								<span class="ailinking-num"><?php echo esc_html( UsageStats::format_cost( $t['cost'] ) ); ?></span>
+								<?php esc_html_e( 'estimated', 'ai-internal-linking' ); ?>
+							</p>
+							<ul class="ailinking-usage-list">
+								<li><?php echo esc_html( sprintf( /* translators: %s: token count */ __( '%s input tokens', 'ai-internal-linking' ), UsageStats::format_tokens( $t['tokens_in'] ) ) ); ?></li>
+								<li><?php echo esc_html( sprintf( /* translators: %s: token count */ __( '%s output tokens', 'ai-internal-linking' ), UsageStats::format_tokens( $t['tokens_out'] ) ) ); ?></li>
+								<li><?php echo esc_html( sprintf( /* translators: %s: request count */ __( '%s requests', 'ai-internal-linking' ), number_format_i18n( $t['requests'] ) ) ); ?></li>
+							</ul>
+						</div>
+					<?php endforeach; ?>
+				</div>
+
+				<h3><?php esc_html_e( 'By model (all time)', 'ai-internal-linking' ); ?></h3>
+				<table class="wp-list-table widefat striped">
+					<thead><tr>
+						<th><?php esc_html_e( 'Provider', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Model', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Operation', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Requests', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Tokens in', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Tokens out', 'ai-internal-linking' ); ?></th>
+						<th><?php esc_html_e( 'Est. cost', 'ai-internal-linking' ); ?></th>
+					</tr></thead>
+					<tbody>
+						<?php if ( empty( $rows ) ) : ?>
+							<tr><td colspan="7"><?php esc_html_e( 'No AI calls yet. The free engine does not use tokens.', 'ai-internal-linking' ); ?></td></tr>
+						<?php else : ?>
+							<?php foreach ( $rows as $r ) : ?>
+								<tr>
+									<td><?php echo esc_html( $r['provider'] ); ?></td>
+									<td><code><?php echo esc_html( '' !== $r['model'] ? $r['model'] : '—' ); ?></code></td>
+									<td><?php echo esc_html( $r['operation'] ); ?></td>
+									<td><?php echo esc_html( number_format_i18n( $r['requests'] ) ); ?></td>
+									<td title="<?php echo esc_attr( number_format_i18n( $r['tokens_in'] ) ); ?>"><?php echo esc_html( UsageStats::format_tokens( $r['tokens_in'] ) ); ?></td>
+									<td title="<?php echo esc_attr( number_format_i18n( $r['tokens_out'] ) ); ?>"><?php echo esc_html( UsageStats::format_tokens( $r['tokens_out'] ) ); ?></td>
+									<td><?php echo esc_html( UsageStats::format_cost( $r['cost'] ) ); ?></td>
 								</tr>
 							<?php endforeach; ?>
 						<?php endif; ?>
