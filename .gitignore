@@ -24,3 +24,6 @@ Plugin Zip files/
 # Python cache from local tooling
 __pycache__/
 *.pyc
+
+# Local deploy config (server paths, never committed)
+tools/deploy.local.json
