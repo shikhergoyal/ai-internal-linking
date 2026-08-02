@@ -31,8 +31,25 @@ class LlmSuggester {
 	 */
 	const DEFAULT_MAX_WORDS = 1000;
 
-	/** Ceiling for the setting, so a typo cannot bill for a novel per page. */
-	const MAX_WORDS_LIMIT = 2500;
+	/** Floor: below this the model has too little context to judge a page. */
+	const MIN_WORDS = 500;
+
+	/** Largest value offered as a preset in the dropdown. */
+	const PRESET_MAX_WORDS = 3000;
+
+	/**
+	 * Hard ceiling for a custom value.
+	 *
+	 * Not an arbitrary cost cap: the budget is an upper bound, and a page can
+	 * only supply as many words as it actually contains, so setting this above
+	 * your longest article simply means "send the whole page". The ceiling
+	 * exists so a mistyped custom value cannot blow past a model's context
+	 * window, which fails the request AND bills for the attempt.
+	 */
+	const MAX_WORDS_LIMIT = 20000;
+
+	/** Values offered in the Setup screen dropdown. */
+	const PRESETS = array( 500, 1000, 1500, 2000, 2500, 3000 );
 
 	/**
 	 * Ask the model to choose links from the candidate pool.
@@ -240,7 +257,24 @@ class LlmSuggester {
 		 * @param int $words Words per page.
 		 */
 		$words = (int) apply_filters( 'ailinking_llm_max_words', $words );
-		return max( 100, min( self::MAX_WORDS_LIMIT, $words ) );
+		return self::clamp_words( $words );
+	}
+
+	/**
+	 * Clamp a word budget into the supported range. (pure)
+	 *
+	 * Shared by the reader and the Setup screen's save handler, so a value can
+	 * never be stored that the reader would then reject.
+	 *
+	 * @param int $words Requested budget.
+	 * @return int
+	 */
+	public static function clamp_words( $words ) {
+		$words = (int) $words;
+		if ( $words <= 0 ) {
+			$words = self::DEFAULT_MAX_WORDS;
+		}
+		return max( self::MIN_WORDS, min( self::MAX_WORDS_LIMIT, $words ) );
 	}
 
 	/**

@@ -59,10 +59,15 @@ class Wizard {
 		$density = isset( $_POST['max_links_per_1000'] ) ? (int) $_POST['max_links_per_1000'] : 5;
 		$density = max( 1, min( 20, $density ) );
 
-		// Clamped, not trusted: this multiplies into the token bill on every
-		// post of every scan.
-		$ai_words = isset( $_POST['llm_max_words'] ) ? (int) $_POST['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS;
-		$ai_words = max( 100, min( LlmSuggester::MAX_WORDS_LIMIT, $ai_words ) );
+		// A preset, or "custom" plus a free number. Clamped either way, since
+		// this multiplies into the token bill on every post of every scan.
+		$preset = isset( $_POST['llm_words_preset'] ) ? sanitize_key( wp_unslash( $_POST['llm_words_preset'] ) ) : '';
+		if ( 'custom' === $preset ) {
+			$ai_words = isset( $_POST['llm_max_words_custom'] ) ? (int) $_POST['llm_max_words_custom'] : LlmSuggester::DEFAULT_MAX_WORDS;
+		} else {
+			$ai_words = (int) $preset;
+		}
+		$ai_words = LlmSuggester::clamp_words( $ai_words );
 
 		Settings::update(
 			array(
@@ -206,18 +211,44 @@ class Wizard {
 					<tr>
 						<th scope="row"><label for="ailinking-ai-words"><?php esc_html_e( 'Words per page sent to the AI', 'ai-internal-linking' ); ?></label></th>
 						<td>
-							<?php $ai_words = (int) ( isset( $settings['llm_max_words'] ) ? $settings['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS ); ?>
-							<input type="number" min="100" max="<?php echo esc_attr( (string) LlmSuggester::MAX_WORDS_LIMIT ); ?>" step="100"
-								id="ailinking-ai-words" name="llm_max_words" value="<?php echo esc_attr( (string) $ai_words ); ?>" />
+							<?php
+							$ai_words  = (int) ( isset( $settings['llm_max_words'] ) ? $settings['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS );
+							$presets   = LlmSuggester::PRESETS;
+							$is_custom = ! in_array( $ai_words, $presets, true );
+							?>
+							<select id="ailinking-ai-words" name="llm_words_preset">
+								<?php foreach ( $presets as $preset ) : ?>
+									<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( ! $is_custom && $preset === $ai_words ); ?>>
+										<?php
+										printf(
+											/* translators: %s: number of words */
+											esc_html__( '%s words', 'ai-internal-linking' ),
+											esc_html( number_format_i18n( $preset ) )
+										);
+										echo $preset === LlmSuggester::DEFAULT_MAX_WORDS ? esc_html__( ' (default)', 'ai-internal-linking' ) : '';
+										?>
+									</option>
+								<?php endforeach; ?>
+								<option value="custom" <?php selected( $is_custom ); ?>><?php esc_html_e( 'Custom…', 'ai-internal-linking' ); ?></option>
+							</select>
+							<input type="number" min="<?php echo esc_attr( (string) LlmSuggester::MIN_WORDS ); ?>"
+								max="<?php echo esc_attr( (string) LlmSuggester::MAX_WORDS_LIMIT ); ?>" step="50"
+								id="ailinking-ai-words-custom" name="llm_max_words_custom"
+								value="<?php echo esc_attr( (string) $ai_words ); ?>"
+								style="width:8em; display:<?php echo $is_custom ? 'inline-block' : 'none'; ?>;" />
 							<p class="description">
 								<?php
 								printf(
-									/* translators: 1: default word budget, 2: maximum allowed */
-									esc_html__( 'How much of each page the AI engine reads when "AI link suggestions" is on. Default %1$d words; maximum %2$d. Anything past this point is invisible to the AI, so on long articles it only proposes links from the opening section.', 'ai-internal-linking' ),
-									(int) LlmSuggester::DEFAULT_MAX_WORDS,
-									(int) LlmSuggester::MAX_WORDS_LIMIT
+									/* translators: 1: minimum words, 2: largest preset, 3: hard ceiling */
+									esc_html__( 'How much of each page the AI engine reads when "AI link suggestions" is on. Presets run from %1$d to %2$d words; choose Custom to enter any value up to %3$s. Anything past this point is invisible to the AI, so on long articles it only proposes links from the opening section.', 'ai-internal-linking' ),
+									(int) LlmSuggester::MIN_WORDS,
+									(int) LlmSuggester::PRESET_MAX_WORDS,
+									esc_html( number_format_i18n( LlmSuggester::MAX_WORDS_LIMIT ) )
 								);
 								?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'A page can only supply the words it actually has, so setting this above your longest article simply means "send the whole page". The ceiling exists so a mistyped value cannot exceed a model\'s context window, which fails the request and still bills for the attempt.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
 								<?php esc_html_e( 'This is the main cost lever: the bill scales almost linearly with it, because every post in a scan is one request. Doubling the words roughly doubles the input tokens. It has no effect at all unless AI link suggestions are enabled, and it never affects the free engines, which always read the whole page.', 'ai-internal-linking' ); ?>
