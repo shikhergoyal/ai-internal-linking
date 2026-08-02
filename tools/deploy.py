@@ -204,16 +204,14 @@ def prune(client, sftp, remote_plugin, expected):
             print("Could not prune %s: %s" % (rel, exc))
 
 
-def main():
-    do_upload = "--yes" in sys.argv
-    do_prune = "--prune" in sys.argv
+def open_connection(cfg):
+    """
+    Resolve credentials and return a connected SSH client.
 
-    cfg = load_config()
-    plugin_dir = cfg["plugin_dir"]
+    Shared by deploy.py and site-check.py so the credential handling lives in
+    exactly one place. The passphrase is assembled here and never returned.
+    """
     key_path = cfg["ssh"]["key_path"]
-
-    if not os.path.isdir(plugin_dir):
-        sys.exit("Local plugin folder not found: %s" % plugin_dir)
     if not os.path.isfile(key_path):
         sys.exit("SSH key not found: %s" % key_path)
 
@@ -241,6 +239,20 @@ def main():
 
     client, host, user = connect(cfg, key, hosts, users)
     print("Connected to %s as %s" % (mask(host), user))
+    return client
+
+
+def main():
+    do_upload = "--yes" in sys.argv
+    do_prune = "--prune" in sys.argv
+
+    cfg = load_config()
+    plugin_dir = cfg["plugin_dir"]
+
+    if not os.path.isdir(plugin_dir):
+        sys.exit("Local plugin folder not found: %s" % plugin_dir)
+
+    client = open_connection(cfg)
 
     remote_plugin = posixpath.join(cfg["wp_root"], "wp-content/plugins", cfg["plugin_slug"])
     header = posixpath.join(remote_plugin, cfg["plugin_slug"] + ".php")

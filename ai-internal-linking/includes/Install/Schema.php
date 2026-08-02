@@ -41,13 +41,20 @@ class Schema {
 
 	/**
 	 * Drop tables belonging to features that no longer exist, so an upgraded
-	 * site does not carry dead data forever. Retired in 0.14.0: embeddings,
-	 * when the semantic re-ranker was removed.
+	 * site does not carry dead data forever.
+	 *
+	 * - clusters / cluster_members: retired in 0.11.0, which only dropped them
+	 *   on uninstall, so every site upgraded in place still carries them.
+	 * - embeddings: retired in 0.14.0 with the semantic re-ranker.
+	 *
+	 * DROP IF EXISTS is idempotent, so listing a table that is already gone
+	 * costs nothing and keeps the record of what was retired.
 	 */
 	private static function drop_retired_tables() {
 		global $wpdb;
-		foreach ( array( 'embeddings' ) as $retired ) {
-			$table = $wpdb->prefix . 'ailinking_' . $retired;
+		$retired = array( 'embeddings', 'clusters', 'cluster_members' );
+		foreach ( $retired as $name ) {
+			$table = $wpdb->prefix . 'ailinking_' . $name;
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL
 		}
 	}
