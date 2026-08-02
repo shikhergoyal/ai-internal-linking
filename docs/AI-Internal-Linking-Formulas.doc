@@ -81,6 +81,16 @@ Also sent   your page's title, and the opening part of your page
 Reply limit   short, roughly 600 words, which is plenty for a list of links.
 Creativity    turned off completely, so the same page gives the same answer.</pre>
 
+<h3>Why 18, and why 15?</h3>
+
+<p>Honest answer: these are judgement calls, not numbers derived from anything. It is worth knowing which is which.</p>
+
+<p><strong>15 is the real number.</strong> That is how many titles the model is shown. It is a balance between two opposite problems. Show too few and the model has nothing good to pick from. Show too many and the quality drops, because a long list makes any model lean towards whatever sits near the top of it rather than judging the whole list evenly. Fifteen is also comfortably more than can be used: a page accepts at most 8 new suggestions from one scan, so the model is already offered nearly twice what it could possibly need.</p>
+
+<p><strong>18 is just 15 with three spare.</strong> The list is filtered between being worked out and being sent: the page itself is removed, so is anything it already links to, and so is any pair you have already approved or rejected. Asking for exactly 15 would mean sending fewer than 15 whenever any of those applied. Three spare covers the usual case.</p>
+
+<div class="note"><strong>Where the spare three run out.</strong> On a page that already links to many of its closest matches, more than three of the eighteen get filtered away, and the model is shown a shorter list. Nothing breaks and nothing is wrong with the suggestions that result, but a well linked page gives the AI less to work with than a fresh one. If you ever find the AI engine going quiet on your most established pages, this is why.</div>
+
 <h3>What the model gets back, and what it must return</h3>
 
 <pre class="formula">SHOWN TO THE MODEL                        THE MODEL REPLIES
