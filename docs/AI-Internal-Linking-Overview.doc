@@ -1,136 +1,112 @@
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
-<meta charset="utf-8">
-<meta name="ProgId" content="Word.Document">
-<title>AI Internal Linking - Plugin Overview</title>
+<meta charset="utf-8" />
+<title>AI Internal Linking, Overview</title>
 <style>
-body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.45;color:#1a1a1a;margin:48px;}
-h1.title{font-size:30pt;color:#1d4ed8;text-align:center;margin:0;}
-p.sub{font-size:14pt;color:#555;text-align:center;font-weight:normal;margin:4pt 0 0 0;}
-p.by{font-style:italic;text-align:center;margin:6pt 0 0 0;}
-p.ver{text-align:center;color:#1d4ed8;font-weight:bold;margin:2pt 0 0 0;font-size:10.5pt;}
-hr.rule{border:none;border-top:2px solid #1d4ed8;margin:16pt 0 4pt 0;}
-h2.sec{font-size:15pt;color:#1d4ed8;margin-top:18pt;margin-bottom:4pt;}
-h3.subsec{font-size:12.5pt;color:#222;margin-top:11pt;margin-bottom:2pt;}
-p{margin:5pt 0;}
-ul,ol{margin:4pt 0 8pt 0;}
-li{margin:3pt 0;}
-.callout{background:#eef4ff;border-left:4px solid #1d4ed8;padding:8pt 12pt;margin:8pt 0;}
-.lead{font-weight:bold;}
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
+h1 { font-size: 22pt; color: #1a3d6d; margin-bottom: 2pt; }
+h2 { font-size: 15pt; color: #1a3d6d; margin-top: 22pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
+h3 { font-size: 12pt; color: #2f5c96; margin-top: 14pt; margin-bottom: 4pt; }
+.sub { color: #5a6673; font-size: 10pt; margin-top: 0; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
+th { background: #1a3d6d; color: #ffffff; text-align: left; padding: 5pt 7pt; }
+td { border-bottom: 1pt solid #d8dee6; padding: 5pt 7pt; vertical-align: top; }
+.note { background: #fff8e6; border-left: 3pt solid #d8a12a; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
+.key { background: #eef5ee; border-left: 3pt solid #3d7a3d; padding: 7pt 10pt; margin: 10pt 0; font-size: 10pt; }
+code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; padding: 1pt 3pt; }
+.footer { margin-top: 28pt; padding-top: 8pt; border-top: 1pt solid #c8d4e3; color: #5a6673; font-size: 9pt; }
 </style>
 </head>
 <body>
 
-<h1 class="title">AI Internal Linking</h1>
-<p class="sub">Plugin Overview &amp; Capabilities</p>
-<p class="by">Made by Shikher Goyal</p>
-<p class="ver">Version 0.7.1 (June 2026)</p>
-<hr class="rule">
+<h1>AI Internal Linking</h1>
+<p class="sub">What the plugin does, how it decides, and what it will never do. Version 0.15.0.</p>
 
-<h2 class="sec">1. What It Does</h2>
-<p>AI Internal Linking is a WordPress plugin that reads your entire website and recommends high-quality internal links between your own pages. It works on any site (any theme, post type, taxonomy, or page builder), and it never changes your content without your approval. Every link is reviewed by you before anything is applied.</p>
+<h2>In one paragraph</h2>
 
-<h2 class="sec">2. The Problem It Solves</h2>
-<p>Internal linking is one of the highest-leverage SEO and AI-search tactics, but doing it by hand across hundreds of pages is slow and inconsistent.</p>
-<h3 class="subsec">The gap with generic AI and LLM tools</h3>
-<p>When you ask a general AI or LLM for internal-linking ideas, it does not actually know what is on your site. It guesses from the page title or a short snippet, which leads to:</p>
-<ul>
-<li>Links to pages that do not exist on your site (hallucinated URLs).</li>
-<li>Suggestions that ignore your real, current content and structure.</li>
-<li>Anchors that are not actually present on the page, so they cannot be placed naturally.</li>
-</ul>
-<div class="callout"><span class="lead">Issue resolved by this plugin:</span> it crawls and reads the actual content of every page on your site first, then bases every suggestion on pages that truly exist and are genuinely related. Recommendations are grounded in your real content, not an AI's guess.</div>
+<p>The plugin reads your whole site, works out which pages should link to which, and proposes each link with the exact wording to use and the sentence it would sit in. You approve or reject each one. Approved links are written into the content with two independent ways to undo them. It runs on any WordPress site, needs no configuration and no API key, and has an optional AI layer on top if you want one.</p>
 
-<h2 class="sec">3. How It Finds Internal-Linking Suggestions</h2>
-<p>The plugin follows a clear, transparent pipeline:</p>
-<ol>
-<li><span class="lead">Crawl and index.</span> It scans every selected page into its own database, reading the real body text (Gutenberg, Classic, Elementor, Divi, WPBakery, Beaver Builder, ACF), the language, and the existing links.</li>
-<li><span class="lead">Content Relevance Matching.</span> For the page you are working on, it finds the other pages that share the most distinctive, meaningful vocabulary (see the core technique below).</li>
-<li><span class="lead">Optional AI re-ranking.</span> If you connect an AI provider, it can re-rank candidates by meaning (semantics) for even sharper matches. This step is fully optional.</li>
-<li><span class="lead">Natural anchor placement.</span> It locates a real phrase already in your body text to use as the anchor. It never invents text, and it never uses a heading (H1 to H6) or the page title as an anchor.</li>
-<li><span class="lead">Review and apply.</span> Every suggestion lands in a review inbox with a confidence score and the exact sentence where the link would go. You approve, edit, or reject, then apply with one click (with a backup and one-click undo).</li>
-</ol>
+<h2>How a link gets suggested</h2>
 
-<h2 class="sec">4. The Core Technique: Content Relevance Matching</h2>
-<p>The heart of the plugin is Content Relevance Matching, a proven, math-based method (technically known as TF-IDF) that measures how related two pages are by their words. It runs entirely on your own server, free, with no AI subscription required.</p>
-<h3 class="subsec">How it works in plain terms</h3>
-<ul>
-<li>It counts how often each word appears on a page.</li>
-<li>It gives more weight to distinctive words (such as "PMFBY" or "Sahyadri") and ignores common words (such as "the", "and", "India") that appear on almost every page.</li>
-<li>Each page gets a "fingerprint" of its most meaningful terms.</li>
-<li>Pages whose fingerprints overlap the most are the best internal-link matches.</li>
-</ul>
-<p>Because it reads your actual content, the matches reflect what your pages are genuinely about, not a guess from the title.</p>
+<p>Three engines run in order on every page. Each draws from the same link budget, so the strongest evidence wins.</p>
 
-<h2 class="sec">5. Additional Intelligence</h2>
-<h3 class="subsec">Optional AI semantic matching</h3>
-<ul>
-<li>Connect any provider (Claude, OpenAI, Gemini, and many more) to re-rank matches by meaning, catching related pages even when they use different words.</li>
-</ul>
-<h3 class="subsec">Link-graph analysis</h3>
-<ul>
-<li>Internal authority (PageRank-style) to prioritise linking toward your strongest pages.</li>
-<li>Finds orphan pages (no links in), dead-end pages (no links out), and broken internal links.</li>
-</ul>
-<h3 class="subsec">Topic clusters (hub-and-spoke)</h3>
-<ul>
-<li>Groups a pillar page with its supporting articles and flags flat clusters that have no clear hub, the structure AI answer engines look for.</li>
-<li><span class="lead">Auto-detect clusters (new in 0.7).</span> Builds these pillar-and-spoke clusters for you automatically from your categories and internal link structure, with no manual setup. Each topic with at least three indexed posts becomes a cluster, and the page the others link to most is chosen as the hub. Re-running is safe: it skips topics that already have a cluster and never touches clusters you created by hand.</li>
-</ul>
-<h3 class="subsec">GEO readiness (AI-search visibility)</h3>
-<ul>
-<li>Scores how well each page is positioned to be cited by AI answer engines (ChatGPT, Gemini, Perplexity, Claude) and gives concrete fixes.</li>
-</ul>
+<table>
+<tr><th>Order</th><th>Engine</th><th>The evidence it uses</th><th>Cost</th></tr>
+<tr><td>1</td><td>GSC keyword</td><td>Search Console: a query the target page already ranks for, said on this page without a link</td><td>Free</td></tr>
+<tr><td>2</td><td>AI Suggestion</td><td>A chat model reading the page and a shortlist of genuinely related pages</td><td>Your own API key</td></tr>
+<tr><td>3</td><td>Related Content</td><td>Vocabulary overlap, computed locally from your own content</td><td>Free</td></tr>
+</table>
 
-<h2 class="sec">6. Why It Is Effective</h2>
-<ul>
-<li><span class="lead">Grounded in real content:</span> every suggestion is based on pages that actually exist on your site.</li>
-<li><span class="lead">Reader-first:</span> links are placed in natural body sentences, never in headings or jammed in awkwardly.</li>
-<li><span class="lead">SEO and AI-search aligned:</span> respects link density, anchor-text diversity, and topical authority best practices.</li>
-<li><span class="lead">Works with zero cost:</span> the core engine needs no AI subscription; AI is an optional upgrade.</li>
-<li><span class="lead">Safe by design:</span> nothing is changed without your approval, and every change is reversible.</li>
-<li><span class="lead">Universal:</span> it adapts to any site and auto-detects your post types, taxonomies, page builder, language, and WooCommerce.</li>
-</ul>
+<p>Search demand is stronger evidence than similarity, which is why the keyword engine runs first. The free engine runs last and fills whatever budget is left, so you always get suggestions even with no key configured.</p>
 
-<h2 class="sec">7. Key Features</h2>
-<ul>
-<li>Whole-site crawler and index with incremental re-indexing (handles large sites).</li>
-<li>Contextual suggestions with confidence, relevance, and naturalness scores.</li>
-<li>Descriptive two-to-four word anchors taken from your real text (never headings or the title).</li>
-<li>Review inbox: approve, reject, or edit individually or in bulk.</li>
-<li>Gated, non-destructive apply with revision backup and one-click undo.</li>
-<li>Link Health dashboard: orphans, dead-ends, broken links, link density, click-depth, and internal authority.</li>
-<li>Topic clusters with automatic detection, hub-and-spoke authority scoring, and flat-cluster detection.</li>
-<li>GEO Readiness dashboard with schema and AI-crawler guidance.</li>
-<li>Keyword import (Google Search Console, Semrush, or CSV) with striking-distance opportunities.</li>
-<li>Provider-agnostic AI with a multi-key pool, automatic failover, and a monthly spend cap (optional).</li>
-<li>Single tabbed admin screen that keeps everything in one place.</li>
-</ul>
+<div class="key"><strong>The rule behind all three:</strong> the plugin links words that are already on your page. It never writes new sentences, never invents an anchor, and never inserts anything you have not approved.</div>
 
-<h2 class="sec">8. Issues It Resolves</h2>
-<ul>
-<li><span class="lead">AI without site awareness:</span> generic LLM internal-link suggestions cannot see your real content. This plugin reads the actual site first, so suggestions are accurate and the links genuinely exist. This issue is resolved.</li>
-<li><span class="lead">Links in the wrong place:</span> anchors are never placed in headings (H1 to H6) or the page title, only in natural body text.</li>
-<li><span class="lead">Manual cluster setup:</span> clusters can now be detected automatically, so you no longer have to enter pillar and spoke pages by hand.</li>
-<li><span class="lead">Manual, inconsistent linking:</span> replaced with a fast, scored, reviewable workflow across the whole site.</li>
-<li><span class="lead">Risky automation:</span> every change is gated and reversible, with a full backup.</li>
-</ul>
+<h2>What it will never do</h2>
 
-<h2 class="sec">9. Safety and Control</h2>
-<ul>
-<li>Nothing is auto-inserted. You approve each suggestion.</li>
-<li>A backup is taken before any edit, and one-click undo restores it.</li>
-<li>Clean uninstall: inserted links can be removed, and the plugin leaves no broken markup.</li>
-</ul>
+<table>
+<tr><th>Never</th><th>Why it matters</th></tr>
+<tr><td>Insert a link without approval</td><td>Every suggestion waits in a review inbox. Nothing reaches your content until you click.</td></tr>
+<tr><td>Invent anchor text</td><td>The anchor must already appear, word for word, in the page. If it does not, no suggestion is made at all.</td></tr>
+<tr><td>Link inside a heading</td><td>Headings and the page title are stripped before the plugin reads anything, so they cannot be linked.</td></tr>
+<tr><td>Link across languages</td><td>An English page is never linked to a Hindi one, on any multilingual setup.</td></tr>
+<tr><td>Rewrite builder content</td><td>Elementor, Divi, WPBakery, Beaver Builder and ACF pages are suggest-only. The plugin never touches content a builder owns.</td></tr>
+<tr><td>Over-link a page</td><td>A density ceiling per 1,000 words, a per-page cap, and a limit on repeating the same exact anchor to one target.</td></tr>
+<tr><td>Send your content anywhere without a key</td><td>With no API key configured, the plugin makes no external calls at all.</td></tr>
+</table>
 
-<h2 class="sec">10. At a Glance</h2>
-<ul>
-<li><span class="lead">Version:</span> 0.7.1.</li>
-<li><span class="lead">Platform:</span> WordPress (PHP 7.4 or newer, WordPress 6.2 or newer).</li>
-<li><span class="lead">Core engine:</span> free, runs on your server, no AI key required.</li>
-<li><span class="lead">Optional AI:</span> Claude, OpenAI, Gemini, and many more (bring your own key).</li>
-<li><span class="lead">Works on any theme, post type, and major page builder.</span></li>
-</ul>
+<h2>Applying a link, and undoing it</h2>
+
+<p>Approving a link does write to your post. That is the point of the feature, so the safety around it is worth stating precisely.</p>
+
+<p>Before a single character changes, the plugin saves a WordPress revision AND writes the original content to its own backup ledger. Two independent ways back, because a revision can be pruned by another plugin and the ledger cannot.</p>
+
+<p>The insertion itself is a byte-preserving splice: the plugin finds the exact phrase and wraps it, rather than parsing your HTML and writing it back out. That distinction matters, because rebuilding HTML from a parser quietly corrupts real world markup. Every write is checked before saving, to confirm the visible text is unchanged.</p>
+
+<p>Inserted links are plain <code>&lt;a data-ailinking-id&gt;</code> tags, never shortcodes. If the plugin were deleted from the filesystem tomorrow, what remains in your content is an ordinary working hyperlink, not broken markup. Uninstalling properly restores the original content from the ledger first.</p>
+
+<div class="note"><strong>Undo comes in two sizes.</strong> One click reverses a single link. A batched action reverses every link the plugin has ever inserted, in one go. If a post was edited after a link was applied, undo warns you before overwriting those edits.</div>
+
+<h2>What you see in the admin</h2>
+
+<table>
+<tr><th>Tab</th><th>What it is for</th></tr>
+<tr><td>Setup &amp; Dashboard</td><td>Which content to include, indexing, running a scan with pause, resume and stop, and how much of each page the AI reads</td></tr>
+<tr><td>Suggestions</td><td>The review inbox: approve, reject, apply, undo, filtered by status and by which engine proposed it</td></tr>
+<tr><td>Link Health</td><td>Orphans, dead ends, broken links, over and under-linked pages, internal PageRank, anchor diversity, click depth</td></tr>
+<tr><td>Connect GSC</td><td>Google Search Console, connected with a service account. Generic keyword CSV import as a fallback</td></tr>
+<tr><td>AI Keys</td><td>Your API keys, encrypted at rest, with token usage and estimated cost per key and per model</td></tr>
+<tr><td>Settings</td><td>Engine toggles, link density, provider choice, monthly spend cap</td></tr>
+</table>
+
+<h2>If you use an API key</h2>
+
+<p>Keys are yours. There is no vendor account, no proxy and no middleman: the plugin talks directly to whichever provider you configured, using your key. Keys are encrypted before storage, are never shown in full, are never written to logs, and are never sent to the browser.</p>
+
+<h3>Knowing what it costs, before it costs it</h3>
+
+<table>
+<tr><th>Control</th><th>What it does</th></tr>
+<tr><td>Live ticker</td><td>Tokens and estimated cost accumulating while a scan runs, so you watch the spend rather than discover it</td></tr>
+<tr><td>Usage breakdown</td><td>This month and all time, per key and per model, on the AI Keys tab</td></tr>
+<tr><td>Monthly spend cap</td><td>Stops AI calls before the cap is exceeded. The free engines keep working</td></tr>
+<tr><td>Words per page</td><td>How much of each page the AI reads. The main cost lever, since every post in a scan is one request</td></tr>
+</table>
+
+<div class="note"><strong>The AI reads part of a page, not all of it.</strong> By default the first 1,000 words, so on a long article the AI engine proposes links from the opening section only. Raise "Words per page sent to the AI" on Setup and Dashboard to widen that: presets go to 3,000 words, and a custom value up to 20,000. This applies to the AI engine alone. The two free engines always read the entire page.</div>
+
+<h2>Requirements</h2>
+
+<table>
+<tr><th>WordPress</th><td>6.2 or newer</td></tr>
+<tr><th>PHP</th><td>7.4 or newer</td></tr>
+<tr><th>API key</th><td>Optional. Everything except the AI engine works without one</td></tr>
+<tr><th>Search Console</th><td>Optional. Improves suggestion quality when connected</td></tr>
+</table>
+
+<div class="footer">
+AI Internal Linking, version 0.15.0. For the scoring formulas behind every decision, see the companion document "AI Internal Linking, Scoring Formulas".<br />
+Made by Shikher Goyal.
+</div>
 
 </body>
 </html>

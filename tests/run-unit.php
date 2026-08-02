@@ -44,6 +44,7 @@ require_once $plugin . '/Suggestions/Naturalness.php';
 require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
 require_once $plugin . '/Security/Redactor.php';
+require_once $plugin . '/Suggestions/LlmSuggester.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -51,6 +52,7 @@ use AILinking\Suggestions\Naturalness;
 use AILinking\Providers\Pricing;
 use AILinking\Providers\UsageStats;
 use AILinking\Security\Redactor;
+use AILinking\Suggestions\LlmSuggester;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -180,6 +182,40 @@ eq( UsageStats::format_tokens( -5 ), '0', 'format_tokens clamps negatives' );
 eq( UsageStats::format_cost( 0.0 ), '$0.00', 'zero cost' );
 eq( UsageStats::format_cost( 0.0234 ), '$0.0234', 'sub-dollar cost keeps 4dp so it does not read as free' );
 eq( UsageStats::format_cost( 1.5 ), '$1.50', 'dollar amounts use 2dp' );
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::truncate_words — the per-page budget sent to the model.
+// ---------------------------------------------------------------------------
+
+eq( LlmSuggester::truncate_words( 'one two three four', 2 ), 'one two', 'keeps exactly N words' );
+eq( LlmSuggester::truncate_words( 'one two', 10 ), 'one two', 'shorter than the budget is returned whole' );
+eq( LlmSuggester::truncate_words( '', 10 ), '', 'empty text stays empty' );
+eq( LlmSuggester::truncate_words( '   spaced   out   text   ', 2 ), 'spaced out', 'leading space and runs of whitespace do not count as words' );
+eq( LlmSuggester::truncate_words( "line one\nline two", 3 ), 'line one line', 'newlines are word separators' );
+eq( count( explode( ' ', LlmSuggester::truncate_words( str_repeat( 'word ', 5000 ), 1000 ) ) ), 1000, 'a long page is cut to exactly the budget' );
+ok( LlmSuggester::truncate_words( 'a b c', 0 ) !== '', 'a zero budget still returns something rather than nothing' );
+
+// Non-Latin scripts must not be mangled: splitting is on Unicode whitespace.
+eq( LlmSuggester::truncate_words( 'हिंदी शब्द तीन चार', 2 ), 'हिंदी शब्द', 'Unicode text splits on whitespace, not bytes' );
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::clamp_words — the same guard for the reader and the save form,
+// so a value can never be stored that the reader would then reject.
+// ---------------------------------------------------------------------------
+
+eq( LlmSuggester::clamp_words( 1000 ), 1000, 'a normal value passes through' );
+eq( LlmSuggester::clamp_words( LlmSuggester::MIN_WORDS ), LlmSuggester::MIN_WORDS, 'the floor itself is allowed' );
+eq( LlmSuggester::clamp_words( 100 ), LlmSuggester::MIN_WORDS, 'below the floor is raised to it' );
+eq( LlmSuggester::clamp_words( LlmSuggester::PRESET_MAX_WORDS ), 3000, 'the largest preset is allowed' );
+eq( LlmSuggester::clamp_words( 8000 ), 8000, 'a custom value above the presets is allowed' );
+eq( LlmSuggester::clamp_words( LlmSuggester::MAX_WORDS_LIMIT ), 20000, 'the ceiling itself is allowed' );
+eq( LlmSuggester::clamp_words( 999999 ), LlmSuggester::MAX_WORDS_LIMIT, 'a runaway custom value is capped at the ceiling' );
+eq( LlmSuggester::clamp_words( 0 ), LlmSuggester::DEFAULT_MAX_WORDS, 'zero falls back to the default, not the floor' );
+eq( LlmSuggester::clamp_words( -50 ), LlmSuggester::DEFAULT_MAX_WORDS, 'a negative value falls back to the default' );
+ok( LlmSuggester::MIN_WORDS < LlmSuggester::PRESET_MAX_WORDS, 'floor is below the largest preset' );
+ok( LlmSuggester::PRESET_MAX_WORDS <= LlmSuggester::MAX_WORDS_LIMIT, 'presets never exceed the hard ceiling' );
+ok( in_array( LlmSuggester::DEFAULT_MAX_WORDS, LlmSuggester::PRESETS, true ), 'the default is selectable as a preset' );
+ok( in_array( LlmSuggester::MIN_WORDS, LlmSuggester::PRESETS, true ), 'the floor is selectable as a preset' );
 
 // ---------------------------------------------------------------------------
 // Redactor: provider error text must never carry a credential into the DB.

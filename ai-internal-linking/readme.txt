@@ -1,10 +1,10 @@
 === AI Internal Linking ===
-Contributors: you
+Contributors: shikhergoyal
 Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.14.2
+Stable tag: 0.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,23 +16,39 @@ AI Internal Linking indexes your whole site, then proposes contextual internal l
 
 It is fully functional with **zero AI keys and zero external calls**, using a local relevance engine plus your Search Console keyword data. An optional chat model (bring your own key, any provider) can propose links on top of that.
 
-**What this build does**
+**What it does**
 
 * Auto-detects public post types, taxonomies, page builders (Gutenberg, Classic, Elementor, Divi, WPBakery, Beaver Builder, ACF), WooCommerce, and multilingual setups (WPML/Polylang).
 * Indexes your content into custom tables in the background (keyset-cursor batching; WP-Cron with an in-browser fallback).
-* Generates contextual link suggestions with relevance, naturalness, and confidence scores — wrap-first (only where a natural anchor already exists in the text).
-* Never suggests cross-language links; respects link-density limits and skips pages you already link to.
-* Presents everything in a review inbox (approve / reject). **Nothing is written to your content in this build.**
+* Generates contextual link suggestions with relevance, naturalness, and confidence scores, wrap-first, meaning only where a natural anchor already exists in the text.
+* Never suggests cross-language links, respects link-density limits, and skips pages you already link to.
+* Presents everything in a review inbox: approve, reject, apply, undo.
 
-**New in 0.2.0 (Phase 0b)**
+**Three suggestion engines**
 
-* Gated, non-destructive **apply** with a WP revision + an independent backup ledger, plus **one-click undo** and a batched "remove all inserted links" action. Auto-apply currently covers Gutenberg and Classic; Divi/WPBakery/Elementor/Beaver/ACF remain suggest-only (manual) for now.
-* Inserted links are plain `<a data-ailinking-id>` (never shortcodes) and pass a visible-text integrity check before saving.
-* **Link Health** dashboard: orphans, dead-ends, over/under-linked pages, and click-depth from the front page.
+* **GSC keyword** (free). A page mentions a query another page already ranks for, without linking to it, so the ranking query becomes the anchor. Runs first, because search demand is stronger evidence than similarity.
+* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
+* **Related Content** (free). A local relevance engine that fills whatever link budget the other two leave. Needs no keys and makes no external calls.
+
+**Applying links is gated, and reversible**
+
+Nothing is inserted without your approval. When you do approve, the plugin writes a WordPress revision AND an independent backup ledger before touching the post, so every insertion has two ways back. One click undoes a single link, and a batched action removes every link the plugin ever inserted.
+
+Insertions are a byte-preserving splice of a plain `<a data-ailinking-id>` tag, never a shortcode and never a DOM round trip, and each write passes a visible-text integrity check before it is saved. Auto-apply covers Gutenberg and Classic. Elementor, Divi, WPBakery, Beaver Builder and ACF are suggest-only, so the plugin never rewrites content a builder owns.
+
+Uninstalling restores content from the ledger first, so removing the plugin does not leave its links behind.
+
+**Link Health**
+
+Orphans, dead ends, broken links, over and under-linked pages, internal PageRank, anchor diversity, and click depth from the front page.
+
+**Cost control, if you use a key**
+
+Keys are yours and are stored encrypted. A live ticker shows tokens and estimated cost while a scan runs, the AI Keys tab breaks usage down per key and per model, and a monthly spend cap pauses AI calls before you overshoot it. How much of each page the AI reads is a setting, so the main cost lever is in your hands.
 
 **Coming next**
 
-* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve/apply in the inbox, Elementor auto-apply, and cluster-aware suggestion ranking.
+* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve and apply in the inbox, and Elementor auto-apply.
 
 == Installation ==
 
@@ -42,6 +58,11 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.15.0 =
+* How much of each page the AI reads is now yours to choose. Setup & Dashboard gains a "Words per page sent to the AI" control with presets from 500 to 3,000 words, plus a Custom option that accepts any value up to 20,000. Previously this was fixed at about 1,000 words: on a 3,000 word article the AI engine saw roughly the first third and was blind to the rest, so its suggestions clustered near the top of long posts. The setting is expressed in words rather than characters because that is the unit you can actually judge a page by.
+* This is the main cost lever, and the screen says so: every post in a scan is one request, so the token bill scales almost linearly with the number. Doubling the words roughly doubles the input tokens. The default stays at 1,000 words, exactly matching the previous behaviour, so upgrading changes nothing about what you are billed until you decide otherwise. Worth knowing when picking a number: a page can only supply the words it actually has, so setting this above your longest article simply means "send the whole page". The 20,000 ceiling on custom values is not a cost cap but a safety one, since a mistyped number that exceeds a model's context window fails the request and still bills for the attempt. Overridable in code with the ailinking_llm_max_words filter.
+* Worth being clear about scope: this affects ONLY the optional AI engine. The free engines are unchanged and always read the entire page. GSC keyword evidence scans the whole body for ranking-keyword mentions, and Related Content builds its term vector from the complete text. The anchor check is also unaffected: a proposed anchor is verified against the full page, never the excerpt.
 
 = 0.14.2 =
 * Security hardening: API keys can no longer be captured out of a provider's error message. Error text comes back from someone else's server and was stored verbatim in the key pool's last_error column, and some APIs quote the submitted credential in failure messages ("Incorrect API key provided: sk-..."). One such reply would have written a plaintext key into the database, and into every backup taken afterwards, defeating the encryption that protects the key everywhere else. Nothing was exposed in the admin screens, and no key is known to have leaked; this closes the path before it can be used. Error text is now scrubbed in two layers: the exact key used for the call is removed regardless of its format, which also covers custom and self-hosted endpoints whose key shape nothing could anticipate, and recognised credential shapes (OpenAI, Anthropic, Google, Groq, xAI, Perplexity, Hugging Face, Replicate, bearer tokens, long opaque blobs) are matched and removed even when the plugin did not send them. Ordinary diagnostics are left readable, so "Rate limit exceeded, try again in 20 seconds" still reads exactly like that, and identifiers short enough to be useful, such as request UUIDs, are preserved. Covered by 17 unit tests.

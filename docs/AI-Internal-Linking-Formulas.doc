@@ -22,7 +22,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 
 <h1>AI Internal Linking</h1>
-<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.13.0.</p>
+<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.15.0.</p>
 
 <h2>How a suggestion is produced</h2>
 
@@ -50,9 +50,12 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
                  minus every target already linked or already suggested
 
 sent_to_model  = first 15 of that pool     (MAX_CANDIDATES)
-page_excerpt   = first 6,000 characters of the body, cut on a word boundary
+page_excerpt   = first N words of the body  (Setup and Dashboard setting,
+                 default 1,000 words, maximum 2,500)
 max_tokens     = 800
 temperature    = 0</div>
+
+<div class="note"><strong>The AI engine does not read the whole page.</strong> It reads the first N words, where N is the "Words per page sent to the AI" setting on Setup and Dashboard. At the default of 1,000 words, a 3,000 word article is about one third visible, so AI suggestions cluster near the opening of long posts. Raise the setting to widen that window; the token bill scales almost linearly with it, because every post in a scan is one request.<br /><br />This limit applies to the AI engine ONLY. GSC keyword evidence and Related Content always read the entire page, and a proposed anchor is always verified against the full text rather than the excerpt.</div>
 
 <h3>How a returned link is scored</h3>
 
@@ -133,19 +136,22 @@ opportunity = impressions * gain * reach</div>
 
 <p>Keyword anchors are exact match by nature, which is precisely the pattern that looks manipulative at scale. The cap is adjustable through the <code>ailinking_max_exact_anchors_per_target</code> filter.</p>
 
-<h2>3. Embedding re-rank formula</h2>
+<h2>3. Anchor selection formula</h2>
 
-<p>Optional. Applies only when an embeddings provider is configured. It never replaces the free engine, it re-orders what the free engine already found, so recall stays local and free while precision improves.</p>
+<div class="note"><strong>Correction to an earlier version of this document.</strong> It said the anchor is drawn from the target page's title for every engine. That is true of one engine only. All three share the same whole-word matching step, but each supplies its own candidate phrase.</div>
 
-<div class="formula">cosine(A, B) = dot(A, B) / (norm(A) * norm(B))
+<table>
+<tr><th>Engine</th><th>Where the candidate anchor phrase comes from</th></tr>
+<tr><td>GSC keyword</td><td>The ranking query itself, taken from Search Console. The title is not involved.</td></tr>
+<tr><td>AI Suggestion</td><td>A phrase the model picks out of the article text. The title is not involved.</td></tr>
+<tr><td>Related Content</td><td>Word sequences built from the TARGET page's title. This is the title based engine.</td></tr>
+</table>
 
-score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector))</div>
+<p><strong>Why the title, for that engine.</strong> The free engine knows two pages are related, but nothing about what the link should be called. A page title is a human written summary of what the destination is about, so phrases taken from it describe where the link goes. That is what good anchor text does, for a reader and for a search engine alike. The alternative, grabbing any related-looking phrase from the source, produces anchors that describe nothing.</p>
 
-<div class="note">Anthropic and Claude have no embeddings API. Claude keys power the AI suggestion engine above, not this one. For embeddings use OpenAI, Voyage, Gemini, Mistral or a local model.</div>
+<p><strong>The cost of that choice.</strong> If no phrase from the target's title appears in the source page, the Related Content engine produces nothing for that pair, however well matched the two pages are. This is the single biggest reason a page you expect to be linked is not. The other two engines are not bound by it, which is a large part of why they run first.</p>
 
-<h2>4. Anchor selection formula</h2>
-
-<p>Every engine funnels through this. The anchor is drawn from the target page's title and must be found inside the source page's body.</p>
+<p>The steps below are the Related Content path. The other engines skip to step 6 with their own phrase.</p>
 
 <div class="formula">1. Split the target title on  :  ;  ,  |  ( )  [ ]  /  and dashes
    so a phrase never bridges a punctuation boundary.
@@ -183,7 +189,7 @@ score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector)
 <tr><td>Text in another language</td><td>Cross language links are never proposed</td></tr>
 </table>
 
-<h2>5. Naturalness formula</h2>
+<h2>4. Naturalness formula</h2>
 
 <p>Measures whether the link reads like something a writer would have typed, rather than something bolted on for a search engine.</p>
 
@@ -195,13 +201,13 @@ score = 0.5 * tfidf_score + 0.5 * max(0, cosine(source_vector, candidate_vector)
             - 0.15  if the anchor is longer than 70 characters
             clamped to the range 0 to 1</div>
 
-<h2>6. Final confidence formula</h2>
+<h2>5. Final confidence formula</h2>
 
 <div class="formula">confidence = 0.6 * relevance + 0.4 * naturalness</div>
 
 <div class="note">This composite is what the Suggestions tab displays in the column labelled "Relevance". Relevance answers "should these two pages be connected", naturalness answers "does this specific placement read well", and the link is worth making only when both hold.</div>
 
-<h2>7. Budget and density formulas</h2>
+<h2>6. Budget and density formulas</h2>
 
 <div class="formula">max_allowed = max(2, ceil(word_count / 1000 * max_links_per_1000))   default 5 per 1,000 words
 capacity    = max_allowed - links already in the content
@@ -211,7 +217,7 @@ capacity of 0 or less  ->  the page is skipped entirely</div>
 
 <p>A target is also skipped when the source already links to it, or when a suggestion for that exact pair already exists in any state, including rejected. The same pair is never proposed twice. Candidates scoring below <code>min_relevance</code> (default 0.08) are discarded.</p>
 
-<h2>8. Token and cost formulas</h2>
+<h2>7. Token and cost formulas</h2>
 
 <div class="formula">cost_in_cents = (tokens_in * rate_in + tokens_out * rate_out) / 1,000,000
                 where the rates are cents per million tokens for the model
@@ -222,7 +228,7 @@ pre-flight size = characters / 4, used to estimate before a call is made</div>
 
 <div class="note"><strong>Fixed in 0.13.0.</strong> Every call used to be rounded up to a whole cent before being recorded. A typical 2,400 token request costing about 0.04 cents was logged as a full cent, over twenty times high, and a few hundred calls could trip the monthly spend cap at a small fraction of real spend. Costs are now recorded exactly.</div>
 
-<h2>9. Related Content formula (TF-IDF)</h2>
+<h2>8. Related Content formula (TF-IDF)</h2>
 
 <p>The always available baseline. No keys, no external calls, no cost. It runs last and fills whatever budget the other engines left. This is also the engine that builds the candidate shortlist the AI pass depends on, so it is doing work even when AI suggestions are enabled.</p>
 
@@ -269,7 +275,7 @@ relevance(C)  = min(1, raw(C) / source_weight)</div>
 
 <h3>Known limits</h3>
 
-<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the embedding re-ranker and the AI pass are for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
+<p>Relevance here is lexical, not semantic. Two pages sharing rare vocabulary score highly even when they argue different things, and two pages making the same point in different words score nothing. Closing that gap is exactly what the AI suggestion pass is for. The stopword list is English only, so on other languages the document frequency ceiling in step 2 does most of the filtering. The list is replaceable through the <code>ailinking_stopwords</code> filter.</p>
 
 <h2>Worked example</h2>
 
@@ -292,7 +298,7 @@ relevance(C)  = min(1, raw(C) / source_weight)</div>
 <p>The suggestion enters the review inbox showing relevance 0.42, naturalness 0.83 and an overall 0.58, with the surrounding sentence quoted so the placement can be judged before anything is approved.</p>
 
 <div class="footer">
-AI Internal Linking, version 0.13.0. All formulas taken directly from the plugin source.<br />
+AI Internal Linking, version 0.15.0. All formulas taken directly from the plugin source.<br />
 Made by Shikher Goyal.
 </div>
 
