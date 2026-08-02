@@ -356,6 +356,22 @@
 			} );
 		}
 
+		// Word-budget selector: reveal the free number field only for "Custom".
+		var wordsSelect = document.getElementById( 'ailinking-ai-words' );
+		var wordsCustom = document.getElementById( 'ailinking-ai-words-custom' );
+		if ( wordsSelect && wordsCustom ) {
+			wordsSelect.addEventListener( 'change', function () {
+				var custom = 'custom' === wordsSelect.value;
+				wordsCustom.style.display = custom ? 'inline-block' : 'none';
+				if ( custom ) {
+					wordsCustom.focus();
+				} else {
+					// Keep the field in step so it shows the value actually in use.
+					wordsCustom.value = wordsSelect.value;
+				}
+			} );
+		}
+
 		// Fetch Search Console data (Keywords page), one API page per request.
 		var gscBtn = document.getElementById( 'ailinking-gsc-fetch' );
 		if ( gscBtn ) {

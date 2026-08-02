@@ -199,6 +199,25 @@ ok( LlmSuggester::truncate_words( 'a b c', 0 ) !== '', 'a zero budget still retu
 eq( LlmSuggester::truncate_words( 'हिंदी शब्द तीन चार', 2 ), 'हिंदी शब्द', 'Unicode text splits on whitespace, not bytes' );
 
 // ---------------------------------------------------------------------------
+// LlmSuggester::clamp_words — the same guard for the reader and the save form,
+// so a value can never be stored that the reader would then reject.
+// ---------------------------------------------------------------------------
+
+eq( LlmSuggester::clamp_words( 1000 ), 1000, 'a normal value passes through' );
+eq( LlmSuggester::clamp_words( LlmSuggester::MIN_WORDS ), LlmSuggester::MIN_WORDS, 'the floor itself is allowed' );
+eq( LlmSuggester::clamp_words( 100 ), LlmSuggester::MIN_WORDS, 'below the floor is raised to it' );
+eq( LlmSuggester::clamp_words( LlmSuggester::PRESET_MAX_WORDS ), 3000, 'the largest preset is allowed' );
+eq( LlmSuggester::clamp_words( 8000 ), 8000, 'a custom value above the presets is allowed' );
+eq( LlmSuggester::clamp_words( LlmSuggester::MAX_WORDS_LIMIT ), 20000, 'the ceiling itself is allowed' );
+eq( LlmSuggester::clamp_words( 999999 ), LlmSuggester::MAX_WORDS_LIMIT, 'a runaway custom value is capped at the ceiling' );
+eq( LlmSuggester::clamp_words( 0 ), LlmSuggester::DEFAULT_MAX_WORDS, 'zero falls back to the default, not the floor' );
+eq( LlmSuggester::clamp_words( -50 ), LlmSuggester::DEFAULT_MAX_WORDS, 'a negative value falls back to the default' );
+ok( LlmSuggester::MIN_WORDS < LlmSuggester::PRESET_MAX_WORDS, 'floor is below the largest preset' );
+ok( LlmSuggester::PRESET_MAX_WORDS <= LlmSuggester::MAX_WORDS_LIMIT, 'presets never exceed the hard ceiling' );
+ok( in_array( LlmSuggester::DEFAULT_MAX_WORDS, LlmSuggester::PRESETS, true ), 'the default is selectable as a preset' );
+ok( in_array( LlmSuggester::MIN_WORDS, LlmSuggester::PRESETS, true ), 'the floor is selectable as a preset' );
+
+// ---------------------------------------------------------------------------
 // Redactor: provider error text must never carry a credential into the DB.
 // ---------------------------------------------------------------------------
 
