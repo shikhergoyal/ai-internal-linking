@@ -89,12 +89,13 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <div class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
 page sent   = the first N words          (your setting, default 1,000)
-reply limit = 800 tokens, temperature 0  (temperature 0 = no invention)
+reply limit = short, about 600 words
+creativity  = turned off, so the same page always gives the same answer
 
 relevance   = the model's own confidence, 0 to 1
               (0.7 is assumed if the model does not supply one)</div>
 
-<p><strong>In plain words:</strong> the free engine finds the candidates; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
+<p><strong>In plain words:</strong> the free engine draws up the shortlist; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
 
 <p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of page titles, and it replies with a number:</p>
 
@@ -104,7 +105,7 @@ ARTICLE TITLE: Build a Content Calendar   {"n": 1,
 ARTICLE TEXT: ...your content marketing    "anchor": "content marketing strategy",
 strategy stays consistent...               "reason": "the article plans a strategy",
                                            "confidence": 0.86}
-CANDIDATE PAGES:
+POSSIBLE DESTINATIONS:
   1. Content Marketing Strategy: A Guide
   2. Social Media Scheduling Tools
   3. Editorial Workflow for Small Teams</div>
@@ -131,6 +132,87 @@ CANDIDATE PAGES:
 </table>
 
 <div class="note"><strong>The one limit worth knowing.</strong> The model reads the first N words, not the whole page. At the default of 1,000 words, a 3,000 word article is roughly one third visible, so its suggestions come from the opening section. Raise "Words per page sent to the AI" on Setup and Dashboard to widen it. This limit applies to this engine only.</div>
+
+<h3>The whole decision, as a flowchart</h3>
+
+<p>Three things get settled, in this order: which page is being read, which page it should link to, and which words become the link. Every branch that throws a suggestion away is shown, because those are usually the interesting ones.</p>
+
+<div class="formula">              EVERY PUBLISHED PAGE ON YOUR SITE
+                             |
+             is it in the content types you chose?
+                             |
+                   yes ------+------ no ----->  never looked at
+                             |
+             does it still have room for more links?
+                             |
+                   yes ------+------ no ----->  skipped, it is already
+                             |                  at its link limit
+                             v
+              +==================================+
+              |        THE SOURCE PAGE           |
+              +==================================+
+                             |
+             compare its words against every other page
+                             |
+                             v
+             is this other page one of the 18 closest?
+                   yes ------+------ no ----->  too little in common,
+                             |                  never shown to the AI
+             does this page already link to it?
+                    no ------+------ yes ---->  the link already exists
+                             |
+             have you already approved or rejected this pair?
+                    no ------+------ yes ---->  your decision stands
+                             |
+                             v
+              THE SHORTLIST: 15 page titles sent to the model
+              (no web addresses are ever sent)
+                             |
+                             v
+              THE MODEL REPLIES
+              page number 1, wording "content marketing strategy"
+                             |
+             is that number one of the ones it was shown?
+                   yes ------+------ no ----->  thrown away
+                             |
+                             v
+              +==================================+
+              |      TARGET PAGE SETTLED         |
+              |   address taken from the plugin  |
+              +==================================+
+                             |
+             does that exact wording appear in the source page?
+                   yes ------+------ no ----->  thrown away
+                             |                  (this is what stops
+                             |                   invented wording)
+                             v
+              +==================================+
+              |        ANCHOR SETTLED            |
+              |   saved in your capitalisation   |
+              +==================================+
+                             |
+                             v
+              A SUGGESTION APPEARS IN YOUR REVIEW SCREEN
+              you approve it, or you reject it</div>
+
+<h3>Why not the other page, and why not other wording</h3>
+
+<p>Every rejection above has a reason. Read together they explain almost every "why did it not suggest X?" question:</p>
+
+<table>
+<tr><th>What was rejected</th><th>Why</th></tr>
+<tr><td><strong>A different source page</strong></td><td>Nothing was rejected. Every published page in your chosen content types is read in turn. A page is only skipped if it has already reached its link limit, which protects pages that are well linked already</td></tr>
+<tr><td><strong>Pages outside the closest 18</strong></td><td>They share too little vocabulary with this page. Sending all 350 to the model would cost roughly twenty times more and produce worse answers, because a long list invites weak picks</td></tr>
+<tr><td><strong>A page you already link to</strong></td><td>The link exists. Suggesting it again is noise</td></tr>
+<tr><td><strong>A pair you already judged</strong></td><td>You approved or rejected it before. It is not offered a second time</td></tr>
+<tr><td><strong>The page itself</strong></td><td>A page cannot link to itself</td></tr>
+<tr><td><strong>A page number that was not on the list</strong></td><td>The model can only choose from what it was shown. Anything else is meaningless and is discarded</td></tr>
+<tr><td><strong>Wording that is not on the page</strong></td><td>The single most important rejection. If the quoted phrase cannot be found in your article, the whole suggestion is discarded. This is why the plugin can use an AI model without ever letting it write into your content</td></tr>
+<tr><td><strong>Wording inside a heading</strong></td><td>It never gets that far. Headings and the page title are stripped out before the model is shown anything, so it cannot quote them</td></tr>
+<tr><td><strong>Wording the model tidied up</strong></td><td>If the model rephrases you, its version will not be found in your page, so it is discarded. Your text is the only text that can become a link</td></tr>
+</table>
+
+<div class="key"><strong>The short answer to "why this and not that".</strong> The plugin narrows the choice before the model is asked, and checks the answer against your actual page afterwards. The model only ever chooses within limits already set, and every one of its answers is verified against something the plugin already knows.</div>
 
 <h3>Engine 2 of 3: GSC keyword</h3>
 
@@ -238,11 +320,11 @@ relevance = overlap / this page's own total weight
 <table>
 <tr><th>#</th><th>What happens</th></tr>
 <tr><td>1</td><td>Every other page is scored on vocabulary overlap and sorted, best first</td></tr>
-<tr><td>2</td><td>The best remaining candidate is taken, skipping the page itself and anything already linked, suggested or rejected</td></tr>
+<tr><td>2</td><td>The best remaining page is taken, skipping the page itself and anything already linked, suggested or rejected</td></tr>
 <tr><td>3</td><td>That page's <strong>title</strong> is cut at punctuation and broken into word groups, 4 words down to 2</td></tr>
 <tr><td>4</td><td>Groups starting or ending on a filler word, or containing bare numbers, are thrown away</td></tr>
 <tr><td>5</td><td>The longest surviving group that appears in your page becomes the anchor</td></tr>
-<tr><td>6</td><td>If none of them appears, <strong>the whole pairing is abandoned</strong> and the next candidate is tried</td></tr>
+<tr><td>6</td><td>If none of them appears, <strong>the whole pairing is abandoned</strong> and the next page is tried</td></tr>
 </table>
 
 <div class="note"><strong>This is the most common reason an expected link is missing.</strong> Two pages can be plainly about the same subject and still produce nothing, simply because your text never happens to contain a phrase from the other page's title. The other two engines are not bound by that, which is much of why they run first.</div>
