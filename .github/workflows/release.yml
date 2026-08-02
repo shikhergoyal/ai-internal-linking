@@ -1,0 +1,121 @@
+name: Release plugin zip
+
+# Tagging a version is the only manual step. Pushing tag vX.Y.Z verifies the
+# version strings, builds the installable zip and publishes a GitHub Release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build a release for, e.g. v0.12.1'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Resolve version from the tag
+        id: ver
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version $VERSION)"
+
+      - name: Verify the tag matches the plugin version strings
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          PLUGIN_FILE=ai-internal-linking/ai-internal-linking.php
+          README=ai-internal-linking/readme.txt
+
+          header=$(grep -m1 -oP '^\s*\*\s*Version:\s*\K[0-9][^\s]*'        "$PLUGIN_FILE")
+          const=$( grep -m1 -oP "AILINKING_VERSION',\s*'\K[0-9][^']*"      "$PLUGIN_FILE")
+          stable=$(grep -m1 -oP '^Stable tag:\s*\K[0-9][^\s]*'             "$README")
+
+          echo "tag=$VERSION header=$header constant=$const stable_tag=$stable"
+          fail=0
+          [ "$header" = "$VERSION" ] || { echo "::error::Plugin header Version ($header) does not match tag ($VERSION)"; fail=1; }
+          [ "$const"  = "$VERSION" ] || { echo "::error::AILINKING_VERSION ($const) does not match tag ($VERSION)"; fail=1; }
+          [ "$stable" = "$VERSION" ] || { echo "::error::readme.txt Stable tag ($stable) does not match tag ($VERSION)"; fail=1; }
+          exit $fail
+
+      - name: Set up PHP 7.4, the minimum version the plugin supports
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          php --version
+          # Any parse error fails the release. Linting on 7.4 also catches
+          # newer syntax that would fatal on the oldest supported PHP.
+          find ai-internal-linking -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Build the installable zip
+        id: build
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          ZIP="ai-internal-linking-v${VERSION}.zip"
+          # git archive on the subtree: the zip contains exactly one top level
+          # folder (ai-internal-linking/) with forward slash paths, and none of
+          # the repository scaffolding (README, workflows, docs, tools).
+          git archive --format=zip --prefix=ai-internal-linking/ -o "$ZIP" HEAD:ai-internal-linking
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "Contents (first 15 entries):"
+          unzip -l "$ZIP" | head -20
+          if unzip -l "$ZIP" | grep -q '\\'; then
+            echo "::error::Zip contains backslash paths, it would be unusable on WordPress"
+            exit 1
+          fi
+
+      - name: Extract release notes from readme.txt
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Pull the "= X.Y.Z =" section out of the WordPress changelog so the
+          # release notes never drift from the readme.
+          awk -v v="= ${VERSION} =" '
+            $0 == v { grab = 1; next }
+            grab && /^= [0-9]/ { exit }
+            grab { print }
+          ' ai-internal-linking/readme.txt | sed '/^[[:space:]]*$/d' > NOTES.md
+
+          if [ ! -s NOTES.md ]; then
+            echo "No changelog entry found for ${VERSION} in readme.txt." > NOTES.md
+            echo "::warning::readme.txt has no '= ${VERSION} =' changelog section"
+          fi
+          {
+            echo ""
+            echo "---"
+            echo "Install: download \`ai-internal-linking-v${VERSION}.zip\` below, then upload it in WordPress under Plugins, Add New, Upload Plugin."
+          } >> NOTES.md
+          cat NOTES.md
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+          ZIP: ${{ steps.build.outputs.zip }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "$ZIP" \
+            --title "AI Internal Linking $TAG" \
+            --notes-file NOTES.md
