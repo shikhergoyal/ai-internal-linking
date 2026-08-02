@@ -101,6 +101,8 @@ relevance   = the model's own confidence, 0 to 1
 
 <p><strong>In plain words:</strong> the free engine draws up the shortlist; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
 
+<p><strong>Why 18 and 15?</strong> They are judgement calls rather than derived numbers. Fifteen is how many the model is shown: enough to choose well, not so many that it starts favouring whatever is near the top of a long list, and already nearly twice the 8 suggestions a page can accept from one scan. Eighteen is simply fifteen plus three spare, because the list gets filtered in between, dropping the page itself, anything already linked, and any pair you have already judged. On a page that already links to most of its closest matches those three spares run out and the model is shown a shorter list, which is why the AI engine has less to say about your most established pages.</p>
+
 <p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of page titles, and it replies with a number:</p>
 
 <pre class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
