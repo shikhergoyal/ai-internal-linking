@@ -165,20 +165,31 @@ opportunity = impressions * gain * reach</div>
 
 <p>The floor of 0.50 is deliberate. A proven search phrase is better evidence than any similarity measure, so these suggestions start above what the other engines normally reach.</p>
 
-<h3>How the wording is chosen</h3>
+<p><strong>How it actually picks the page and the wording.</strong> Neither half is chosen by the plugin. Search Console hands over one row per query:</p>
 
-<p>This step is shared, but each engine supplies its own candidate phrase:</p>
+<div class="formula">query        content marketing strategy
+page         /guides/content-marketing-strategy/
+impressions  1,200
+position     7</div>
+
+<p>The address is matched to one of your posts, and <strong>that post is the destination</strong>, chosen by Google's index rather than by any scoring here. <strong>The wording is the query itself</strong>, chosen by the people who typed it. The plugin then scans your pages for that exact phrase and flags the ones that say it without linking. If a page already links there, or the same wording already points there three times, it is skipped.</p>
+
+<p>As with the AI engine, the anchor saved is the text as it appears in your page, so your capitalisation wins over Google's lower case.</p>
+
+<h3>Who decides what, across all three</h3>
+
+<p>The three engines differ in one important way: who chooses the destination, and who chooses the wording.</p>
 
 <table>
-<tr><th>Engine</th><th>Where the wording comes from</th></tr>
-<tr><td>AI Suggestion</td><td>A phrase the model picked out of your article</td></tr>
-<tr><td>GSC keyword</td><td>The search phrase itself</td></tr>
-<tr><td>Related Content</td><td>Word groups taken from the target page's title</td></tr>
+<tr><th>Engine</th><th>Chooses the destination</th><th>Chooses the wording</th><th>In what order</th></tr>
+<tr><td>AI Suggestion</td><td>The model, by picking a number from a shortlist the free engine built</td><td>The model quotes a phrase; your page supplies the exact text</td><td>Both together</td></tr>
+<tr><td>GSC keyword</td><td>Google, through Search Console</td><td>Searchers, it is the phrase they typed</td><td>The destination arrives attached to the keyword</td></tr>
+<tr><td>Related Content</td><td>Vocabulary overlap, calculated on your own site</td><td>The destination page's own title</td><td>Destination first, wording worked out afterwards</td></tr>
 </table>
 
-<p>Whatever the source, the phrase must then be found in your page as a whole word, ignoring capitals. If it is not there, no suggestion is made. That single rule is what guarantees the plugin never writes new sentences.</p>
+<p>Whatever the source, one rule closes every path: <strong>the wording must already exist in your page</strong>, matched as a whole word and ignoring capitals. If it is not there, no suggestion is made. That single check is what guarantees the plugin never writes a new sentence, and it is applied after the engine has had its say, not before.</p>
 
-<p>For the title based engine, phrases are tried longest first, so "content marketing strategy" wins over "marketing strategy". Phrases that start or end on a filler word are rejected, as are pure numbers and words such as "part" or "chapter".</p>
+<p>It also means the anchor stored is always <em>your</em> text. Whatever the model typed, or however Google reported the query, what gets saved and linked is the phrase exactly as it appears in your article.</p>
 
 <h3>The two scores on every suggestion</h3>
 
@@ -221,6 +232,20 @@ relevance = overlap / this page's own total weight
 <p><strong>In plain words:</strong> the score is the share of this page's vocabulary that the other page also covers. Taking the <em>smaller</em> of the two counts is what stops a page that repeats one word two hundred times from looking relevant to everything.</p>
 
 <div class="key"><strong>Nothing here knows your subject.</strong> The vocabulary is whatever your own pages contain, and the weights are calculated from your own site at scan time. The identical formula produces recipe links on a recipe site and legal links on a law firm site, with no configuration.</div>
+
+<p><strong>How it actually picks the page and the wording.</strong> This engine works in the opposite order to the other two: it settles the destination first, then tries to work out the wording, and gives up on the pair if it cannot.</p>
+
+<table>
+<tr><th>#</th><th>What happens</th></tr>
+<tr><td>1</td><td>Every other page is scored on vocabulary overlap and sorted, best first</td></tr>
+<tr><td>2</td><td>The best remaining candidate is taken, skipping the page itself and anything already linked, suggested or rejected</td></tr>
+<tr><td>3</td><td>That page's <strong>title</strong> is cut at punctuation and broken into word groups, 4 words down to 2</td></tr>
+<tr><td>4</td><td>Groups starting or ending on a filler word, or containing bare numbers, are thrown away</td></tr>
+<tr><td>5</td><td>The longest surviving group that appears in your page becomes the anchor</td></tr>
+<tr><td>6</td><td>If none of them appears, <strong>the whole pairing is abandoned</strong> and the next candidate is tried</td></tr>
+</table>
+
+<div class="note"><strong>This is the most common reason an expected link is missing.</strong> Two pages can be plainly about the same subject and still produce nothing, simply because your text never happens to contain a phrase from the other page's title. The other two engines are not bound by that, which is much of why they run first.</div>
 
 <h3>The limits every suggestion must pass</h3>
 

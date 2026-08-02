@@ -185,6 +185,42 @@ opportunity = impressions * gain * reach</div>
 
 <p>The base of 0.50 sits deliberately above what vocabulary overlap normally produces, so a keyword backed suggestion outranks a merely similar page. The pool is the top 500 keywords by opportunity.</p>
 
+<h3>How the link is actually chosen, step by step</h3>
+
+<div class="key"><strong>Neither half of this link is chosen by the plugin.</strong> Google decides the destination, because Search Console already knows which of your pages answers that query. The people searching decide the wording, because the anchor is the phrase they actually typed. The plugin's only job is to notice where you forgot to link.</div>
+
+<p><strong>What Search Console hands over.</strong> One row per query and landing page:</p>
+
+<div class="formula">query        content marketing strategy
+page         /guides/content-marketing-strategy/
+impressions  1,200
+position     7</div>
+
+<p><strong>Turning that into a link, step by step:</strong></p>
+
+<table>
+<tr><th>#</th><th>Step</th><th>If it fails</th></tr>
+<tr><td>1</td><td>Resolve the landing page address to a post on this site</td><td>The row is dropped. A query that ranks a page the plugin cannot identify is unusable</td></tr>
+<tr><td>2</td><td><strong>The target is now decided.</strong> That post is the destination, chosen by Google's index, not by any scoring the plugin performs</td><td>Cannot fail</td></tr>
+<tr><td>3</td><td><strong>The wording is now decided.</strong> The query string itself is the candidate anchor</td><td>Cannot fail</td></tr>
+<tr><td>4</td><td>Is the query between 2 and 4 words?</td><td>Skipped. A one word anchor is not descriptive, a nine word one is a sentence</td></tr>
+<tr><td>5</td><td>Does the page being scanned contain that exact query, as whole words?</td><td>Skipped. Nothing to link</td></tr>
+<tr><td>6</td><td>Does that page already link to the target?</td><td>Skipped. It is not an unlinked mention if it is already linked</td></tr>
+<tr><td>7</td><td>Would this be the fourth identical anchor pointing at that target?</td><td>Skipped, to avoid an over-optimised pattern</td></tr>
+<tr><td>8</td><td>Keep the text <em>as it appears in the page being scanned</em>, plus context either side</td><td>Cannot fail</td></tr>
+</table>
+
+<p><strong>The result stored for review:</strong></p>
+
+<div class="formula">target page  = the post that ranks for the query   -> post 482
+target URL   = from the plugin's index
+anchor text  = "Content Marketing Strategy"
+               (your capitalisation, taken from the page being
+                scanned, not the lowercase Google reports)
+relevance    = 0.50 base + 0.20 striking + opportunity share</div>
+
+<p>Only the highest value 500 keywords are considered per scan, ordered by opportunity, and each target page receives at most one keyword suggestion per source page: the best keyword wins, because the pool is already sorted.</p>
+
 <h3>Step 5, the over optimisation guard</h3>
 
 <div class="formula">refuse the suggestion when
@@ -317,6 +353,38 @@ raw(C)        = sum over t of  idf(t) * min(source_tf(t), candidate_tf(t))
 Require at least 2 shared significant terms, otherwise discard C.
 
 relevance(C)  = min(1, raw(C) / source_weight)</div>
+
+<h3>How the link is actually chosen, step by step</h3>
+
+<div class="key"><strong>This engine picks the destination first and works out the wording afterwards</strong>, which is the opposite order to the other two. That ordering has a consequence worth knowing: a perfect subject match still produces nothing if no phrase from the target's title happens to appear in your text.</div>
+
+<p><strong>Step by step:</strong></p>
+
+<table>
+<tr><th>#</th><th>Step</th><th>If it fails</th></tr>
+<tr><td>1</td><td>Score every other page by vocabulary overlap and sort, best first</td><td>No shared vocabulary anywhere means no suggestions for this page</td></tr>
+<tr><td>2</td><td>Walk that list in order. Skip the page itself, anything already linked, and anything already suggested or rejected before</td><td>Move to the next candidate</td></tr>
+<tr><td>3</td><td>Is the score at least 0.08?</td><td>Move on. Everything below is coincidence</td></tr>
+<tr><td>4</td><td><strong>The target is now provisional.</strong> Take that page's <em>title</em> and cut it at punctuation, then build every word group from 4 words down to 2</td><td>A title with no usable group is abandoned</td></tr>
+<tr><td>5</td><td>Throw away groups that begin or end on a filler word, contain a bare number, or contain words like "part" or "chapter"</td><td>Those groups are dropped</td></tr>
+<tr><td>6</td><td>Sort what is left longest first, then search your page for each in turn</td><td></td></tr>
+<tr><td>7</td><td>First group found in your page wins and becomes the anchor</td><td><strong>If none of them appears, the whole pairing is abandoned</strong> and the next candidate is tried, however high the score was</td></tr>
+<tr><td>8</td><td>Keep the text as it appears in your page, plus context either side</td><td>Cannot fail</td></tr>
+</table>
+
+<p><strong>Why longest first.</strong> "content marketing strategy" describes its destination; "strategy" does not. Trying the longest groups first means the most specific wording available is always preferred.</p>
+
+<p><strong>The result stored for review:</strong></p>
+
+<div class="formula">target page  = the best scoring candidate whose title
+               could be quoted from your text     -> post 482
+target URL   = from the plugin's index
+anchor text  = "Content Marketing Strategy"
+               (a word group from the TARGET page's title,
+                found in YOUR page)
+relevance    = the vocabulary overlap score       -> 0.42</div>
+
+<div class="note"><strong>The most common reason an expected link is missing.</strong> Step 7. Two pages can be plainly about the same subject and still produce nothing, because your text never happens to contain a phrase from the other page's title. The other two engines are not bound by this, which is a large part of why they run first.</div>
 
 <h3>Why it is shaped this way</h3>
 
