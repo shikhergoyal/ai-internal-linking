@@ -147,6 +147,62 @@ class Tfidf {
 	}
 
 	/**
+	 * The most distinctive words for a set of pages, in one query.
+	 *
+	 * Used to tell the model what each possible destination is actually about,
+	 * rather than making it judge from a title alone. Batched deliberately: one
+	 * query for the whole shortlist, not one per page, because this runs inside
+	 * a scan that is already doing a network round trip per post.
+	 *
+	 * Ordered by raw frequency, which is what the table is indexed for. Rarity
+	 * weighting would be better but needs a second pass over document
+	 * frequencies, and for a handful of descriptive words the difference does
+	 * not justify the extra query.
+	 *
+	 * @param int[] $post_ids Page ids.
+	 * @param int   $per_post Words to return for each.
+	 * @return array<int,string[]> post id => words, most used first.
+	 */
+	public static function top_terms_for( array $post_ids, $per_post = 10 ) {
+		global $wpdb;
+
+		$ids      = array_values( array_unique( array_map( 'intval', $post_ids ) ) );
+		$per_post = max( 1, (int) $per_post );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$table = Tables::tfidf();
+		$ph    = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$args  = $ids;
+		// Generous ceiling so no page is starved, then trimmed per page below.
+		$args[] = count( $ids ) * $per_post * 4;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT post_id, term FROM {$table}
+				 WHERE post_id IN ($ph)
+				 ORDER BY post_id ASC, tf DESC
+				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				$args
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+		foreach ( (array) $rows as $r ) {
+			$pid = (int) $r['post_id'];
+			if ( ! isset( $out[ $pid ] ) ) {
+				$out[ $pid ] = array();
+			}
+			if ( count( $out[ $pid ] ) < $per_post ) {
+				$out[ $pid ][] = (string) $r['term'];
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Generate ranked link candidates for a source post.
 	 *
 	 * Relevance = weighted overlap: how much of the source's idf-weighted content

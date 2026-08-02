@@ -22,8 +22,22 @@ defined( 'ABSPATH' ) || exit;
 
 class LlmSuggester {
 
-	/** Max candidates shown to the model. */
-	const MAX_CANDIDATES = 15;
+	/** Possible destinations shown to the model when no setting is stored. */
+	const DEFAULT_CANDIDATES = 15;
+
+	/** Bounds for the shortlist. Below 5 the model has nothing to choose from. */
+	const MIN_CANDIDATES = 5;
+	const MAX_CANDIDATES_LIMIT = 200;
+
+	/** Distinctive words sent per destination when no setting is stored. */
+	const DEFAULT_CANDIDATE_WORDS = 10;
+
+	/** 0 means title only. Beyond 30 the list stops being a summary. */
+	const MAX_CANDIDATE_WORDS = 30;
+
+	/** Values offered in the Setup screen dropdowns. */
+	const CANDIDATE_PRESETS = array( 10, 15, 25, 40, 60 );
+	const CANDIDATE_WORD_PRESETS = array( 0, 5, 10, 15, 20 );
 
 	/**
 	 * Words of each page sent to the model when no setting is stored.
@@ -74,7 +88,7 @@ class LlmSuggester {
 				continue;
 			}
 			$candidates[] = $c;
-			if ( count( $candidates ) >= self::MAX_CANDIDATES ) {
+			if ( count( $candidates ) >= self::max_candidates() ) {
 				break;
 			}
 		}
@@ -182,16 +196,38 @@ class LlmSuggester {
 	private static function user_prompt( $title, $text, array $candidates ) {
 		$excerpt = self::truncate_words( $text, self::max_words() );
 
+		// A title alone is a thin description of a page: two posts both called
+		// "Getting started" look identical to the model. Sending each possible
+		// destination's own most-used words gives it something to judge.
+		$per_page = self::candidate_words();
+		$terms    = array();
+		if ( $per_page > 0 ) {
+			$ids = array();
+			foreach ( $candidates as $c ) {
+				$ids[] = (int) $c['post_id'];
+			}
+			$terms = Tfidf::top_terms_for( $ids, $per_page );
+		}
+
 		$lines = array();
 		$i     = 1;
 		foreach ( $candidates as $c ) {
-			$lines[] = $i . '. ' . trim( (string) $c['title'] );
+			$line = $i . '. ' . trim( (string) $c['title'] );
+			$tid  = (int) $c['post_id'];
+			if ( ! empty( $terms[ $tid ] ) ) {
+				$line .= ' - ' . implode( ', ', $terms[ $tid ] );
+			}
+			$lines[] = $line;
 			$i++;
 		}
 
+		$heading = $per_page > 0
+			? "CANDIDATE PAGES (title - words that page uses most):\n"
+			: "CANDIDATE PAGES:\n";
+
 		return "ARTICLE TITLE: " . trim( (string) $title ) . "\n\n"
 			. "ARTICLE TEXT:\n" . $excerpt . "\n\n"
-			. "CANDIDATE PAGES:\n" . implode( "\n", $lines );
+			. $heading . implode( "\n", $lines );
 	}
 
 	/**
@@ -275,6 +311,57 @@ class LlmSuggester {
 			$words = self::DEFAULT_MAX_WORDS;
 		}
 		return max( self::MIN_WORDS, min( self::MAX_WORDS_LIMIT, $words ) );
+	}
+
+	/**
+	 * How many possible destinations to show the model.
+	 *
+	 * @return int
+	 */
+	public static function max_candidates() {
+		$n = (int) Settings::get( 'llm_candidates', self::DEFAULT_CANDIDATES );
+		if ( $n <= 0 ) {
+			$n = self::DEFAULT_CANDIDATES;
+		}
+		/**
+		 * Filter the number of possible destinations shown to the model.
+		 *
+		 * @param int $n Candidate count.
+		 */
+		$n = (int) apply_filters( 'ailinking_llm_candidates', $n );
+		return max( self::MIN_CANDIDATES, min( self::MAX_CANDIDATES_LIMIT, $n ) );
+	}
+
+	/**
+	 * How many distinctive words to send per destination. 0 means title only.
+	 *
+	 * @return int
+	 */
+	public static function candidate_words() {
+		$n = (int) Settings::get( 'llm_candidate_words', self::DEFAULT_CANDIDATE_WORDS );
+		/**
+		 * Filter the words sent per destination.
+		 *
+		 * @param int $n Words per destination.
+		 */
+		$n = (int) apply_filters( 'ailinking_llm_candidate_words', $n );
+		return max( 0, min( self::MAX_CANDIDATE_WORDS, $n ) );
+	}
+
+	/**
+	 * How many candidates to fetch so that filtering cannot starve the list.
+	 *
+	 * The shortlist is filtered after it is computed, dropping the page itself,
+	 * anything already linked and anything already judged. Fetching exactly the
+	 * number to be shown means a well linked page ends up showing far fewer, so
+	 * this asks for half again plus a fixed margin. (pure)
+	 *
+	 * @param int $wanted Destinations to show.
+	 * @return int
+	 */
+	public static function fetch_count( $wanted ) {
+		$wanted = max( 1, (int) $wanted );
+		return (int) min( 400, ceil( $wanted * 1.5 ) + 6 );
 	}
 
 	/**

@@ -135,7 +135,11 @@ class SuggestionEngine {
 		// target is a real page and every anchor is verified verbatim in the body,
 		// so nothing is fabricated. Skipped entirely when no chat provider is set.
 		if ( $created < $limit && Settings::get( 'llm_suggestions', false ) && Gateway::chat_enabled() ) {
-			$pool = Tfidf::candidates( $source_id, $source['lang_code'], $targets, 18 );
+			// Fetch more than will be shown. The filter below drops anything the
+			// page already links to and anything already judged, so asking for
+			// exactly the configured number would leave a well-linked page
+			// showing the model far fewer destinations than you chose.
+			$pool = Tfidf::candidates( $source_id, $source['lang_code'], $targets, LlmSuggester::fetch_count( LlmSuggester::max_candidates() ) );
 			$pool = array_values(
 				array_filter(
 					$pool,
