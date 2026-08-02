@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.14.0
+Stable tag: 0.14.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.14.1 =
+* Fix: the clusters and cluster_members tables were never actually removed from upgraded sites. Version 0.11.0 retired the Clusters feature but only dropped its tables on uninstall, so every site that upgraded in place has been carrying them ever since, and 0.14.0's new retired-table cleanup only listed the embeddings table. Both are now dropped on upgrade alongside it (DB version 1.4.0 to 1.5.0). Found by a post-deploy database check, not by anything user visible: the tables were inert, just wasting space.
 
 = 0.14.0 =
 * Removed embeddings entirely. The semantic re-ranker, the "Build embeddings" button, the Embeddings provider setting, the "reuse the chat provider for embeddings" option, the per-key Chat/Embeddings/Both selector, and the embeddings database table are all gone. Reasoning: Anthropic has no embeddings API, so running Claude meant either keeping a second vendor key purely for re-ranking or leaving the whole feature switched off. It was a permanently dark code path on this site, and the generative "AI link suggestions" engine already delivers semantic understanding from the same Claude key that is configured anyway.
