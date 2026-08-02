@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       AI Internal Linking
- * Plugin URI:        https://digitallylearn.com/
+ * Plugin URI:        https://github.com/shikhergoyal/ai-internal-linking
  * Description:       Universal, AI-assisted internal linking. Crawls any WordPress site, then suggests contextual internal links (SEO + GEO best practices). Every suggestion is reviewed and gated — nothing is auto-inserted.
  * Version:           0.15.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Shikher Goyal
- * Author URI:        https://digitallylearn.com/
+ * Author URI:        https://github.com/shikhergoyal
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       ai-internal-linking
