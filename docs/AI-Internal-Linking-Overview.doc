@@ -1,0 +1,136 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name="ProgId" content="Word.Document">
+<title>AI Internal Linking - Plugin Overview</title>
+<style>
+body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:1.45;color:#1a1a1a;margin:48px;}
+h1.title{font-size:30pt;color:#1d4ed8;text-align:center;margin:0;}
+p.sub{font-size:14pt;color:#555;text-align:center;font-weight:normal;margin:4pt 0 0 0;}
+p.by{font-style:italic;text-align:center;margin:6pt 0 0 0;}
+p.ver{text-align:center;color:#1d4ed8;font-weight:bold;margin:2pt 0 0 0;font-size:10.5pt;}
+hr.rule{border:none;border-top:2px solid #1d4ed8;margin:16pt 0 4pt 0;}
+h2.sec{font-size:15pt;color:#1d4ed8;margin-top:18pt;margin-bottom:4pt;}
+h3.subsec{font-size:12.5pt;color:#222;margin-top:11pt;margin-bottom:2pt;}
+p{margin:5pt 0;}
+ul,ol{margin:4pt 0 8pt 0;}
+li{margin:3pt 0;}
+.callout{background:#eef4ff;border-left:4px solid #1d4ed8;padding:8pt 12pt;margin:8pt 0;}
+.lead{font-weight:bold;}
+</style>
+</head>
+<body>
+
+<h1 class="title">AI Internal Linking</h1>
+<p class="sub">Plugin Overview &amp; Capabilities</p>
+<p class="by">Made by Shikher Goyal</p>
+<p class="ver">Version 0.7.1 (June 2026)</p>
+<hr class="rule">
+
+<h2 class="sec">1. What It Does</h2>
+<p>AI Internal Linking is a WordPress plugin that reads your entire website and recommends high-quality internal links between your own pages. It works on any site (any theme, post type, taxonomy, or page builder), and it never changes your content without your approval. Every link is reviewed by you before anything is applied.</p>
+
+<h2 class="sec">2. The Problem It Solves</h2>
+<p>Internal linking is one of the highest-leverage SEO and AI-search tactics, but doing it by hand across hundreds of pages is slow and inconsistent.</p>
+<h3 class="subsec">The gap with generic AI and LLM tools</h3>
+<p>When you ask a general AI or LLM for internal-linking ideas, it does not actually know what is on your site. It guesses from the page title or a short snippet, which leads to:</p>
+<ul>
+<li>Links to pages that do not exist on your site (hallucinated URLs).</li>
+<li>Suggestions that ignore your real, current content and structure.</li>
+<li>Anchors that are not actually present on the page, so they cannot be placed naturally.</li>
+</ul>
+<div class="callout"><span class="lead">Issue resolved by this plugin:</span> it crawls and reads the actual content of every page on your site first, then bases every suggestion on pages that truly exist and are genuinely related. Recommendations are grounded in your real content, not an AI's guess.</div>
+
+<h2 class="sec">3. How It Finds Internal-Linking Suggestions</h2>
+<p>The plugin follows a clear, transparent pipeline:</p>
+<ol>
+<li><span class="lead">Crawl and index.</span> It scans every selected page into its own database, reading the real body text (Gutenberg, Classic, Elementor, Divi, WPBakery, Beaver Builder, ACF), the language, and the existing links.</li>
+<li><span class="lead">Content Relevance Matching.</span> For the page you are working on, it finds the other pages that share the most distinctive, meaningful vocabulary (see the core technique below).</li>
+<li><span class="lead">Optional AI re-ranking.</span> If you connect an AI provider, it can re-rank candidates by meaning (semantics) for even sharper matches. This step is fully optional.</li>
+<li><span class="lead">Natural anchor placement.</span> It locates a real phrase already in your body text to use as the anchor. It never invents text, and it never uses a heading (H1 to H6) or the page title as an anchor.</li>
+<li><span class="lead">Review and apply.</span> Every suggestion lands in a review inbox with a confidence score and the exact sentence where the link would go. You approve, edit, or reject, then apply with one click (with a backup and one-click undo).</li>
+</ol>
+
+<h2 class="sec">4. The Core Technique: Content Relevance Matching</h2>
+<p>The heart of the plugin is Content Relevance Matching, a proven, math-based method (technically known as TF-IDF) that measures how related two pages are by their words. It runs entirely on your own server, free, with no AI subscription required.</p>
+<h3 class="subsec">How it works in plain terms</h3>
+<ul>
+<li>It counts how often each word appears on a page.</li>
+<li>It gives more weight to distinctive words (such as "PMFBY" or "Sahyadri") and ignores common words (such as "the", "and", "India") that appear on almost every page.</li>
+<li>Each page gets a "fingerprint" of its most meaningful terms.</li>
+<li>Pages whose fingerprints overlap the most are the best internal-link matches.</li>
+</ul>
+<p>Because it reads your actual content, the matches reflect what your pages are genuinely about, not a guess from the title.</p>
+
+<h2 class="sec">5. Additional Intelligence</h2>
+<h3 class="subsec">Optional AI semantic matching</h3>
+<ul>
+<li>Connect any provider (Claude, OpenAI, Gemini, and many more) to re-rank matches by meaning, catching related pages even when they use different words.</li>
+</ul>
+<h3 class="subsec">Link-graph analysis</h3>
+<ul>
+<li>Internal authority (PageRank-style) to prioritise linking toward your strongest pages.</li>
+<li>Finds orphan pages (no links in), dead-end pages (no links out), and broken internal links.</li>
+</ul>
+<h3 class="subsec">Topic clusters (hub-and-spoke)</h3>
+<ul>
+<li>Groups a pillar page with its supporting articles and flags flat clusters that have no clear hub, the structure AI answer engines look for.</li>
+<li><span class="lead">Auto-detect clusters (new in 0.7).</span> Builds these pillar-and-spoke clusters for you automatically from your categories and internal link structure, with no manual setup. Each topic with at least three indexed posts becomes a cluster, and the page the others link to most is chosen as the hub. Re-running is safe: it skips topics that already have a cluster and never touches clusters you created by hand.</li>
+</ul>
+<h3 class="subsec">GEO readiness (AI-search visibility)</h3>
+<ul>
+<li>Scores how well each page is positioned to be cited by AI answer engines (ChatGPT, Gemini, Perplexity, Claude) and gives concrete fixes.</li>
+</ul>
+
+<h2 class="sec">6. Why It Is Effective</h2>
+<ul>
+<li><span class="lead">Grounded in real content:</span> every suggestion is based on pages that actually exist on your site.</li>
+<li><span class="lead">Reader-first:</span> links are placed in natural body sentences, never in headings or jammed in awkwardly.</li>
+<li><span class="lead">SEO and AI-search aligned:</span> respects link density, anchor-text diversity, and topical authority best practices.</li>
+<li><span class="lead">Works with zero cost:</span> the core engine needs no AI subscription; AI is an optional upgrade.</li>
+<li><span class="lead">Safe by design:</span> nothing is changed without your approval, and every change is reversible.</li>
+<li><span class="lead">Universal:</span> it adapts to any site and auto-detects your post types, taxonomies, page builder, language, and WooCommerce.</li>
+</ul>
+
+<h2 class="sec">7. Key Features</h2>
+<ul>
+<li>Whole-site crawler and index with incremental re-indexing (handles large sites).</li>
+<li>Contextual suggestions with confidence, relevance, and naturalness scores.</li>
+<li>Descriptive two-to-four word anchors taken from your real text (never headings or the title).</li>
+<li>Review inbox: approve, reject, or edit individually or in bulk.</li>
+<li>Gated, non-destructive apply with revision backup and one-click undo.</li>
+<li>Link Health dashboard: orphans, dead-ends, broken links, link density, click-depth, and internal authority.</li>
+<li>Topic clusters with automatic detection, hub-and-spoke authority scoring, and flat-cluster detection.</li>
+<li>GEO Readiness dashboard with schema and AI-crawler guidance.</li>
+<li>Keyword import (Google Search Console, Semrush, or CSV) with striking-distance opportunities.</li>
+<li>Provider-agnostic AI with a multi-key pool, automatic failover, and a monthly spend cap (optional).</li>
+<li>Single tabbed admin screen that keeps everything in one place.</li>
+</ul>
+
+<h2 class="sec">8. Issues It Resolves</h2>
+<ul>
+<li><span class="lead">AI without site awareness:</span> generic LLM internal-link suggestions cannot see your real content. This plugin reads the actual site first, so suggestions are accurate and the links genuinely exist. This issue is resolved.</li>
+<li><span class="lead">Links in the wrong place:</span> anchors are never placed in headings (H1 to H6) or the page title, only in natural body text.</li>
+<li><span class="lead">Manual cluster setup:</span> clusters can now be detected automatically, so you no longer have to enter pillar and spoke pages by hand.</li>
+<li><span class="lead">Manual, inconsistent linking:</span> replaced with a fast, scored, reviewable workflow across the whole site.</li>
+<li><span class="lead">Risky automation:</span> every change is gated and reversible, with a full backup.</li>
+</ul>
+
+<h2 class="sec">9. Safety and Control</h2>
+<ul>
+<li>Nothing is auto-inserted. You approve each suggestion.</li>
+<li>A backup is taken before any edit, and one-click undo restores it.</li>
+<li>Clean uninstall: inserted links can be removed, and the plugin leaves no broken markup.</li>
+</ul>
+
+<h2 class="sec">10. At a Glance</h2>
+<ul>
+<li><span class="lead">Version:</span> 0.7.1.</li>
+<li><span class="lead">Platform:</span> WordPress (PHP 7.4 or newer, WordPress 6.2 or newer).</li>
+<li><span class="lead">Core engine:</span> free, runs on your server, no AI key required.</li>
+<li><span class="lead">Optional AI:</span> Claude, OpenAI, Gemini, and many more (bring your own key).</li>
+<li><span class="lead">Works on any theme, post type, and major page builder.</span></li>
+</ul>
+
+</body>
+</html>
