@@ -8,6 +8,10 @@ h1 { font-size: 22pt; color: #1a3d6d; margin-bottom: 2pt; }
 h2 { font-size: 15pt; color: #1a3d6d; margin-top: 22pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
 h3 { font-size: 12pt; color: #2f5c96; margin-top: 14pt; margin-bottom: 4pt; }
 .sub { color: #5a6673; font-size: 10pt; margin-top: 0; }
+pre.formula { font-family: Consolas, "Courier New", monospace; font-size: 10pt; background: #f4f6f9;
+              border-left: 3pt solid #2f5c96; padding: 9pt 11pt; margin: 9pt 0;
+              white-space: pre-wrap; overflow-x: auto; }
+img { max-width: 100%; height: auto; }
 table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
 th { background: #1a3d6d; color: #ffffff; text-align: left; padding: 5pt 7pt; }
 td { border-bottom: 1pt solid #d8dee6; padding: 5pt 7pt; vertical-align: top; }
@@ -87,19 +91,19 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <p>The model never browses your site and never chooses freely. It is handed a closed shortlist and asked to pick from it.</p>
 
-<div class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
+<pre class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
 page sent   = the first N words          (your setting, default 1,000)
 reply limit = short, about 600 words
 creativity  = turned off, so the same page always gives the same answer
 
 relevance   = the model's own confidence, 0 to 1
-              (0.7 is assumed if the model does not supply one)</div>
+              (0.7 is assumed if the model does not supply one)</pre>
 
 <p><strong>In plain words:</strong> the free engine draws up the shortlist; the model only decides which of them deserve a link and what wording to use. Its confidence in that choice becomes the score.</p>
 
 <p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of page titles, and it replies with a number:</p>
 
-<div class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
+<pre class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
 
 ARTICLE TITLE: Build a Content Calendar   {"n": 1,
 ARTICLE TEXT: ...your content marketing    "anchor": "content marketing strategy",
@@ -108,7 +112,7 @@ strategy stays consistent...               "reason": "the article plans a strate
 POSSIBLE DESTINATIONS:
   1. Content Marketing Strategy: A Guide
   2. Social Media Scheduling Tools
-  3. Editorial Workflow for Small Teams</div>
+  3. Editorial Workflow for Small Teams</pre>
 
 <p>Notice what is missing: <strong>no web addresses anywhere</strong>. The model picks number 1. The plugin then looks up which page that is and takes its address from its own index. The model never handles a URL, so it cannot invent one.</p>
 
@@ -137,63 +141,8 @@ POSSIBLE DESTINATIONS:
 
 <p>Three things get settled, in this order: which page is being read, which page it should link to, and which words become the link. Every branch that throws a suggestion away is shown, because those are usually the interesting ones.</p>
 
-<div class="formula">              EVERY PUBLISHED PAGE ON YOUR SITE
-                             |
-             is it in the content types you chose?
-                             |
-                   yes ------+------ no ----->  never looked at
-                             |
-             does it still have room for more links?
-                             |
-                   yes ------+------ no ----->  skipped, it is already
-                             |                  at its link limit
-                             v
-              +==================================+
-              |        THE SOURCE PAGE           |
-              +==================================+
-                             |
-             compare its words against every other page
-                             |
-                             v
-             is this other page one of the 18 closest?
-                   yes ------+------ no ----->  too little in common,
-                             |                  never shown to the AI
-             does this page already link to it?
-                    no ------+------ yes ---->  the link already exists
-                             |
-             have you already approved or rejected this pair?
-                    no ------+------ yes ---->  your decision stands
-                             |
-                             v
-              THE SHORTLIST: 15 page titles sent to the model
-              (no web addresses are ever sent)
-                             |
-                             v
-              THE MODEL REPLIES
-              page number 1, wording "content marketing strategy"
-                             |
-             is that number one of the ones it was shown?
-                   yes ------+------ no ----->  thrown away
-                             |
-                             v
-              +==================================+
-              |      TARGET PAGE SETTLED         |
-              |   address taken from the plugin  |
-              +==================================+
-                             |
-             does that exact wording appear in the source page?
-                   yes ------+------ no ----->  thrown away
-                             |                  (this is what stops
-                             |                   invented wording)
-                             v
-              +==================================+
-              |        ANCHOR SETTLED            |
-              |   saved in your capitalisation   |
-              +==================================+
-                             |
-                             v
-              A SUGGESTION APPEARS IN YOUR REVIEW SCREEN
-              you approve it, or you reject it</div>
+<p><img src="ai-selection-flowchart.png" alt="How the AI picks the page and the wording" style="width:100%; max-width:1180px; height:auto;" /></p>
+<p class="sub">Green boxes are decisions that have been settled. Amber boxes on the right are the points where a suggestion is thrown away.</p>
 
 <h3>Why not the other page, and why not other wording</h3>
 
@@ -222,12 +171,12 @@ POSSIBLE DESTINATIONS:
 
 <p><strong>Step one, what is this keyword worth?</strong></p>
 
-<div class="formula">gain        = click rate at position 3, minus click rate where you rank now
+<pre class="formula">gain        = click rate at position 3, minus click rate where you rank now
               (never below zero)
 reach       = 1          if you rank 20 or better
             = 20 / rank  if you rank worse than 20
 
-opportunity = impressions * gain * reach</div>
+opportunity = impressions * gain * reach</pre>
 
 <p><strong>In plain words:</strong> the extra clicks this keyword could realistically win, discounted by how believable that jump is. Already in the top 3? Nothing to gain, so the score is zero. Ranked 50th? One internal link will not fix that, so the score is cut down.</p>
 
@@ -240,19 +189,19 @@ opportunity = impressions * gain * reach</div>
 
 <p><strong>Step two, turn that into a relevance score:</strong></p>
 
-<div class="formula">relevance = 0.50                                    always
+<pre class="formula">relevance = 0.50                                    always
           + 0.20   if you rank between 5 and 20
           + 0.28 * (this keyword / your best keyword)
-          capped at 0.98</div>
+          capped at 0.98</pre>
 
 <p>The floor of 0.50 is deliberate. A proven search phrase is better evidence than any similarity measure, so these suggestions start above what the other engines normally reach.</p>
 
 <p><strong>How it actually picks the page and the wording.</strong> Neither half is chosen by the plugin. Search Console hands over one row per query:</p>
 
-<div class="formula">query        content marketing strategy
+<pre class="formula">query        content marketing strategy
 page         /guides/content-marketing-strategy/
 impressions  1,200
-position     7</div>
+position     7</pre>
 
 <p>The address is matched to one of your posts, and <strong>that post is the destination</strong>, chosen by Google's index rather than by any scoring here. <strong>The wording is the query itself</strong>, chosen by the people who typed it. The plugin then scans your pages for that exact phrase and flags the ones that say it without linking. If a page already links there, or the same wording already points there three times, it is skipped.</p>
 
@@ -275,14 +224,14 @@ position     7</div>
 
 <h3>The two scores on every suggestion</h3>
 
-<div class="formula">naturalness = 0.45
+<pre class="formula">naturalness = 0.45
             + 0.30 * relevance
             + 0.15   if the wording is more than one word
             + 0.10   if it is 8 to 60 characters long
             - 0.20   if it is shorter than 5 characters
             - 0.15   if it is longer than 70 characters
 
-confidence  = 0.60 * relevance + 0.40 * naturalness</div>
+confidence  = 0.60 * relevance + 0.40 * naturalness</pre>
 
 <p><strong>In plain words:</strong> relevance asks "should these two pages be connected at all", naturalness asks "does this exact wording read well here". The number shown in the review inbox blends the two, with relevance carrying most of the weight.</p>
 
@@ -294,22 +243,22 @@ confidence  = 0.60 * relevance + 0.40 * naturalness</div>
 
 <p><strong>Step one, decide which words matter.</strong> Each page is reduced to its 300 most used words, filler words removed. Every word is then weighted by how rare it is across your whole site:</p>
 
-<div class="formula">weight of a word = ln(1 + total pages / pages containing it)
+<pre class="formula">weight of a word = ln(1 + total pages / pages containing it)
 
 A word appearing on more than 40 percent of your
-pages is dropped entirely.</div>
+pages is dropped entirely.</pre>
 
 <p><strong>In plain words:</strong> a word that appears everywhere on your site tells you nothing about which two pages belong together. A rare word tells you a great deal. So rare words count for more, and site-wide words are ignored outright.</p>
 
 <p><strong>Step two, compare two pages:</strong></p>
 
-<div class="formula">source words = the 40 most used words on this page
+<pre class="formula">source words = the 40 most used words on this page
 
 overlap   = for each shared word, its weight times the smaller
             of the two pages' counts, added up
 
 relevance = overlap / this page's own total weight
-            (at least 2 shared meaningful words required)</div>
+            (at least 2 shared meaningful words required)</pre>
 
 <p><strong>In plain words:</strong> the score is the share of this page's vocabulary that the other page also covers. Taking the <em>smaller</em> of the two counts is what stops a page that repeats one word two hundred times from looking relevant to everything.</p>
 
@@ -344,7 +293,7 @@ relevance = overlap / this page's own total weight
 
 <p>Your page mentions the phrase "content marketing strategy". Another page is titled "Content Marketing Strategy: A Complete Guide".</p>
 
-<div class="formula">1. The title splits at the colon, giving "Content Marketing Strategy".
+<pre class="formula">1. The title splits at the colon, giving "Content Marketing Strategy".
 2. That 3 word phrase is found in your page, so it can be the wording.
 3. Say the vocabulary overlap scored     relevance   = 0.42
 
@@ -352,7 +301,7 @@ relevance = overlap / this page's own total weight
                + 0.15  more than one word          = 0.726
                + 0.10  26 characters, within range = 0.826
 
-5. confidence  = (0.60 x 0.42) + (0.40 x 0.826)    = 0.58</div>
+5. confidence  = (0.60 x 0.42) + (0.40 x 0.826)    = 0.58</pre>
 
 <p>It reaches the review inbox showing 0.42 relevance, 0.83 naturalness and 0.58 overall, with the surrounding sentence quoted so you can judge the placement before approving anything.</p>
 
