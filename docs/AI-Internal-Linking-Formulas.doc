@@ -22,7 +22,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 
 <h1>AI Internal Linking</h1>
-<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.15.0.</p>
+<p class="sub">Every scoring formula the plugin uses to decide that page A should link to page B, and with which anchor. Version 0.15.1.</p>
 
 <h2>How a suggestion is produced</h2>
 
@@ -298,7 +298,7 @@ relevance(C)  = min(1, raw(C) / source_weight)</div>
 <p>The suggestion enters the review inbox showing relevance 0.42, naturalness 0.83 and an overall 0.58, with the surrounding sentence quoted so the placement can be judged before anything is approved.</p>
 
 <div class="footer">
-AI Internal Linking, version 0.15.0. All formulas taken directly from the plugin source.<br />
+AI Internal Linking, version 0.15.1. All formulas taken directly from the plugin source.<br />
 Made by Shikher Goyal.
 </div>
 

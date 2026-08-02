@@ -41,11 +41,11 @@ class Inbox {
 
 		// Tokens burned by the run so far. Rendered server-side as well as live,
 		// so reloading mid-scan does not reset the counter to blank.
-		$usage_text = '';
+		$usage_html = '';
 		if ( isset( $sug['usage_log_id'] ) ) {
 			$usage = UsageStats::since_log_id( (int) $sug['usage_log_id'] );
 			if ( $usage['requests'] > 0 ) {
-				$usage_text = UsageStats::summary_text( $usage );
+				$usage_html = UsageStats::summary_html( $usage );
 			}
 		}
 
@@ -65,7 +65,7 @@ class Inbox {
 			style="display:<?php echo $resumable ? 'block' : 'none'; ?>;">
 			<div class="ailinking-bar"><span style="width:<?php echo esc_attr( (string) $pct ); ?>%;"></span></div>
 			<p class="ailinking-progress-label"><?php echo $resumable ? esc_html( sprintf( /* translators: 1: done, 2: total */ __( 'Paused %1$d / %2$d', 'ai-internal-linking' ), $proc, $total ) ) : ''; ?></p>
-			<p class="ailinking-usage" style="display:<?php echo '' !== $usage_text ? 'block' : 'none'; ?>;"><?php echo esc_html( $usage_text ); ?></p>
+			<div class="ailinking-usage" style="display:<?php echo '' !== $usage_html ? 'block' : 'none'; ?>;"><?php echo $usage_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in UsageStats::summary_html ?></div>
 		</div>
 		<?php
 		return ob_get_clean();

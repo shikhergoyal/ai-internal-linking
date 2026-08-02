@@ -364,6 +364,7 @@ class Ajax {
 		}
 		$usage         = UsageStats::since_log_id( (int) $progress['usage_log_id'] );
 		$usage['text'] = UsageStats::summary_text( $usage );
+		$usage['html'] = UsageStats::summary_html( $usage );
 		return $usage;
 	}
 }

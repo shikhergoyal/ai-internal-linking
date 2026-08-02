@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.15.0
+Stable tag: 0.15.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,12 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 * **GSC keyword** (free). A page mentions a query another page already ranks for, without linking to it, so the ranking query becomes the anchor. Runs first, because search demand is stronger evidence than similarity.
 * **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
 * **Related Content** (free). A local relevance engine that fills whatever link budget the other two leave. Needs no keys and makes no external calls.
+
+**How it reads your content**
+
+Internally, from your WordPress database, never by requesting your own pages over the internet. It asks WordPress for each post directly, reads page-builder content from the builder's own stored fields, and reduces the HTML to plain words. The only outside connections the plugin ever makes are to Google Search Console and to the AI provider you configured, if any.
+
+This makes indexing fast, puts no load on your front end, works on staging and password-protected sites, and is never fooled by page caching. The trade-off: content that only exists when a page is displayed, such as theme-added sections, related-post blocks, or another plugin's shortcode output, is not seen. Shortcode tags are removed and any text between them is kept, but what a shortcode would have generated is not indexed. That is deliberate, since the plugin should only ever link words that live in your content and that you can edit.
 
 **Applying links is gated, and reversible**
 
@@ -58,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.15.1 =
+* The live token counter is now four labelled figures instead of a sentence. It used to read "Tokens: 39.8k in, 5.0k out, est. $0.1950 over 19 AI requests", which is a lot to parse while watching a scan move. It now shows the input tokens, output tokens, estimated cost and request count as separate values, each under its own label, in a bordered strip beneath the progress bar. The figures use tabular digits so they do not jitter as they tick upward. The markup is built on the server, so the version drawn when the page loads and the version drawn live during a scan come from the same code and cannot drift apart, and it stays translatable.
+* Documentation: added a plain answer to a question the docs never addressed, namely how the plugin reads your site. It reads your content internally, from the WordPress database, and never requests your own pages over the internet the way a search crawler or an AI bot would. That is what makes indexing fast, keeps load off your front end, works on staging and password-protected sites, and cannot be fooled by page caching. The trade-off is stated too: content that only exists when a page is rendered, such as theme-added sections or another plugin's shortcode output, is not seen. Now covered in the readme, the GitHub README and the overview document.
 
 = 0.15.0 =
 * How much of each page the AI reads is now yours to choose. Setup & Dashboard gains a "Words per page sent to the AI" control with presets from 500 to 3,000 words, plus a Custom option that accepts any value up to 20,000. Previously this was fixed at about 1,000 words: on a 3,000 word article the AI engine saw roughly the first third and was blind to the rest, so its suggestions clustered near the top of long posts. The setting is expressed in words rather than characters because that is the unit you can actually judge a page by.
