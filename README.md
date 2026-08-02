@@ -2,7 +2,7 @@
 
 A universal WordPress plugin for AI-assisted internal linking. It indexes your whole site, then proposes contextual internal links that follow SEO and AI-search best practices. Every suggestion is reviewed by a human and gated, so nothing is ever inserted into your content automatically.
 
-**Current version: 0.15.0** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
+**Current version: 0.15.1** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
 
 ## Install
 
@@ -32,6 +32,16 @@ Suggestions come from three engines, which run in order and are labelled in the 
 1. **GSC keyword** evidence. A page mentions a query another page already ranks for, without linking to it, so the ranking keyword becomes the anchor.
 2. **AI Suggestion**, optional. Any chat model (Claude, OpenAI, Gemini, Groq, xAI, DeepSeek, OpenRouter, Perplexity, local) proposes links from a real shortlist of related pages. Candidate targets are constrained to pages that exist, and every anchor is verified to appear verbatim in the body before it becomes a suggestion.
 3. **Related Content**, a local TF-IDF relevance engine, fills the rest.
+
+## How it reads your content
+
+**Internally, from the database. It never requests your own pages over HTTP.**
+
+The indexer asks WordPress for each post directly (`get_post`, plus the builder's own stored data for Elementor, Beaver Builder and ACF), then strips tags, scripts, styles and every heading down to plain words. The only outbound HTTP this plugin ever makes is to Google Search Console and to whichever AI provider you configured. It never fetches your site.
+
+That choice buys speed (no page requests), zero front-end load, correct behaviour on staging and password-protected sites, immunity to page caching, and the ability to index drafts. Its cost is that content which only exists at render time is invisible: theme-generated furniture, related-post blocks, and the output of other plugins' shortcodes. Shortcode tags are stripped and inner text kept, but shortcode *output* is not indexed.
+
+That trade is deliberate. The plugin should only link words that live in your content, because those are the words you can edit, and an anchor placed in theme output would disappear with a theme change.
 
 ## Design guarantees
 

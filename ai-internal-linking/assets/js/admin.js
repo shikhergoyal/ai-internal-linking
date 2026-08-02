@@ -64,12 +64,18 @@
 		if ( ! el ) {
 			return;
 		}
-		if ( usage && usage.requests > 0 && usage.text ) {
-			el.textContent = usage.text;
-			el.style.display = 'block';
-		} else {
+		if ( ! usage || ! usage.requests ) {
 			el.style.display = 'none';
+			return;
 		}
+		// Markup is composed and escaped server-side, so the figures drawn here
+		// and the ones drawn on page load come from the same code.
+		if ( usage.html ) {
+			el.innerHTML = usage.html;
+		} else if ( usage.text ) {
+			el.textContent = usage.text;
+		}
+		el.style.display = 'block';
 	}
 
 	/**

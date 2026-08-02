@@ -152,12 +152,40 @@
 	color: #fff !important;
 }
 
-/* Live token ticker under a progress bar. */
+/* Live token ticker under a progress bar: four labelled figures, not a sentence. */
 .ailinking-usage {
-	margin: 4px 0 0;
-	color: #50575e;
-	font-size: 12px;
+	margin: 8px 0 0;
+}
+
+.ailinking-usage-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 28px;
+	padding: 9px 14px;
+	background: #f6f7f7;
+	border-left: 3px solid #2271b1;
+	border-radius: 2px;
+}
+
+.ailinking-usage-metric {
+	display: flex;
+	flex-direction: column;
+	line-height: 1.25;
+}
+
+.ailinking-usage-value {
+	font-size: 15px;
+	font-weight: 600;
+	color: #1d2327;
+	/* Tabular figures stop the numbers jittering as they tick upward. */
 	font-variant-numeric: tabular-nums;
+}
+
+.ailinking-usage-label {
+	font-size: 11px;
+	color: #646970;
+	text-transform: uppercase;
+	letter-spacing: .03em;
 }
 
 /* Token usage summary (AI Keys tab). */

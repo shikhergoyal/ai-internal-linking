@@ -31,6 +31,11 @@ if ( ! function_exists( '__' ) ) {
 		return $text;
 	}
 }
+if ( ! function_exists( 'esc_html' ) ) {
+	function esc_html( $text ) { // phpcs:ignore
+		return htmlspecialchars( (string) $text, ENT_QUOTES, 'UTF-8' );
+	}
+}
 if ( ! function_exists( 'number_format_i18n' ) ) {
 	function number_format_i18n( $number, $decimals = 0 ) { // phpcs:ignore
 		return number_format( (float) $number, (int) $decimals );
@@ -216,6 +221,28 @@ ok( LlmSuggester::MIN_WORDS < LlmSuggester::PRESET_MAX_WORDS, 'floor is below th
 ok( LlmSuggester::PRESET_MAX_WORDS <= LlmSuggester::MAX_WORDS_LIMIT, 'presets never exceed the hard ceiling' );
 ok( in_array( LlmSuggester::DEFAULT_MAX_WORDS, LlmSuggester::PRESETS, true ), 'the default is selectable as a preset' );
 ok( in_array( LlmSuggester::MIN_WORDS, LlmSuggester::PRESETS, true ), 'the floor is selectable as a preset' );
+
+// ---------------------------------------------------------------------------
+// UsageStats::summary_html — the ticker markup.
+// ---------------------------------------------------------------------------
+
+$usage = array( 'tokens_in' => 39800, 'tokens_out' => 5000, 'cost' => 0.195, 'requests' => 19 );
+$html  = UsageStats::summary_html( $usage );
+
+ok( false !== strpos( $html, '39.8k' ), 'input tokens appear, compacted' );
+ok( false !== strpos( $html, '5.0k' ), 'output tokens appear, compacted' );
+ok( false !== strpos( $html, '$0.1950' ), 'sub-dollar cost keeps 4dp so it does not read as free' );
+ok( false !== strpos( $html, '>19<' ), 'request count appears' );
+eq( substr_count( $html, 'ailinking-usage-metric' ), 4, 'exactly four labelled figures' );
+eq( substr_count( $html, 'ailinking-usage-value' ), 4, 'each figure has a value' );
+eq( substr_count( $html, 'ailinking-usage-label' ), 4, 'each figure has a label' );
+ok( 0 === strpos( $html, '<span class="ailinking-usage-row">' ), 'wrapped in the row container' );
+ok( '</span>' === substr( $html, -7 ), 'markup is closed' );
+eq( substr_count( $html, '<span' ), substr_count( $html, '</span>' ), 'tags balance' );
+
+// Escaping: values are interpolated, so they must not be able to inject markup.
+$evil = UsageStats::summary_html( array( 'tokens_in' => 0, 'tokens_out' => 0, 'cost' => 0, 'requests' => '<script>x</script>' ) );
+ok( false === strpos( $evil, '<script>' ), 'REGRESSION: values are escaped, never rendered as markup' );
 
 // ---------------------------------------------------------------------------
 // Redactor: provider error text must never carry a credential into the DB.

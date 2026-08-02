@@ -20,7 +20,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 
 <h1>AI Internal Linking</h1>
-<p class="sub">What the plugin does, how it decides, and what it will never do. Version 0.15.0.</p>
+<p class="sub">What the plugin does, how it decides, and what it will never do. Version 0.15.1.</p>
 
 <h2>In one paragraph</h2>
 
@@ -40,6 +40,42 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <p>Search demand is stronger evidence than similarity, which is why the keyword engine runs first. The free engine runs last and fills whatever budget is left, so you always get suggestions even with no key configured.</p>
 
 <div class="key"><strong>The rule behind all three:</strong> the plugin links words that are already on your page. It never writes new sentences, never invents an anchor, and never inserts anything you have not approved.</div>
+
+<h2>How the plugin reads your content</h2>
+
+<p>A fair question, and the answer decides how fast it is, what it can see, and whether anything leaves your server.</p>
+
+<p><strong>It reads your content from inside WordPress, from the database. It never visits your website.</strong></p>
+
+<p>There is a difference between the two, and it matters:</p>
+
+<table>
+<tr><th>Approach</th><th>What it means</th><th>Used here?</th></tr>
+<tr><td>Internal (this plugin)</td><td>Reads the post content straight out of the database, the same text you see in the editor, then converts it to plain words</td><td><strong>Yes</strong></td></tr>
+<tr><td>External (how a crawler or an AI bot works)</td><td>Requests your public page over the internet and reads the finished HTML a visitor would receive</td><td>No, never</td></tr>
+</table>
+
+<p>The plugin asks WordPress for each post directly. For page builders it reads the builder's own stored data (Elementor, Beaver Builder and ACF keep their content in post fields). It then strips out the HTML tags, the scripts and styles, and every heading, leaving plain words to work with.</p>
+
+<h3>What that gets you</h3>
+
+<table>
+<tr><th>Benefit</th><th>Why</th></tr>
+<tr><td>Fast</td><td>No page requests. Reading 350 pages from the database takes seconds, not minutes</td></tr>
+<tr><td>Zero load on your site</td><td>Visitors are never competing with a crawler for your server</td></tr>
+<tr><td>Works on private sites</td><td>Staging sites, password protected sites and sites behind a firewall all index normally</td></tr>
+<tr><td>Caching cannot mislead it</td><td>It always sees the current content, never a stale cached copy</td></tr>
+<tr><td>Drafts and private posts are readable</td><td>An external crawler could never see them</td></tr>
+<tr><td>The words it finds are words you can edit</td><td>Every anchor it proposes exists in your editor, so applying a link is a precise change to your own text</td></tr>
+</table>
+
+<h3>The trade-off, stated honestly</h3>
+
+<p>Because it reads the stored content rather than the finished page, it does not see things that only appear when a page is displayed: text your theme adds around the article, related-post blocks generated at display time, or the output of a shortcode belonging to another plugin. Shortcode tags themselves are removed and any text written between them is kept, but whatever a shortcode would have generated is not indexed.</p>
+
+<p>In practice this is the right trade. The plugin should only ever link words that live in your content, because those are the words you can edit, and a link placed in theme-generated furniture would vanish the moment you changed themes.</p>
+
+<div class="key"><strong>What this means for privacy.</strong> With no API key configured, your content never leaves your server at all: there is nothing to send and nowhere to send it. If you switch on the optional AI engine, the part of each page you allow is sent to the one provider you chose, using your own key, and to nobody else. Google Search Console is the only other outside connection, and that pulls your own search data in rather than sending content out.</div>
 
 <h2>The formulas, engine by engine</h2>
 
@@ -251,7 +287,7 @@ relevance = overlap / this page's own total weight
 </table>
 
 <div class="footer">
-AI Internal Linking, version 0.15.0. Every formula above is taken directly from the plugin source and checked against it. The companion document "AI Internal Linking, Scoring Formulas" covers the same ground in more technical depth, including the anchor selection steps and the known limits of each engine.<br />
+AI Internal Linking, version 0.15.1. Every formula above is taken directly from the plugin source and checked against it. The companion document "AI Internal Linking, Scoring Formulas" covers the same ground in more technical depth, including the anchor selection steps and the known limits of each engine.<br />
 Made by Shikher Goyal.
 </div>
 

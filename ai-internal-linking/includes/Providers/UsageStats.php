@@ -254,6 +254,35 @@ class UsageStats {
 	}
 
 	/**
+	 * The ticker as markup: four labelled figures rather than a sentence.
+	 *
+	 * Rendered server-side and handed to the browser ready to insert, so the
+	 * version drawn on page load and the version drawn live during a scan are
+	 * produced by the same code and cannot drift apart. Every value is escaped
+	 * here; the labels stay translatable.
+	 *
+	 * @param array $usage Usage totals.
+	 * @return string
+	 */
+	public static function summary_html( array $usage ) {
+		$cells = array(
+			array( self::format_tokens( $usage['tokens_in'] ), __( 'input tokens', 'ai-internal-linking' ) ),
+			array( self::format_tokens( $usage['tokens_out'] ), __( 'output tokens', 'ai-internal-linking' ) ),
+			array( self::format_cost( $usage['cost'] ), __( 'estimated cost', 'ai-internal-linking' ) ),
+			array( number_format_i18n( (int) $usage['requests'] ), __( 'AI requests', 'ai-internal-linking' ) ),
+		);
+
+		$html = '<span class="ailinking-usage-row">';
+		foreach ( $cells as $cell ) {
+			$html .= '<span class="ailinking-usage-metric">'
+				. '<span class="ailinking-usage-value">' . esc_html( $cell[0] ) . '</span>'
+				. '<span class="ailinking-usage-label">' . esc_html( $cell[1] ) . '</span>'
+				. '</span>';
+		}
+		return $html . '</span>';
+	}
+
+	/**
 	 * Normalise a totals row. (pure)
 	 *
 	 * @param array|null $row Raw DB row.
