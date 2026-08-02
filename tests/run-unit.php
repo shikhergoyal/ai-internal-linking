@@ -43,12 +43,14 @@ require_once $plugin . '/Suggestions/KeywordSuggester.php';
 require_once $plugin . '/Suggestions/Naturalness.php';
 require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
+require_once $plugin . '/Security/Redactor.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
 use AILinking\Suggestions\Naturalness;
 use AILinking\Providers\Pricing;
 use AILinking\Providers\UsageStats;
+use AILinking\Security\Redactor;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -178,6 +180,60 @@ eq( UsageStats::format_tokens( -5 ), '0', 'format_tokens clamps negatives' );
 eq( UsageStats::format_cost( 0.0 ), '$0.00', 'zero cost' );
 eq( UsageStats::format_cost( 0.0234 ), '$0.0234', 'sub-dollar cost keeps 4dp so it does not read as free' );
 eq( UsageStats::format_cost( 1.5 ), '$1.50', 'dollar amounts use 2dp' );
+
+// ---------------------------------------------------------------------------
+// Redactor: provider error text must never carry a credential into the DB.
+// ---------------------------------------------------------------------------
+
+eq( Redactor::scrub( '' ), '', 'empty string stays empty' );
+eq(
+	Redactor::scrub( 'Rate limit exceeded. Try again in 20 seconds.' ),
+	'Rate limit exceeded. Try again in 20 seconds.',
+	'ordinary diagnostics survive untouched'
+);
+
+// Layer 1: the exact key we sent, whatever its shape.
+$weird = 'zzz-not-a-known-format-9876543210';
+$out   = Redactor::scrub( 'Auth failed for ' . $weird . ' at edge', array( $weird ) );
+ok( false === strpos( $out, $weird ), 'REGRESSION: exact known secret removed whatever its format' );
+ok( false !== strpos( $out, 'Auth failed for' ), 'surrounding message is preserved' );
+
+// Too short to be a credential: removing it would mangle ordinary text.
+eq( Redactor::scrub( 'error abc happened', array( 'abc' ) ), 'error abc happened', 'short strings are not treated as secrets' );
+
+// Layer 2: recognised key shapes we did NOT send.
+$shapes = array(
+	'sk-abcdefghijklmnopqrstuvwxyz123456'     => 'OpenAI',
+	'sk-ant-abcdefghijklmnopqrstuvwxyz123456' => 'Anthropic',
+	'AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz12345'   => 'Google',
+	'gsk_abcdefghijklmnopqrstuvwxyz'          => 'Groq',
+	'xai-abcdefghijklmnopqrstuvwxyz'          => 'xAI',
+	'pplx-abcdefghijklmnopqrstuvwxyz'         => 'Perplexity',
+	'hf_abcdefghijklmnopqrstuvwxyz'           => 'HuggingFace',
+	'r8_abcdefghijklmnopqrstuvwxyz'           => 'Replicate',
+);
+foreach ( $shapes as $shape_key => $vendor ) {
+	$msg = 'Incorrect API key provided: ' . $shape_key . '. Check your account.';
+	ok( false === strpos( Redactor::scrub( $msg ), $shape_key ), $vendor . ' key shape is redacted' );
+}
+
+ok(
+	false === strpos( Redactor::scrub( 'header was Bearer abcdefghijklmnopqrstuvwxyz' ), 'abcdefghij' ),
+	'echoed Bearer token is redacted'
+);
+
+// Long opaque blobs (JWT segments, base64) are credentials far more often
+// than they are useful diagnostics.
+$blob = str_repeat( 'A1b2C3d4', 6 ); // 48 chars
+ok( false === strpos( Redactor::scrub( 'token ' . $blob ), $blob ), 'long opaque token is redacted' );
+
+// ...but a UUID is only 36 characters and stays readable.
+$uuid = '550e8400-e29b-41d4-a716-446655440000';
+ok( false !== strpos( Redactor::scrub( 'request id ' . $uuid ), $uuid ), 'UUIDs are not redacted' );
+
+// Belt and braces: both layers together.
+$live = 'sk-livekeyabcdefghijklmnopqrstuvwxyz';
+ok( false === strpos( Redactor::scrub( 'bad key ' . $live, array( $live ) ), $live ), 'both layers together still remove the key' );
 
 // ---------------------------------------------------------------------------
 
