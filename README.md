@@ -2,7 +2,7 @@
 
 A universal WordPress plugin for AI-assisted internal linking. It indexes your whole site, then proposes contextual internal links that follow SEO and AI-search best practices. Every suggestion is reviewed by a human and gated, so nothing is ever inserted into your content automatically.
 
-**Current version: 0.12.1** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
+**Current version: 0.15.0** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
 
 ## Install
 
@@ -20,11 +20,11 @@ The admin is a single page with six tabs:
 
 | Tab | Purpose |
 | --- | --- |
-| Setup & Dashboard | Scope selection, indexing, suggestion scans (with pause, resume and stop), reset |
+| Setup & Dashboard | Scope selection, indexing, suggestion scans (with pause, resume and stop), how much of each page the AI reads, reset |
 | Suggestions | Review inbox: approve, reject, apply, undo, filtered by status and source |
 | Link Health | Orphans, dead ends, broken links, internal PageRank, anchor diversity, click depth |
 | Connect GSC | Google Search Console fetch via a service account, plus generic keyword CSV import |
-| AI Keys | Encrypted multi-key pool, per provider, with spend caps and health status |
+| AI Keys | Encrypted multi-key pool, per provider, with token usage, spend caps and health status |
 | Settings | Engine toggles, link density limits, per site tuning |
 
 Suggestions come from three engines, which run in order and are labelled in the inbox:
@@ -73,7 +73,7 @@ To build the same zip locally without tagging:
 powershell -ExecutionPolicy Bypass -File tools\build-zip.ps1
 ```
 
-That writes `Plugin Zip files/ai-internal-linking-vX.Y.Z.zip` from the committed content of `HEAD`, then verifies it: forward slash paths only, exactly one top level folder, and an embedded version matching the header. Add `-AlsoDownloads` to refresh the copy in your Downloads folder, or `-Ref v0.12.1` to rebuild an older tag.
+That writes `Plugin Zip files/ai-internal-linking-vX.Y.Z.zip` from the committed content of `HEAD`, then verifies it: forward slash paths only, exactly one top level folder, and an embedded version matching the header. Add `-AlsoDownloads` to refresh the copy in your Downloads folder, or `-Ref v0.14.0` to rebuild an older tag.
 
 ## Keeping a local copy of every release
 
@@ -112,6 +112,8 @@ tests/run-unit.php         unit tests for the pure decision functions
 tools/build-zip.ps1        local release zip builder
 tools/sync-release-zips.ps1  pull every GitHub Release zip into "Plugin Zip files/"
 tools/deploy.py            SSH deploy, config from gitignored deploy.local.json
+tools/site-check.py        post-deploy health check: migration state, tables, errors
+tools/error-scan.py        PHP fatal analysis, aggregated on the server
 .github/workflows/         release automation
 ```
 
