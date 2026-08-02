@@ -89,7 +89,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <p class="sub">The question it answers: "reading this page, which of these related pages would a careful editor link to, and using which words?"</p>
 
-<p>The model never browses your site and never chooses freely. It is handed a closed shortlist and asked to pick from it.</p>
+<p>Your whole site has already been read before the model is involved. Indexing goes through every page and records the words it uses, and those records are what narrow 350 pages down to the handful worth considering for this one. The model is then given your page's own text along with that shortlist, and chooses from it.</p>
 
 <pre class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
 page sent   = the first N words          (your setting, default 1,000)

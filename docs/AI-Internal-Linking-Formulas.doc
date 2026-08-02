@@ -62,7 +62,9 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <h3>What the model is given</h3>
 
-<p>The model does not browse your website and does not get to choose freely from all your pages. Before it is asked anything, the free engine has already narrowed 350 pages down to a shortlist:</p>
+<p>By the time the model is asked anything, your site has already been read in full. Indexing works through every page, reads its content, and records the words each one uses. That happens once, before any of this, and it is what the rest of the work is built on.</p>
+
+<p>Those records are then used to narrow the choice. This page is compared against every other page you have, and only the closest are kept. The model receives your page's own text together with that shortlist, so it is reading your actual content, not guessing from titles alone:</p>
 
 <pre class="formula">The shortlist   the 18 closest matches for this page,
                 minus the page itself,
