@@ -17,12 +17,10 @@ class OpenAICompatibleProvider implements ProviderInterface {
 	protected $label;
 	protected $base_url;
 	protected $supports_chat;
-	protected $supports_embeddings;
 	protected $needs_base_url;
 	protected $auth_style;     // bearer | api_key_header | none
 	protected $extra_headers;  // assoc
 	protected $chat_models;
-	protected $embed_models;
 
 	/**
 	 * @param string $id    Slug.
@@ -35,12 +33,10 @@ class OpenAICompatibleProvider implements ProviderInterface {
 		$this->label               = $label;
 		$this->base_url            = $base;
 		$this->supports_chat       = array_key_exists( 'supports_chat', $opts ) ? (bool) $opts['supports_chat'] : true;
-		$this->supports_embeddings = ! empty( $opts['supports_embeddings'] );
 		$this->needs_base_url      = ! empty( $opts['needs_base_url'] );
 		$this->auth_style          = isset( $opts['auth_style'] ) ? $opts['auth_style'] : 'bearer';
 		$this->extra_headers       = isset( $opts['extra_headers'] ) ? (array) $opts['extra_headers'] : array();
 		$this->chat_models         = isset( $opts['chat_models'] ) ? (array) $opts['chat_models'] : array();
-		$this->embed_models        = isset( $opts['embed_models'] ) ? (array) $opts['embed_models'] : array();
 	}
 
 	public function id() {
@@ -55,10 +51,6 @@ class OpenAICompatibleProvider implements ProviderInterface {
 		return $this->supports_chat;
 	}
 
-	public function supports_embeddings() {
-		return $this->supports_embeddings;
-	}
-
 	public function default_base_url() {
 		return $this->base_url;
 	}
@@ -68,10 +60,7 @@ class OpenAICompatibleProvider implements ProviderInterface {
 	}
 
 	public function default_models() {
-		return array(
-			'chat'      => $this->chat_models,
-			'embedding' => $this->embed_models,
-		);
+		return array( 'chat' => $this->chat_models );
 	}
 
 	public function chat( array $request, array $ctx ) {
@@ -121,53 +110,8 @@ class OpenAICompatibleProvider implements ProviderInterface {
 		);
 	}
 
-	public function embed( array $request, array $ctx ) {
-		if ( ! $this->supports_embeddings ) {
-			return array( 'ok' => false, 'error' => array( 'class' => 'unsupported', 'message' => 'Provider has no embeddings endpoint', 'is_retryable' => false, 'triggers_failover' => false, 'http_status' => 0, 'retry_after' => null ) );
-		}
-
-		$body = array(
-			'model' => $ctx['model'],
-			'input' => array_values( (array) $request['input'] ),
-		);
-
-		$res     = Http::post( $this->embed_url( $ctx ), $this->headers( $ctx ), wp_json_encode( $body ), $this->timeout( $ctx ) );
-		$decoded = json_decode( (string) $res['body'], true );
-
-		if ( $res['status'] < 200 || $res['status'] >= 300 ) {
-			return array( 'ok' => false, 'error' => Errors::classify( $res['status'], $decoded ? $decoded : $res['body'], $res['headers'], isset( $res['error'] ) ? (string) $res['error'] : '' ) );
-		}
-
-		$vectors = array();
-		if ( isset( $decoded['data'] ) && is_array( $decoded['data'] ) ) {
-			foreach ( $decoded['data'] as $row ) {
-				if ( isset( $row['embedding'] ) && is_array( $row['embedding'] ) ) {
-					$vectors[] = array_map( 'floatval', $row['embedding'] );
-				}
-			}
-		}
-
-		return array(
-			'ok'      => true,
-			'vectors' => $vectors,
-			'usage'   => array( 'input_tokens' => isset( $decoded['usage']['prompt_tokens'] ) ? (int) $decoded['usage']['prompt_tokens'] : 0 ),
-			'model'   => isset( $decoded['model'] ) ? (string) $decoded['model'] : $ctx['model'],
-		);
-	}
-
-	/* ---- helpers (overridable) ---- */
-
-	protected function base( array $ctx ) {
-		$base = ! empty( $ctx['base_url'] ) ? $ctx['base_url'] : $this->base_url;
-		return rtrim( (string) $base, '/' );
-	}
-
 	protected function chat_url( array $ctx ) {
 		return $this->base( $ctx ) . '/chat/completions';
-	}
-
-	protected function embed_url( array $ctx ) {
-		return $this->base( $ctx ) . '/embeddings';
 	}
 
 	protected function timeout( array $ctx ) {

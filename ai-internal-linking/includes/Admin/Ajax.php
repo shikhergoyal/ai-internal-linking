@@ -13,7 +13,6 @@ use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Indexer\Indexer;
 use AILinking\Suggestions\SuggestionEngine;
-use AILinking\Suggestions\VectorStore;
 use AILinking\Content\Editor;
 use AILinking\LinkGraph\GraphAudits;
 use AILinking\Providers\Registry;
@@ -39,7 +38,6 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_undo', array( $this, 'undo' ) );
 		add_action( 'wp_ajax_ailinking_run_audits', array( $this, 'run_audits' ) );
 		add_action( 'wp_ajax_ailinking_remove_links', array( $this, 'remove_links' ) );
-		add_action( 'wp_ajax_ailinking_run_embed', array( $this, 'run_embed' ) );
 		add_action( 'wp_ajax_ailinking_test_connection', array( $this, 'test_connection' ) );
 		add_action( 'wp_ajax_ailinking_gsc_fetch', array( $this, 'gsc_fetch' ) );
 		add_action( 'wp_ajax_ailinking_scan_control', array( $this, 'scan_control' ) );
@@ -285,48 +283,11 @@ class Ajax {
 	}
 
 	/**
-	 * Advance the embedding build a few batches.
-	 */
-	public function run_embed() {
-		$this->guard();
-
-		// No embeddings provider -> the build has nothing to do. Say so, instead
-		// of silently completing (Anthropic/Claude has no embeddings API).
-		if ( ! Gateway::embeddings_enabled() ) {
-			wp_send_json_success(
-				array(
-					'total'      => 0,
-					'processed'  => 0,
-					'created'    => 0,
-					'percent'    => 100,
-					'done'       => true,
-					'last_error' => __( 'No embeddings provider is set, so there is nothing to build. Anthropic/Claude has no embeddings API — add an embedding-capable key (OpenAI, Voyage, Gemini, Mistral…) and select it as the Embeddings provider under Settings. For Claude-powered links, enable “AI link suggestions” under Settings instead (no embeddings needed).', 'ai-internal-linking' ),
-				)
-			);
-		}
-
-		if ( ! empty( $_POST['start'] ) ) {
-			VectorStore::start_build();
-		}
-		$progress = array();
-		for ( $i = 0; $i < self::BATCHES_PER_REQUEST; $i++ ) {
-			$progress = VectorStore::build_batch( 5 );
-			if ( ! empty( $progress['done'] ) ) {
-				break;
-			}
-		}
-		$shaped          = $this->shape( $progress );
-		$shaped['error'] = isset( $progress['error'] ) ? $progress['error'] : '';
-		wp_send_json_success( $shaped );
-	}
-
-	/**
 	 * Probe a provider with a supplied key (not stored). Returns ok + message.
 	 */
 	public function test_connection() {
 		$this->guard();
 		$provider_id = isset( $_POST['provider'] ) ? sanitize_key( wp_unslash( $_POST['provider'] ) ) : '';
-		$plane       = isset( $_POST['plane'] ) && 'embedding' === $_POST['plane'] ? 'embedding' : 'chat';
 		$key         = isset( $_POST['api_key'] ) ? trim( (string) wp_unslash( $_POST['api_key'] ) ) : '';
 		$base        = isset( $_POST['base_url'] ) ? esc_url_raw( wp_unslash( $_POST['base_url'] ) ) : '';
 		$model       = isset( $_POST['model'] ) ? sanitize_text_field( wp_unslash( $_POST['model'] ) ) : '';
@@ -338,7 +299,7 @@ class Ajax {
 
 		$models = $provider->default_models();
 		if ( '' === $model ) {
-			$list  = ( 'embedding' === $plane ) ? $models['embedding'] : $models['chat'];
+			$list  = isset( $models['chat'] ) ? $models['chat'] : array();
 			$model = ! empty( $list ) ? $list[0] : '';
 		}
 
@@ -350,11 +311,7 @@ class Ajax {
 			'extra'    => array(),
 		);
 
-		if ( 'embedding' === $plane && $provider->supports_embeddings() ) {
-			$resp = $provider->embed( array( 'input' => array( 'ping' ) ), $ctx );
-		} else {
-			$resp = $provider->chat( array( 'messages' => array( array( 'role' => 'user', 'content' => 'ping' ) ), 'max_tokens' => 5, 'temperature' => 0 ), $ctx );
-		}
+		$resp = $provider->chat( array( 'messages' => array( array( 'role' => 'user', 'content' => 'ping' ) ), 'max_tokens' => 5, 'temperature' => 0 ), $ctx );
 
 		if ( ! empty( $resp['ok'] ) ) {
 			wp_send_json_success( array( 'ok' => true, 'message' => __( 'Connection OK.', 'ai-internal-linking' ) ) );

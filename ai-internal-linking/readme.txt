@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.13.0
+Stable tag: 0.14.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Universal, AI-ready internal linking. Crawls any WordPress site and suggests con
 
 AI Internal Linking indexes your whole site, then proposes contextual internal links following SEO and AI-search (GEO) best practices. It runs on any theme, post type, taxonomy, or page builder — the site's structure is auto-detected at runtime.
 
-This build (Phase 0a) is fully functional with **zero AI keys and zero external calls**: it uses a local TF-IDF relevance engine. Optional AI providers (multi-key pool) and an embedding re-ranker arrive in later phases.
+It is fully functional with **zero AI keys and zero external calls**, using a local relevance engine plus your Search Console keyword data. An optional chat model (bring your own key, any provider) can propose links on top of that.
 
 **What this build does**
 
@@ -42,6 +42,11 @@ This build (Phase 0a) is fully functional with **zero AI keys and zero external 
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.14.0 =
+* Removed embeddings entirely. The semantic re-ranker, the "Build embeddings" button, the Embeddings provider setting, the "reuse the chat provider for embeddings" option, the per-key Chat/Embeddings/Both selector, and the embeddings database table are all gone. Reasoning: Anthropic has no embeddings API, so running Claude meant either keeping a second vendor key purely for re-ranking or leaving the whole feature switched off. It was a permanently dark code path on this site, and the generative "AI link suggestions" engine already delivers semantic understanding from the same Claude key that is configured anyway.
+* What still works exactly as before: the free relevance engine, GSC keyword-evidence suggestions, AI link suggestions through any chat model, the review inbox, apply and undo, Link Health, the token usage ticker and the spend cap. Suggestion quality on this site is unaffected, because the re-ranker only ever ran when an embeddings provider was configured.
+* Upgrade behaviour: the embeddings table is dropped automatically on upgrade (DB version 1.3.0 to 1.4.0), reclaiming whatever vectors had been stored. Existing keys saved as embedding-only are left untouched but are no longer used, and the AI Keys table now labels them "unused (embeddings removed)" so they are easy to spot and delete. Voyage AI, which was embeddings-only, is no longer offered as a provider.
 
 = 0.13.0 =
 * Token usage is now visible. A live ticker under the progress bar shows tokens in, tokens out and estimated cost accumulating while a suggestion scan or an embedding build runs, so you can watch the burn instead of guessing. It survives pause, resume and page reloads, because the counter is anchored to the server-side run rather than the browser tab. The AI Keys table gains "Tokens in (mo)" and "Tokens out (mo)" columns per key, and a new "Token usage" card shows this month and all time side by side plus a per-model breakdown split by chat and embedding, which have very different cost profiles. Nothing new is collected: every provider call already reported its own token counts, they were simply never shown.

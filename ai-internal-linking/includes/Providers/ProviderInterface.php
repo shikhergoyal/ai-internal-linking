@@ -9,8 +9,7 @@
  *     response_format:'text'|'json', purpose?:string ]
  * Normalized chat response (ok):
  *   [ ok:true, text:string, finish_reason:string, usage:[input_tokens,output_tokens], model:string ]
- * Embed request: [ input:string[] ]   Embed response (ok): [ ok:true, vectors:float[][], usage:[input_tokens], model ]
- * Error (either): [ ok:false, error:<see Errors::classify> ]
+ * Error: [ ok:false, error:<see Errors::classify> ]
  *
  * $ctx: [ api_key:string, base_url:string, model:string, timeout:int, extra:array ]
  *
@@ -32,9 +31,6 @@ interface ProviderInterface {
 	/** @return bool */
 	public function supports_chat();
 
-	/** @return bool */
-	public function supports_embeddings();
-
 	/** @return string Default API base URL (may be '' for user-supplied). */
 	public function default_base_url();
 
@@ -42,7 +38,7 @@ interface ProviderInterface {
 	public function needs_base_url();
 
 	/**
-	 * Suggested model ids: [ 'chat'=>[ids...], 'embedding'=>[ids...] ].
+	 * Suggested model ids: [ 'chat'=>[ids...] ].
 	 *
 	 * @return array
 	 */
@@ -54,11 +50,4 @@ interface ProviderInterface {
 	 * @return array Normalized chat response or error.
 	 */
 	public function chat( array $request, array $ctx );
-
-	/**
-	 * @param array $request Embed request ([input=>string[]]).
-	 * @param array $ctx     Provider context.
-	 * @return array Embed response or error.
-	 */
-	public function embed( array $request, array $ctx );
 }

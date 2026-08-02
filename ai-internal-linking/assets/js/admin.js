@@ -122,7 +122,7 @@
 	}
 
 	function setButtonsDisabled( state ) {
-		[ 'ailinking-run-index', 'ailinking-run-suggest', 'ailinking-run-embed' ].forEach( function ( id ) {
+		[ 'ailinking-run-index', 'ailinking-run-suggest' ].forEach( function ( id ) {
 			var b = document.getElementById( id );
 			if ( b ) {
 				b.disabled = state;
@@ -356,15 +356,6 @@
 			} );
 		}
 
-		// Build embeddings (key pool page).
-		var embedBtn = document.getElementById( 'ailinking-run-embed' );
-		if ( embedBtn ) {
-			embedBtn.addEventListener( 'click', function ( e ) {
-				e.preventDefault();
-				runJob( 'ailinking_run_embed', '#ailinking-progress-embed', cfg.i18n.embedding, false );
-			} );
-		}
-
 		// Fetch Search Console data (Keywords page), one API page per request.
 		var gscBtn = document.getElementById( 'ailinking-gsc-fetch' );
 		if ( gscBtn ) {
@@ -408,8 +399,6 @@
 			testBtn.addEventListener( 'click', function ( e ) {
 				e.preventDefault();
 				var out = document.getElementById( 'ailinking-test-result' );
-				var cap = val( 'capability' );
-				var plane = ( 'embedding' === cap ) ? 'embedding' : 'chat';
 				if ( out ) {
 					out.textContent = cfg.i18n.testing;
 				}
@@ -418,8 +407,7 @@
 					provider: val( 'provider' ),
 					api_key: val( 'api_key' ),
 					base_url: val( 'base_url' ),
-					model: val( 'model' ),
-					plane: plane
+					model: val( 'model' )
 				} ).then( function ( res ) {
 					testBtn.disabled = false;
 					if ( out ) {

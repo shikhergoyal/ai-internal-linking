@@ -1,7 +1,7 @@
 <?php
 /**
  * AI Keys page: manage the encrypted multi-key pool, view per-key health/spend,
- * test connections, and build embeddings.
+ * and test connections.
  *
  * @package AILinking
  */
@@ -63,8 +63,8 @@ class KeyPoolPage {
 	 * @return string
 	 */
 	private static function clean_capability() {
-		$cap = isset( $_POST['capability'] ) ? sanitize_key( wp_unslash( $_POST['capability'] ) ) : 'chat'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		return in_array( $cap, array( 'chat', 'embedding', 'both' ), true ) ? $cap : 'chat';
+		// Chat is the only plane; the embeddings plane was removed in 0.14.0.
+		return 'chat';
 	}
 
 	public function handle_delete() {
@@ -113,15 +113,7 @@ class KeyPoolPage {
 
 			<div class="ailinking-card">
 				<h2><?php esc_html_e( 'Key pool', 'ai-internal-linking' ); ?></h2>
-				<p>
-					<button class="button" id="ailinking-run-embed"><?php esc_html_e( 'Build embeddings', 'ai-internal-linking' ); ?></button>
-					<span class="description"><?php esc_html_e( 'Generates vectors for indexed posts using your embeddings provider (only needed if you use embeddings).', 'ai-internal-linking' ); ?></span>
-				</p>
-				<div class="ailinking-progress" id="ailinking-progress-embed" style="display:none;">
-					<div class="ailinking-bar"><span></span></div>
-					<p class="ailinking-progress-label"></p>
-					<p class="ailinking-usage" style="display:none;"></p>
-				</div>
+				<p class="description"><?php esc_html_e( 'Chat keys power the optional "AI link suggestions" engine. The free engines need no key at all.', 'ai-internal-linking' ); ?></p>
 
 				<table class="wp-list-table widefat striped">
 					<thead><tr>
@@ -147,7 +139,13 @@ class KeyPoolPage {
 									<td><?php echo esc_html( $k['provider'] ); ?></td>
 									<td><?php echo esc_html( $k['label'] ); ?></td>
 									<td><code><?php echo esc_html( $k['key_last4'] ? '…' . $k['key_last4'] : '—' ); ?></code></td>
-									<td><?php echo esc_html( $k['capability'] ); ?></td>
+									<td><?php
+										// Embedding-only keys are inert since 0.14.0; say so rather
+										// than showing a plane that no longer exists.
+										echo 'embedding' === $k['capability']
+											? esc_html__( 'unused (embeddings removed)', 'ai-internal-linking' )
+											: esc_html( $k['capability'] );
+									?></td>
 									<td><?php echo esc_html( $k['enabled'] ? $k['state'] : 'disabled' ); ?></td>
 									<td><?php echo esc_html( number_format_i18n( (int) $k['request_count'] ) ); ?></td>
 									<td><?php echo esc_html( number_format_i18n( (int) $k['error_count'] ) ); ?></td>
@@ -263,17 +261,7 @@ class KeyPoolPage {
 					</tr>
 					<tr>
 						<th scope="row"><label for="model"><?php esc_html_e( 'Model', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="text" name="model" id="model" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. gpt-4o-mini / text-embedding-3-small', 'ai-internal-linking' ); ?>" /></td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="capability"><?php esc_html_e( 'Use for', 'ai-internal-linking' ); ?></label></th>
-						<td>
-							<select name="capability" id="capability">
-								<option value="chat"><?php esc_html_e( 'Chat', 'ai-internal-linking' ); ?></option>
-								<option value="embedding"><?php esc_html_e( 'Embeddings', 'ai-internal-linking' ); ?></option>
-								<option value="both"><?php esc_html_e( 'Both', 'ai-internal-linking' ); ?></option>
-							</select>
-						</td>
+						<td><input type="text" name="model" id="model" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. gpt-4o-mini / claude-sonnet-4-5', 'ai-internal-linking' ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="base_url"><?php esc_html_e( 'Base URL', 'ai-internal-linking' ); ?></label></th>

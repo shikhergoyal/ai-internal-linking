@@ -28,7 +28,6 @@ $ailinking_tables = array(
 	'ailinking_spend_log',
 	'ailinking_keywords',
 	'ailinking_keyword_map',
-	'ailinking_embeddings',
 	'ailinking_clusters',
 	'ailinking_cluster_members',
 );
