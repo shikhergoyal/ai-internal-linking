@@ -7,6 +7,7 @@ body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a;
 h1 { font-size: 22pt; color: #1a3d6d; margin-bottom: 2pt; }
 h2 { font-size: 15pt; color: #1a3d6d; margin-top: 24pt; border-bottom: 1pt solid #c8d4e3; padding-bottom: 3pt; }
 h3 { font-size: 12pt; color: #2f5c96; margin-top: 16pt; margin-bottom: 4pt; }
+h4 { font-size: 11pt; color: #1a3d6d; margin-top: 13pt; margin-bottom: 3pt; }
 .sub { color: #5a6673; font-size: 10pt; margin-top: 0; }
 pre.formula { font-family: Consolas, "Courier New", monospace; font-size: 10pt; background: #f4f6f9;
            border-left: 3pt solid #2f5c96; padding: 9pt 11pt; margin: 9pt 0; white-space: pre-wrap; overflow-x: auto; }
@@ -80,6 +81,61 @@ Also sent   your page's title, and the opening part of your page
 
 Reply limit   short, roughly 600 words, which is plenty for a list of links.
 Creativity    turned off completely, so the same page gives the same answer.</pre>
+
+<h3>Where the shortlist comes from, and what never makes it</h3>
+
+<p>The shortlist is not the AI's work. It is produced by the free engine, the same one described under Engine 3 further down, and it runs before the model is involved at all. So the honest sequence is: the free engine decides which pages are even worth considering, and the model only chooses among those.</p>
+
+<p>Getting onto that shortlist takes two things. A page has to be eligible, and then it has to score well enough. Eligibility comes first, and it is absolute.</p>
+
+<h4>Seven ways a page is ruled out before any comparison happens</h4>
+
+<table>
+<tr><th>A page is never considered if</th><th>Why</th></tr>
+<tr><td>It is the page being read</td><td>Nothing links to itself</td></tr>
+<tr><td>It is not published</td><td>Drafts, private and pending pages are not link destinations</td></tr>
+<tr><td>It is not one of the content types you ticked as link targets</td><td>Your choice, on the Setup screen. This is the most common reason a page you expected never appears</td></tr>
+<tr><td>You marked it excluded</td><td>Your choice</td></tr>
+<tr><td>It is a WooCommerce system page</td><td>Cart, checkout and account pages are never useful link destinations</td></tr>
+<tr><td>It is in a different language</td><td>An English page is never offered a Hindi destination, on any multilingual setup</td></tr>
+<tr><td>It shares fewer than two meaningful words with the page being read</td><td>One word in common is coincidence, not a relationship</td></tr>
+</table>
+
+<div class="note"><strong>Worth reading twice.</strong> A page can be an obvious match by any human judgement and still never appear, because of one of the rules above. In practice the usual culprit is the third: the page's content type was never ticked as a link target. Nothing about the wording or the subject can rescue it.</div>
+
+<h4>What is actually compared</h4>
+
+<p>Everything still standing is then compared on <strong>vocabulary</strong>, and only on vocabulary. Not on categories, not on tags, not on dates, not on how the pages are linked today. Just the words.</p>
+
+<p>And not all words. Before anything is compared, these are set aside entirely:</p>
+
+<table>
+<tr><th>Ignored</th><th>Reason</th></tr>
+<tr><td>Filler words such as "the", "and", "with"</td><td>Present everywhere, so they tell you nothing</td></tr>
+<tr><td>Anything shorter than three letters</td><td>Same reason</td></tr>
+<tr><td>Any word appearing on more than 40 percent of your pages</td><td>If most of your site uses a word, it cannot distinguish two pages. On a cooking site, "recipe" is ignored automatically</td></tr>
+<tr><td>Headings, and the page title</td><td>Removed when the page is first read, so they never enter the comparison</td></tr>
+</table>
+
+<p>What is left is a page's distinctive vocabulary. The page being read is represented by its 40 most used surviving words; every other page by up to 300 of its own.</p>
+
+<h4>How "closest" is decided</h4>
+
+<div class="formula">For each word the two pages share:
+
+    how rare that word is across your whole site
+      x  the smaller of the two pages' usage counts
+
+Add all of those up, then divide by the reading page's own total.
+
+The result is between 0 and 1: the share of this page's distinctive
+vocabulary that the other page also covers.</div>
+
+<p>Two details in there are doing real work. <strong>Rarity</strong> means a shared unusual word counts for far more than a shared ordinary one, which is what stops every page on your site looking related to every other. <strong>The smaller of the two counts</strong> stops a page that repeats one word two hundred times from appearing related to everything that mentions it once.</p>
+
+<p>Every eligible page gets a score this way. They are sorted, highest first, and the top 18 become the shortlist. Nothing else about them is considered.</p>
+
+<div class="key"><strong>So, in one sentence:</strong> the shortlist is the eighteen pages that share the most distinctive vocabulary with the page being read, out of everything published, in the same language, of a content type you chose as a link target.</div>
 
 <h3>Why 18, and why 15?</h3>
 
