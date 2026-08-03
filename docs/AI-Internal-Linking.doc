@@ -348,8 +348,8 @@ fail</td></tr>
 
 <p><strong>Why it is built this way.</strong> A model asked to produce a web address will eventually produce a
 believable one that does not exist. A model asked to produce wording will eventually tidy up your phrasing.
-Neither can happen here: the address never leaves the plugin, and the wording must be found in your page before
-it is accepted.</p>
+Neither can happen here: the address never leaves the plugin, and step 4 above rejects any wording the model
+did not copy exactly.</p>
 
 <div class="note"><strong>The one limitation worth knowing.</strong> The model reads the beginning of a page,
 not all of it. At the default of 1,000 words, a 3,000 word article is about one third visible, so this engine
@@ -363,8 +363,7 @@ engines always read the whole page.</div>
 <p>This engine runs on every page no matter what, and fills whatever link budget the other two leave. It also
 builds the shortlist the AI reads, so it is working even when the AI is switched on.</p>
 
-<p>Its relevance score is exactly the comparison already described in Section 6: the share of the source page's
-distinctive vocabulary that the destination also covers.</p>
+<p>Its relevance score is exactly the comparison already described in Section 6, step 3.</p>
 
 <p>It works in the <strong>opposite order</strong> to the other two. It settles the destination first, then
 tries to work out the wording, and gives up on the pair if it cannot.</p>
