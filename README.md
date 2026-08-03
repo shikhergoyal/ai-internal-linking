@@ -2,7 +2,7 @@
 
 A universal WordPress plugin for AI-assisted internal linking. It indexes your whole site, then proposes contextual internal links that follow SEO and AI-search best practices. Every suggestion is reviewed by a human and gated, so nothing is ever inserted into your content automatically.
 
-**Current version: 0.21.2** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
+**Current version: 0.22.0** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
 
 ## Install
 
@@ -117,7 +117,7 @@ ai-internal-linking/       the plugin itself, this is what ships in the zip
   assets/                  admin CSS and JS
   readme.txt               WordPress readme, the single source of truth for the changelog
   uninstall.php            ledger based content restore, then table drop
-docs/                      plugin overview and scoring formulas
+docs/                      one document covering how it works and how it decides, plus the flowchart
 tests/run-unit.php         unit tests for the pure decision functions
 tools/build-zip.ps1        local release zip builder
 tools/sync-release-zips.ps1  pull every GitHub Release zip into "Plugin Zip files/"
