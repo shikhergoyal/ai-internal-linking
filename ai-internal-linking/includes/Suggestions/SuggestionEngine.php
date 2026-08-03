@@ -14,6 +14,7 @@ use AILinking\Support\Settings;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Providers\Gateway;
 use AILinking\Providers\UsageStats;
+use AILinking\Content\ContentWriter;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -244,6 +245,18 @@ class SuggestionEngine {
 	 */
 	private static function insert_suggestion( $source_id, $lang_code, array $s ) {
 		global $wpdb;
+
+		// Every engine ends up here, so this is the one place worth asking the
+		// writer whether its anchor could actually be linked. The engines match
+		// against the page's plain text; the writer works on the stored HTML,
+		// where the same phrase may sit inside an existing link or be split by a
+		// tag. Storing a suggestion that can never be applied costs the reader a
+		// review and then refuses at the last moment.
+		$post = get_post( (int) $source_id );
+		if ( ! $post instanceof \WP_Post || ! ContentWriter::can_place( $post, (string) $s['anchor_text'] ) ) {
+			return false;
+		}
+
 		return (bool) $wpdb->insert(
 			Tables::suggestions(),
 			array(

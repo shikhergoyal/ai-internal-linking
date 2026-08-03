@@ -47,6 +47,51 @@ class ContentWriter {
 	}
 
 	/**
+	 * Whether this anchor could actually be linked, without linking it.
+	 *
+	 * Deliberately mirrors write() branch for branch. The engines verify an
+	 * anchor against the page's plain text, where headings are already stripped
+	 * and markup is gone; the writer works on the stored HTML, where the same
+	 * phrase may sit inside an existing link, inside code, or split across a tag
+	 * as in "pale, washed &lt;em&gt;E horizon&lt;/em&gt;". A phrase can therefore
+	 * pass at scan time and fail at apply time, which is how a suggestion with a
+	 * high score reaches the review screen and then refuses to apply. Measured on
+	 * one real site, that was 24% of everything waiting for review.
+	 *
+	 * Builder-owned pages return true: they are suggest-only, the reader places
+	 * the link by hand, and holding them to the writer's rules would delete
+	 * suggestions that are perfectly usable.
+	 *
+	 * @param \WP_Post $post   Source post.
+	 * @param string   $anchor Anchor phrase (verbatim).
+	 * @return bool
+	 */
+	public static function can_place( \WP_Post $post, $anchor ) {
+		$anchor = (string) $anchor;
+		if ( '' === trim( $anchor ) ) {
+			return false;
+		}
+
+		$system = BuilderDetector::detect( $post );
+		if ( 'auto' !== BuilderDetector::write_safety( $system ) ) {
+			return true;
+		}
+
+		if ( BuilderDetector::GUTENBERG === $system ) {
+			if ( ! function_exists( 'parse_blocks' ) ) {
+				return false;
+			}
+			return self::count_blocks( parse_blocks( (string) $post->post_content ), $anchor ) > 0;
+		}
+
+		if ( BuilderDetector::CLASSIC === $system ) {
+			return WriteGuards::count_in_html( (string) $post->post_content, $anchor ) > 0;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Classic editor: operate directly on post_content.
 	 */
 	private static function write_classic( \WP_Post $post, $anchor, $href, $data_id ) {
