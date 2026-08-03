@@ -280,7 +280,7 @@ class Wizard {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="ailinking-ai-candidates"><?php esc_html_e( 'Possible destinations shown to the AI', 'ai-internal-linking' ); ?></label></th>
+						<th scope="row"><label for="ailinking-ai-candidates"><?php esc_html_e( 'Potential Destination Pages shown to AI', 'ai-internal-linking' ); ?></label></th>
 						<td>
 							<?php
 							$ai_cands    = LlmSuggester::clamp_candidates( isset( $settings['llm_candidates'] ) ? $settings['llm_candidates'] : LlmSuggester::DEFAULT_CANDIDATES );
