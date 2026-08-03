@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.22.0
+Stable tag: 0.23.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.23.0 =
+* A suggestion that could never be applied is no longer offered. Roughly a quarter of everything waiting for review on a real site — 22 of 91 — would have failed at the moment you approved it, and the highest-scoring suggestion on the page was among them.
+* The cause was two different checks at two different times. The engines look for the anchor in the page's plain text, where headings are already stripped and there is no markup at all. The writer works on the stored HTML, where the same phrase may sit inside an existing link, inside code, or be split by a tag as in "pale, washed <em>E horizon</em>". A phrase could therefore pass when the suggestion was created and fail when you tried to use it, which is the worst possible moment to find out.
+* The engines now ask the writer directly, before storing anything, and the check mirrors what the writer really does: block by block for the block editor, whole-content for the classic editor. Page-builder pages are unaffected — they are suggest-only, you place the link yourself, and holding them to the writer's rules would have thrown away perfectly usable suggestions.
+* Expect a shorter review queue and no skipped rows in it. On the measured site the queue would drop by about a quarter, and everything left would apply.
 
 = 0.22.0 =
 * The two documents are now one. "Overview" and "Formulas" covered much of the same ground in a different order, so anyone reading both met the three engines twice, the two scores twice, the limits twice and the worked example twice — and the two could drift apart, which they had. There is now a single document, AI-Internal-Linking.doc, and it is ordered as the plugin actually works rather than as a set of topics.
