@@ -323,7 +323,7 @@ class Wizard {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="ailinking-ai-candidate-words"><?php esc_html_e( 'Words describing each destination', 'ai-internal-linking' ); ?></label></th>
+						<th scope="row"><label for="ailinking-ai-candidate-words"><?php esc_html_e( 'Words describing each destination page', 'ai-internal-linking' ); ?></label></th>
 						<td>
 							<?php $ai_cw = LlmSuggester::clamp_candidate_words( isset( $settings['llm_candidate_words'] ) ? $settings['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS ); ?>
 							<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
@@ -349,6 +349,9 @@ class Wizard {
 							</p>
 							<p class="description">
 								<?php esc_html_e( 'The words come from the index built during “Index / Re-index site”, not from a fresh read, so this costs no extra time — only the tokens shown below. Common words your whole site uses are already filtered out, so what is sent is what makes each page different.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'To be clear about what these words are not: they describe the destination page, and they never become link text. The anchor is always taken from the page being read — the words above — and is checked to appear there word-for-word before a suggestion is kept. These words only influence which destination gets chosen.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
