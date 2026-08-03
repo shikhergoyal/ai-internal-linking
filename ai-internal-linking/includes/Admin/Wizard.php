@@ -17,6 +17,7 @@ use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
 use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Summarizer;
+use AILinking\Suggestions\SummaryStore;
 use AILinking\Providers\Pricing;
 
 defined( 'ABSPATH' ) || exit;
@@ -89,6 +90,16 @@ class Wizard {
 		// and forth does not lose the other one's setting.
 		$ai_mode    = LlmSuggester::clamp_describe_mode( isset( $_POST['llm_describe_mode'] ) ? sanitize_key( wp_unslash( $_POST['llm_describe_mode'] ) ) : '' );
 		$ai_sum_len = Summarizer::clamp_words( isset( $_POST['llm_summary_words'] ) ? (int) $_POST['llm_summary_words'] : Summarizer::DEFAULT_WORDS );
+
+		// Stored summaries are built at a specific length and mode, so a change
+		// to either makes every one of them stale. Dropping them here is what
+		// lets the build path stay simple: it never has to ask whether the
+		// summary it found was built under the settings now in force.
+		$before = Settings::all();
+		if ( ( isset( $before['llm_summary_words'] ) ? (int) $before['llm_summary_words'] : 0 ) !== $ai_sum_len
+			|| ( isset( $before['llm_describe_mode'] ) ? (string) $before['llm_describe_mode'] : '' ) !== $ai_mode ) {
+			SummaryStore::forget_all();
+		}
 
 		Settings::update(
 			array(

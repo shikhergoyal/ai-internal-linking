@@ -36,7 +36,82 @@ class Schema {
 
 		self::drop_retired_tables();
 
+		// Only record the new version once the tables really carry what this
+		// version asks for. Stamping unconditionally is a trap: if dbDelta runs
+		// against a half-updated copy of the plugin — which happens when files
+		// are uploaded one by one, since the main file carrying the new version
+		// number can land before the schema file — the migration is recorded as
+		// done and never retried, leaving a column permanently missing and every
+		// query against it failing quietly. Leaving the version alone means the
+		// next request simply tries again.
+		if ( ! self::schema_matches() ) {
+			return;
+		}
+
 		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+	}
+
+	/**
+	 * Whether the index table carries every column this version declares.
+	 *
+	 * The index table is the one that changes shape between versions, so it is
+	 * the honest check for "did the migration actually land".
+	 *
+	 * @return bool
+	 */
+	private static function schema_matches() {
+		global $wpdb;
+		$table = Tables::index();
+		if ( ! self::table_exists( $table ) ) {
+			return false;
+		}
+
+		$have = array();
+		foreach ( (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}" ) as $c ) { // phpcs:ignore WordPress.DB.PreparedSQL
+			$have[ strtolower( (string) $c ) ] = true;
+		}
+
+		foreach ( self::index_columns() as $column ) {
+			if ( ! isset( $have[ $column ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Column names the index table is declared with, read from the statement
+	 * itself so the two can never drift apart.
+	 *
+	 * @return string[]
+	 */
+	private static function index_columns() {
+		global $wpdb;
+		$table = Tables::index();
+		$out   = array();
+
+		foreach ( self::statements( $wpdb->get_charset_collate() ) as $sql ) {
+			if ( false === strpos( $sql, $table . ' (' ) ) {
+				continue;
+			}
+			foreach ( preg_split( '/
+||
+/', $sql ) as $line ) {
+				$line = trim( $line );
+				// Field lines only: skip the CREATE line, keys and the closer.
+				if ( '' === $line || 0 === stripos( $line, 'CREATE TABLE' ) || 0 === strpos( $line, ')' ) ) {
+					continue;
+				}
+				if ( preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX)/i', $line ) ) {
+					continue;
+				}
+				if ( preg_match( '/^`?([a-z0-9_]+)`?\s+/i', $line, $m ) ) {
+					$out[] = strtolower( $m[1] );
+				}
+			}
+			break;
+		}
+		return $out;
 	}
 
 	/**
