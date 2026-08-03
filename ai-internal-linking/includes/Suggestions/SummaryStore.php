@@ -80,7 +80,7 @@ class SummaryStore {
 			// reading order, so cutting the tail can discard the best sentence
 			// and keep a weaker one that merely appeared earlier on the page.
 			// Changing the length setting clears these, so they never go stale.
-			$summary = Summarizer::summarize( $text, $weights, $max_words );
+			$summary = Summarizer::summarize( $text, $weights, $max_words, $common );
 			if ( '' === $summary ) {
 				continue; // too short, or nothing distinctive: caller falls back
 			}

@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.19.2
+Stable tag: 0.19.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,14 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.19.3 =
+* Summaries no longer lean on knowing English. 0.19.2 kept exam wording out of summaries using a list of English phrases, which is no use to a site in another language or one whose pages are laid out differently. That list is now a secondary hint, and three structural signals do the real work — none of them needs to know the language or the page format.
+* A question is now recognised by its question mark, including the full-width, Arabic and Thai forms, so a question in any language is spotted whatever its wording.
+* A label is recognised by a colon in its opening few words. "Weather effects: stable air, fog, frost and trapped smog" is a caption and its list, not a statement about the page, and that shape is the same in any language. This also removed the ragged opening fragments that summaries occasionally began with.
+* Template furniture is recognised by what it is made of. A sentence built mostly from wording the whole site uses is the site's own frame with a few topical words dropped in. Measured across a real site, pure furniture scored 0.86 to 1.00 on that ratio while genuine prose scored 0.00 to 0.14, so the two separate cleanly with no phrase list involved.
+* All of these lower a sentence's standing rather than banning it, so a page that has nothing else still gets described.
+* Covered by 14 new unit tests, 278 in total.
 
 = 0.19.2 =
 * Fixed: on pages built around questions, the summary described the question instead of the page. Exam and quiz scaffolding — "Consider the following statements", "With reference to…", "Assertion (A):" — contains the page's real subject words, so it scored well and was chosen. A page on the Non-Cooperation Movement was being described to the AI as "UPSC Prelims 1998 GS Paper I. Consider the following statement and reason. Assertion (A): Gandhi stopped the Non-cooperation Movement in 1922."
