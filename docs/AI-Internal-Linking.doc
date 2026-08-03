@@ -70,8 +70,9 @@ expected to be linked sometimes is not.</p>
 <tr><td>6. Score it</td><td>Relevance and naturalness, blended into the figure you see</td><td>9</td></tr>
 </table>
 
-<p>The image <code>ai-selection-flowchart.png</code> beside this document shows the same sequence as a diagram,
-including every branch where a suggestion is thrown away.</p>
+<p>The image <code>backend-process-flowchart.png</code> beside this document shows all six stages as a single
+diagram: every decision, every branch where a suggestion is thrown away and why, every default limit and the
+screen that changes it, and the things this plugin deliberately does not do.</p>
 <h2>4. Stage 1: how your site is read</h2>
 
 <p><strong>Internally, from your WordPress database. It never requests your own pages over the internet.</strong></p>
@@ -526,7 +527,7 @@ Complete Guide".</p>
 surrounding sentence quoted so you can judge the placement before approving anything.</p>
 <div class="footer">
 AI Internal Linking, version 0.24.0. Every number in this document is taken from the plugin itself and checked
-against it. The diagram <code>ai-selection-flowchart.png</code> beside this file shows the same process as a flowchart.
+against it. The diagram <code>backend-process-flowchart.png</code> beside this file shows the same process as a flowchart.
 Applying links, the guarantees, the admin screens and costs are covered in the plugin's own readme.<br />
 Made by Shikher Goyal.
 </div>

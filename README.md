@@ -118,6 +118,7 @@ ai-internal-linking/       the plugin itself, this is what ships in the zip
   readme.txt               WordPress readme, the single source of truth for the changelog
   uninstall.php            ledger based content restore, then table drop
 docs/                      one document covering how it works and how it decides, plus the flowchart
+tools/make-flowchart.py    regenerates docs/backend-process-flowchart.png (Pillow)
 tests/run-unit.php         unit tests for the pure decision functions
 tools/build-zip.ps1        local release zip builder
 tools/sync-release-zips.ps1  pull every GitHub Release zip into "Plugin Zip files/"
