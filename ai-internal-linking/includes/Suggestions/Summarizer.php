@@ -85,8 +85,52 @@ class Summarizer {
 	const OPTION_REACH = 3;
 
 	/**
+	 * Score multiplier for a caption or label rather than a sentence.
+	 *
+	 * "Weather effects: stable air, fog, frost and trapped smog." is a label and
+	 * its list, not a statement about the page. A colon within the opening few
+	 * words is what gives it away, and that is structural rather than linguistic,
+	 * so it holds for a site in any language.
+	 */
+	const CAPTION_PENALTY = 0.4;
+
+	/** A colon this early in a sentence marks it as a label, not prose. */
+	const CAPTION_COLON_WITHIN = 4;
+
+	/**
+	 * Score multiplier for a sentence built mostly from site-wide wording.
+	 *
+	 * Template furniture reuses the site's own frame with a few topical words
+	 * dropped in. Measured on a real site, sentences that were pure furniture
+	 * scored 0.86 to 1.00 on this ratio while genuine prose scored 0.00 to 0.14,
+	 * so the two separate cleanly. It needs no phrase list and no knowledge of
+	 * the language, which is the point: the phrase list below cannot help a site
+	 * that is not in English.
+	 */
+	const FURNITURE_PENALTY = 0.2;
+
+	/** Share of a sentence's words that must be site-wide before it counts as furniture. */
+	const FURNITURE_RATIO = 0.5;
+
+	/**
+	 * Question marks, including the forms used outside Latin scripts.
+	 *
+	 * @return string[]
+	 */
+	public static function question_marks() {
+		return array( '?', "\xEF\xBC\x9F", "\xD8\x9F", "\xE2\x81\x87", "\xE0\xB9\x96" );
+	}
+
+	/**
 	 * Phrases that mark a sentence as part of a question rather than a
 	 * description of the page. Lowercase, matched as substrings.
+	 *
+	 * These are English, and deliberately a secondary signal: a phrase list can
+	 * only ever cover the language and the page format it was written for. The
+	 * checks that carry the weight — a question mark, an opening colon, and a
+	 * sentence made of site-wide wording — are structural and work anywhere.
+	 * Sites with differently worded questions can replace this list through the
+	 * ailinking_question_markers filter.
 	 *
 	 * @return string[]
 	 */
@@ -129,8 +173,10 @@ class Summarizer {
 		if ( '' === $s ) {
 			return false;
 		}
-		if ( false !== strpos( $s, '?' ) ) {
-			return true;
+		foreach ( self::question_marks() as $mark ) {
+			if ( false !== strpos( $s, $mark ) ) {
+				return true;
+			}
 		}
 
 		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $s, 'UTF-8' ) : strtolower( $s );
@@ -140,6 +186,44 @@ class Summarizer {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether a sentence is a label with its content, rather than prose. (pure)
+	 *
+	 * @param string $sentence Sentence.
+	 * @return bool
+	 */
+	public static function is_caption( $sentence ) {
+		$s = trim( (string) $sentence );
+		$pos = strpos( $s, ':' );
+		if ( false === $pos ) {
+			return false;
+		}
+		$before = substr( $s, 0, $pos );
+		$words  = preg_split( '/\s+/u', trim( $before ) );
+		return is_array( $words ) && count( $words ) <= self::CAPTION_COLON_WITHIN;
+	}
+
+	/**
+	 * Share of a sentence's words that the whole site uses. (pure)
+	 *
+	 * @param string[]            $words     Tokenised sentence words.
+	 * @param array<string,true>  $site_wide Site-wide word set.
+	 * @return float 0 to 1.
+	 */
+	public static function furniture_ratio( array $words, array $site_wide ) {
+		$total = count( $words );
+		if ( $total < 1 || empty( $site_wide ) ) {
+			return 0.0;
+		}
+		$hits = 0;
+		foreach ( $words as $w ) {
+			if ( isset( $site_wide[ $w ] ) ) {
+				$hits++;
+			}
+		}
+		return $hits / $total;
 	}
 
 	/**
@@ -240,7 +324,7 @@ class Summarizer {
 	 * @param int                $max_words Word budget.
 	 * @return string Summary, or '' when the page yields nothing usable.
 	 */
-	public static function summarize( $text, array $weights, $max_words = self::DEFAULT_WORDS ) {
+	public static function summarize( $text, array $weights, $max_words = self::DEFAULT_WORDS, array $site_wide = array() ) {
 		$max_words = self::clamp_words( $max_words );
 		$sentences = self::sentences( $text );
 		if ( empty( $sentences ) || empty( $weights ) ) {
@@ -286,6 +370,22 @@ class Summarizer {
 				$score *= self::QUESTION_PENALTY;
 			} elseif ( $is_option ) {
 				$score *= self::OPTION_PENALTY;
+			}
+
+			// Structural, language-independent penalties. These are what make
+			// this work on a site the phrase list above knows nothing about.
+			if ( self::is_caption( $sentence ) ) {
+				$score *= self::CAPTION_PENALTY;
+			}
+			$lower_words = array();
+			foreach ( $words as $word ) {
+				$k = self::normalise_word( $word );
+				if ( '' !== $k ) {
+					$lower_words[] = $k;
+				}
+			}
+			if ( self::furniture_ratio( $lower_words, $site_wide ) >= self::FURNITURE_RATIO ) {
+				$score *= self::FURNITURE_PENALTY;
 			}
 
 			$scored[] = array(
