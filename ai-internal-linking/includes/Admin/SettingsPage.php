@@ -162,7 +162,7 @@ class SettingsPage {
 						</p>
 						<p class="description">
 							<strong><?php esc_html_e( 'What this setting does.', 'ai-internal-linking' ); ?></strong>
-							<?php esc_html_e( 'It sets the floor for the Related Content engine only. Below it, two pages share so little wording that the overlap is coincidence. It does not filter AI or Search Console suggestions, which are judged on different evidence and are not comparable to a word-overlap score.', 'ai-internal-linking' ); ?>
+							<?php esc_html_e( 'It sets the floor for the Related Content engine only. Below it, two pages share so little vocabulary that the overlap is coincidence. It does not filter AI or Search Console suggestions, which are judged on different evidence and are not comparable to a word-overlap score.', 'ai-internal-linking' ); ?>
 						</p>
 						<p class="description">
 							<strong><?php esc_html_e( 'Choosing a number.', 'ai-internal-linking' ); ?></strong>

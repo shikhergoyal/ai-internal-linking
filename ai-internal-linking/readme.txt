@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.23.0
+Stable tag: 0.23.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.23.1 =
+* Says "anchor text" where it means anchor text. The documentation and the flowchart called it "the wording", which was chosen to avoid jargon and was the wrong call: this is an internal-linking plugin, anchor text is the ordinary term in that world, and the screens were already using it. Roughly thirty places now agree with each other and with the admin.
+* Where the same word meant something else it has been made explicit rather than renamed. Four passages used "wording" for the vocabulary two pages share, which is a different idea entirely; those now say vocabulary, so neither term has to carry two meanings. Two admin descriptions had the same overlap and were corrected the same way.
+* The flowchart is regenerated: its title, the check that stops invented anchor text, and the limits table all use the term now, and the one place it meant shared vocabulary says so.
+* Changelog entries below are left as they were written. They describe what shipped at the time.
 
 = 0.23.0 =
 * A suggestion that could never be applied is no longer offered. Roughly a quarter of everything waiting for review on a real site — 22 of 91 — would have failed at the moment you approved it, and the highest-scoring suggestion on the page was among them.

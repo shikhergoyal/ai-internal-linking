@@ -343,7 +343,7 @@ class Wizard {
 							</p>
 							<p class="description">
 								<strong><?php esc_html_e( 'How the list is built.', 'ai-internal-linking' ); ?></strong>
-								<?php esc_html_e( 'The free engine ranks every eligible page by how much distinctive wording it shares with the page being read, then passes over the top few. This happens before the AI is involved.', 'ai-internal-linking' ); ?>
+								<?php esc_html_e( 'The free engine ranks every eligible page by how much distinctive vocabulary it shares with the page being read, then passes over the top few. This happens before the AI is involved.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
 								<strong><?php esc_html_e( 'Choosing a number.', 'ai-internal-linking' ); ?></strong>
