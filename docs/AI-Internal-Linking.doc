@@ -24,19 +24,18 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 <h1>AI Internal Linking</h1>
 <p class="sub">What it does, how it does it, and why it picks one page and one phrase rather than another.
-Written to be read without any technical background. Version 0.22.0.</p>
+Written to be read without any technical background. Version 0.23.2.</p>
 
 <h2>1. What this plugin does</h2>
 
-<p>It reads every page on your site once, then works through them one at a time asking a single question: is
-there a sentence here that should link to another page of mine, and which words should carry that link?
-Anything it finds is a <em>suggestion</em>. Nothing is inserted until you approve it, nothing is ever written
-for you, and every link it does insert can be undone.</p>
+<p>It reads every page on your site once, then works through them one at a time asking: is there a sentence
+here that should link to another page of mine, and which words should carry that link? Anything it finds is a
+<em>suggestion</em>. Nothing is inserted until you approve it, and every link it inserts can be undone.</p>
 
 <div class="key"><strong>The rule everything else obeys.</strong> The plugin can only link words already
-written on your page. It never adds a sentence, never rephrases you, and never invents a phrase to link. If a
-good destination exists but your text contains no natural phrase to carry the link, no suggestion is made at
-all. That one rule explains most of what follows.</div>
+written on your page. It never adds a sentence, rephrases you, or invents a phrase to link. If a good
+destination exists but your text has no natural phrase to carry the link, no suggestion is made. That one rule
+explains most of what follows.</div>
 
 <h2>2. The words this document uses</h2>
 
@@ -44,20 +43,17 @@ all. That one rule explains most of what follows.</div>
 <tr><th>Word</th><th>What it means</th></tr>
 <tr><td><strong>Source page</strong></td><td>The page being read. The link will be added <em>to</em> this page.</td></tr>
 <tr><td><strong>Destination</strong></td><td>The page being linked <em>to</em>. Also called the target.</td></tr>
-<tr><td><strong>Shortlist</strong></td><td>The small group of pages worth considering as a destination for one
-particular source page. Your site might have 350 pages; only a dozen or two could sensibly be linked from any
-given article.</td></tr>
+<tr><td><strong>Shortlist</strong></td><td>The pages worth considering as a destination for one source page. Your
+site might have 350; only a dozen or two could sensibly be linked from any given article.</td></tr>
 <tr><td><strong>Anchor text</strong></td><td>The words that become clickable. In "your content marketing strategy
-should be planned", the anchor text might be "content marketing strategy". Sometimes just called the anchor.</td></tr>
-<tr><td><strong>Relevance</strong></td><td>A number from 0 to 1: do these two pages belong together? Section 9
-explains how each engine arrives at it.</td></tr>
-<tr><td><strong>Naturalness</strong></td><td>A number from 0 to 1: does this particular anchor text read well as a
-link? Judged from the phrase alone.</td></tr>
+should be planned", it might be "content marketing strategy". Sometimes just called the anchor.</td></tr>
+<tr><td><strong>Relevance</strong></td><td>0 to 1: do these two pages belong together? Section 9 explains how
+each engine arrives at it.</td></tr>
+<tr><td><strong>Naturalness</strong></td><td>0 to 1: does this anchor text read well as a link? Judged from the
+phrase alone.</td></tr>
+<tr><td><strong>Token</strong></td><td>Roughly three quarters of a word. AI providers bill by the token, so a
+1,000 word page costs about 1,300 tokens to send. Only relevant if you use the AI engine.</td></tr>
 </table>
-
-<p>One more, only if you use the AI engine. A <strong>token</strong> is roughly three quarters of a word. AI
-providers bill by the token, so a 1,000 word page costs about 1,300 tokens to send. That is the only reason
-the word appears in this document.</p>
 
 <h2>3. The whole process, in order</h2>
 
@@ -93,18 +89,15 @@ Console and to the AI provider you configured, if any.</p>
 
 <h3>The trade-off, stated plainly</h3>
 
-<p>Content that only exists when a page is displayed is invisible to it: theme-added sections, related-post
-blocks, and the output of other plugins' shortcodes. Shortcode tags are removed and any text between them is
-kept, but what a shortcode would have generated is not.</p>
-
-<p>That is deliberate. The plugin should only ever link words that live in your content and that you can edit.
-A link placed in theme output would vanish the day you change theme.</p>
+<p>Content that only exists when a page is displayed is invisible: theme-added sections, related-post blocks,
+and the output of other plugins' shortcodes. That is deliberate &mdash; the plugin should only link words that
+live in your content and that you can edit, and a link placed in theme output would vanish the day you change
+theme.</p>
 
 <h3>What gets recorded</h3>
 
-<p>For each page: its title, its address, its language, its plain text, and a count of how often each
-meaningful word appears. Headings and the page title are stripped out before that count is taken, so they can
-never become a link later.</p>
+<p>For each page: its title, address, language, plain text, and how often each meaningful word appears.
+Headings and the page title are stripped before that count is taken, so they can never become a link later.</p>
 
 <h2>5. Stage 2: choosing which page to work on</h2>
 
@@ -185,8 +178,6 @@ than a shared ordinary one, which is what stops every page on your site looking 
 <strong>The smaller of the two counts</strong> stops a page that repeats one word two hundred times from
 appearing related to everything that mentions it once.</p>
 
-<p>Every eligible page is scored this way, sorted highest first, and the best become the shortlist.</p>
-
 <div class="key"><strong>In one sentence:</strong> the shortlist is the pages that share the most distinctive
 vocabulary with the page being read, out of everything published, in the same language, of a content type you
 chose as a link target.</div>
@@ -196,13 +187,12 @@ chose as a link target.</div>
 <p>Your choice. "Potential Destination Pages shown to AI" on the Setup &amp; Dashboard screen starts at 15 and
 accepts anything from 5 to 200.</p>
 
-<p><strong>Why not fewer.</strong> A destination that is not on the list cannot be chosen, however obviously
-right it is. <strong>Why not more.</strong> A page ranked fiftieth by shared vocabulary is down there precisely
-because it has little in common, so a longer list is mostly weaker options &mdash; and costs more to send.</p>
+<p>A destination not on the list cannot be chosen, however obviously right it is. But a page ranked fiftieth is
+down there precisely because it has little in common, so a longer list is mostly weaker options and costs more
+to send.</p>
 
-<p>The list is filtered after it is built: the page itself is removed, so is anything it already links to, and
-so is any pair you have already approved or rejected. The plugin therefore always fetches noticeably more than
-it will show, in proportion to the number you chose.</p>
+<p>The list is filtered after it is built &mdash; the page itself, anything it already links to, and any pair
+you have already judged are all removed &mdash; so the plugin always fetches more than it will show.</p>
 <h2>7. Stage 4: settling the destination</h2>
 
 <p>Three engines run in a fixed order for each source page. Each proposes links until the page's link budget is
@@ -227,13 +217,13 @@ regardless, so you always get suggestions even with no key and no Search Console
 <p class="sub">Free. Needs Google Search Console connected.</p>
 
 <p><strong>Neither half of this link is chosen by the plugin.</strong> Google chooses the destination, because
-Search Console already knows which of your pages answers a given search. The people searching choose the
-anchor text, because it is the phrase they typed.</p>
+Search Console already knows which page answers a given search. The people searching choose the anchor text,
+because it is the phrase they typed.</p>
 
 <h4>Step 1: how much is a search phrase worth?</h4>
 
-<p>Not every phrase is worth spending a link on. A phrase you already rank first for has nothing to gain. A
-phrase you rank 80th for is out of reach. The useful ones sit in between.</p>
+<p>A phrase you already rank first for has nothing to gain; one you rank 80th for is out of reach. The useful
+ones sit in between.</p>
 
 <pre class="formula">Worth = impressions x (click rate at position 3 - click rate at your position)
         then reduced the further you are from the top ten</pre>
@@ -260,21 +250,16 @@ amount of word similarity, so these suggestions begin above what the other engin
 
 <table>
 <tr><th>Step</th><th></th><th>If it fails</th></tr>
-<tr><td>1</td><td>Match the address Google reports to one of your pages</td><td>Dropped. A page the plugin
-cannot identify is unusable</td></tr>
+<tr><td>1</td><td>Match the address Google reports to one of your pages</td><td>Dropped &mdash; unusable</td></tr>
 <tr><td>2</td><td>The destination is now settled, chosen by Google</td><td>Cannot fail</td></tr>
 <tr><td>3</td><td>The anchor text is now settled: the search phrase itself</td><td>Cannot fail</td></tr>
-<tr><td>4</td><td>Is the phrase between 2 and 4 words?</td><td>Skipped. One word is not descriptive, nine is a
-sentence</td></tr>
-<tr><td>5</td><td>Does the source page actually contain that phrase?</td><td>Skipped. Nothing to turn into a
-link</td></tr>
+<tr><td>4</td><td>Is the phrase between 2 and 4 words?</td><td>Skipped. One word is not descriptive, nine is a sentence</td></tr>
+<tr><td>5</td><td>Does the source page actually contain that phrase?</td><td>Skipped. Nothing to link</td></tr>
 <tr><td>6</td><td>Does it already link there?</td><td>Skipped. Then it is not a missed link</td></tr>
-<tr><td>7</td><td>Would this be the fourth identical anchor text pointing at the same page?</td><td>Skipped.
-Repeating the same anchor text looks manipulative to a search engine</td></tr>
+<tr><td>7</td><td>Would this be the fourth identical anchor to the same page?</td><td>Skipped. Repetition looks manipulative to a search engine</td></tr>
 </table>
 
-<p>Only the 500 most valuable phrases are considered per scan, and each destination gets at most one keyword
-suggestion per page, so the best phrase wins.</p>
+<p>Only the 500 most valuable phrases are considered per scan, and each destination gets at most one keyword suggestion per page.</p>
 <h3>7b. AI Suggestion &mdash; runs second</h3>
 
 <p class="sub">Optional. Needs an API key, which is yours and stays yours.</p>
@@ -299,32 +284,27 @@ Creativity          turned off, so the same page gives the same answer</pre>
 <h4>Where those summaries come from</h4>
 
 <p>They are <strong>taken from the page, not written for it</strong>. Nothing is generated and no second AI
-request is made. The plugin scores every sentence on the destination page against that page's own distinctive
-vocabulary &mdash; the same vocabulary worked out in Section 6 &mdash; and keeps the two or three that
-represent it best.</p>
+request is made: every sentence on the destination page is scored against that page's own distinctive
+vocabulary, and the best two or three are kept.</p>
 
-<p>One consequence explains why the summaries are usable at all: <strong>phrasing your whole site repeats can
-never appear in one</strong>. Words used across the site are set aside before scoring, so a sentence built from
-them scores zero however often it appears. Navigation text, standard introductions and "in this article you
-will learn" blocks are ruled out automatically, not by a list of things to avoid.</p>
-
-<p>Sentences that ask rather than tell are pushed down too, and so are the lines immediately after them. In a
-multiple-choice question some of the options are deliberately false, and they read as ordinary statements
-&mdash; only their position after the question gives them away.</p>
+<p>Two things follow. <strong>Phrasing your whole site repeats can never appear in a summary</strong>, because
+site-wide words are set aside before scoring, so navigation text and standard introductions score zero however
+often they appear. And sentences that ask rather than tell are pushed down, along with the lines just after
+them &mdash; in a multiple-choice question some options are deliberately false, and only their position gives
+them away.</p>
 
 <h4>What the model is shown, and what it must return</h4>
 
-<pre class="formula">SHOWN TO THE MODEL                        THE MODEL REPLIES
+<pre class="formula">SHOWN TO THE MODEL                      THE MODEL REPLIES
 
-Article title: Build a Content Calendar     Page number: 1
-Article text:  ...your content marketing    Anchor:      content marketing strategy
-strategy stays consistent...                Reason:      the article plans a strategy
-                                            Confidence:  0.86
+Article title: Build a Content Calendar   Page number: 1
+Article text:  ...your content marketing  Anchor:      content marketing strategy
+strategy stays consistent...              Confidence:  0.86
+
 Possible destinations:
-  1. Content Marketing Strategy: A Guide - A content strategy sets out who
-     you are writing for and why. Pillar pages anchor each theme.
-  2. Social Media Scheduling Tools - Scheduling tools queue posts across
-     networks from one place.</pre>
+  1. Content Marketing Strategy: A Guide - a content strategy sets out who
+     you are writing for and why; pillar pages anchor each theme
+  2. Social Media Scheduling Tools - queue posts across networks from one place</pre>
 
 <p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and
 summaries and replies with a number. The plugin then looks up which page number 1 is and takes the address from
@@ -334,22 +314,17 @@ its own records. The model never handles a web address, so it cannot invent one.
 
 <table>
 <tr><th>Step</th><th></th><th>If it fails</th></tr>
-<tr><td>1</td><td>Is the page number one it was actually shown?</td><td>Thrown away. A number outside the list
-means nothing</td></tr>
-<tr><td>2</td><td>Look up that page; its address comes from the plugin's records</td><td>Cannot fail. The model
-had no say in the address</td></tr>
+<tr><td>1</td><td>Is the page number one it was actually shown?</td><td>Thrown away &mdash; a number outside the list means nothing</td></tr>
+<tr><td>2</td><td>Look up that page; its address comes from the plugin's records</td><td>Cannot fail &mdash; the model had no say in it</td></tr>
 <tr><td>3</td><td>Is it a different page from the one being read, and not already used?</td><td>Thrown away</td></tr>
-<tr><td>4</td><td>Search the article for the anchor text it quoted, whole words, ignoring capitals</td><td>Thrown
-away. This is the step that kills invented anchor text</td></tr>
-<tr><td>5</td><td>Keep the anchor text exactly as your article writes it, plus the sentence around it</td><td>Cannot
-fail</td></tr>
+<tr><td>4</td><td>Search the article for the anchor text it quoted, whole words, ignoring capitals</td><td>Thrown away. This kills invented anchor text</td></tr>
+<tr><td>5</td><td>Keep the anchor text exactly as your article writes it, plus the sentence around it</td><td>Cannot fail</td></tr>
 <tr><td>6</td><td>Use the model's confidence as the relevance score</td><td>0.70 assumed if it gives none</td></tr>
 </table>
 
-<p><strong>Why it is built this way.</strong> A model asked to produce a web address will eventually produce a
-believable one that does not exist. A model asked to produce anchor text will eventually tidy up your phrasing.
-Neither can happen here: the address never leaves the plugin, and step 4 above rejects any anchor text the model
-did not copy exactly.</p>
+<p><strong>Why it is built this way.</strong> A model asked for a web address will eventually invent a believable
+one; asked for anchor text, it will eventually tidy up your phrasing. Neither can happen here: the address never
+leaves the plugin, and step 4 rejects anything the model did not copy exactly.</p>
 
 <div class="note"><strong>The one limitation worth knowing.</strong> The model reads the beginning of a page,
 not all of it. At the default of 1,000 words, a 3,000 word article is about one third visible, so this engine
@@ -384,16 +359,16 @@ anchor text</td></tr>
 score</td></tr>
 </table>
 
-<p><strong>Why longest first.</strong> "content marketing strategy" tells a reader where the link goes.
-"strategy" does not. Trying longer groups first means the most descriptive available anchor text always wins.</p>
+<p><strong>Why longest first.</strong> "content marketing strategy" tells a reader where the link goes;
+"strategy" does not. So the most descriptive available anchor text always wins.</p>
 
-<div class="note"><strong>This is the most common reason a link you expected never appears.</strong> Step 7. Two
-pages can be obviously about the same subject and still produce nothing, simply because your text never happens
-to contain a phrase from the other page's title.</div>
+<div class="note"><strong>Step 7 is the most common reason a link you expected never appears.</strong> Two
+pages can be obviously about the same subject and still produce nothing, because your text never happens to
+contain a phrase from the other page's title.</div>
 
-<p><strong>Nothing here knows your subject.</strong> The vocabulary is whatever your own pages contain, and the
-rarity scores are worked out from your own site each time you scan. The identical method produces recipe links
-on a cooking site and case-law links on a legal one.</p>
+<p><strong>Nothing here knows your subject.</strong> The vocabulary is whatever your pages contain, and the
+rarity scores come from your own site each time you scan. The identical method produces recipe links on a
+cooking site and case-law links on a legal one.</p>
 <h2>8. Stage 5: settling the anchor text</h2>
 
 <p>Each engine arrives at the anchor text differently, but one rule closes every path.</p>
@@ -450,15 +425,13 @@ destination also uses</td><td>0.08 to 0.50</td></tr>
 </table>
 
 <div class="note"><strong>The three numbers are not comparable with each other.</strong> A 0.85 from the AI is
-the model's opinion. A 0.85 from Related Content would mean two pages share most of their distinctive vocabulary,
-which almost never happens. Judge each engine against others of its own kind &mdash; which is why the review
-screen labels the source of every suggestion.</div>
+an opinion; a 0.85 from Related Content would mean two pages share most of their distinctive vocabulary, which
+almost never happens. Judge each engine against others of its own kind &mdash; which is why the review screen
+labels the source of every suggestion.</div>
 
-<p><strong>The floor, and what it governs.</strong> "Minimum relevance" on the Settings screen discards Related
-Content pairs below it, and it applies to that engine alone. AI and Search Console suggestions are judged on
-different evidence and never pass through it. The default is deliberately low, because a stricter test runs
-afterwards regardless: the anchor text has to be found in your page, and that rejects far more pairs than the score
-ever does.</p>
+<p><strong>The floor.</strong> "Minimum relevance" on the Settings screen applies to Related Content alone; AI
+and Search Console suggestions never pass through it. The default is low because a stricter test runs anyway:
+the anchor text must be found in your page, and that rejects far more pairs than the score does.</p>
 
 <h3>Naturalness: does this anchor text read well as a link?</h3>
 
@@ -473,15 +446,13 @@ ever does.</p>
 
 Overall       0.60 x relevance   +   0.40 x naturalness</pre>
 
-<p>A single word is neither rewarded nor punished. Chinese, Japanese and Thai do not put spaces between words,
-so every phrase in those languages would otherwise count as one word and every suggestion on such a site would
-be marked down for the writing system it uses. Length is counted in characters rather than bytes for the same
-reason: a three-character Hindi or Arabic phrase is nine bytes.</p>
+<p>A single word is neither rewarded nor punished: Chinese, Japanese and Thai do not space their words, and
+every suggestion on such a site would otherwise be marked down for its writing system. Length is counted in
+characters, not bytes, for the same reason &mdash; a three-character Hindi phrase is nine bytes.</p>
 
-<div class="key"><strong>What the percentage in the review screen is.</strong> The two blended, 60 percent
-relevance and 40 percent naturalness. Well-formed anchor text tends to score alike, so most of the movement between
-suggestions comes from relevance. That is intended: acceptable anchor text is a condition to be met, while whether
-the pages belong together is the actual judgement.</div>
+<div class="key"><strong>The percentage in the review screen</strong> is the two blended, 60/40. Well-formed
+anchor text scores alike, so most of the movement comes from relevance. That is intended: acceptable anchor
+text is a condition to be met, whether the pages belong together is the judgement.</div>
 
 <h2>10. The limits every suggestion must pass</h2>
 
@@ -529,90 +500,10 @@ Complete Guide".</p>
 
 <p>It reaches your review screen showing 0.42 relevance, 0.90 naturalness and 0.61 overall, with the
 surrounding sentence quoted so you can judge the placement before approving anything.</p>
-<h2>12. Applying a link, and undoing it</h2>
-
-<p>Nothing is inserted without your approval. When you do approve, the plugin writes a WordPress revision
-<em>and</em> an independent backup record before touching the post, so every insertion has two ways back. One
-click undoes a single link, and a batched action removes every link the plugin ever inserted.</p>
-
-<p>The insertion itself is a precise splice of a plain link tag at an exact position. Every other byte of your
-content is left untouched, and each write passes a visible-text check before it is saved: if anything other
-than the new link would change, the write is refused.</p>
-
-<table>
-<tr><th>Editor</th><th>What happens</th></tr>
-<tr><td>Gutenberg and Classic</td><td>Applied automatically when you approve</td></tr>
-<tr><td>Elementor, Divi, WPBakery, Beaver Builder, ACF</td><td>Suggested only. The plugin never rewrites
-content a builder owns; add the link manually using the anchor text and sentence shown</td></tr>
-</table>
-
-<p>Uninstalling restores content from the backup record first, so removing the plugin does not leave its links
-behind.</p>
-
-<h2>13. What it will never do</h2>
-
-<table>
-<tr><th>Never</th><th>Why that matters</th></tr>
-<tr><td>Write or rewrite a sentence</td><td>Only words already in your page can become a link</td></tr>
-<tr><td>Insert a link without approval</td><td>Every suggestion waits in the review screen</td></tr>
-<tr><td>Invent a web address</td><td>The model never sees one; addresses come from the plugin's own
-records</td></tr>
-<tr><td>Link a heading or the page title</td><td>Both are removed before anything is read</td></tr>
-<tr><td>Link inside existing links, code, or tag attributes</td><td>Structurally refused</td></tr>
-<tr><td>Link across languages</td><td>An English page is never linked to a Hindi one</td></tr>
-<tr><td>Send your content anywhere without a key</td><td>With no API key set up, the plugin makes no outside
-connections at all</td></tr>
-<tr><td>Leave changes behind on uninstall</td><td>Content is restored from the backup record first</td></tr>
-</table>
-
-<h2>14. What you see in the admin</h2>
-
-<table>
-<tr><th>Tab</th><th>What it is for</th></tr>
-<tr><td>Setup &amp; Dashboard</td><td>Which content to crawl and link to, what the AI is given, indexing and
-scanning, and a live cost estimate</td></tr>
-<tr><td>Suggestions</td><td>The review screen: approve, reject, apply, undo &mdash; one at a time or in bulk,
-filtered by status and by which engine produced them</td></tr>
-<tr><td>Link Health</td><td>Orphans, dead ends, broken links, over- and under-linked pages, internal ranking,
-anchor diversity, click depth</td></tr>
-<tr><td>Connect GSC</td><td>Search Console connection and keyword import</td></tr>
-<tr><td>AI Keys</td><td>Your keys, encrypted at rest, with token usage and spend per key and per model</td></tr>
-<tr><td>Settings</td><td>Scoring thresholds, anchor length, link density, provider and spend cap</td></tr>
-</table>
-
-<h2>15. If you use an API key</h2>
-
-<p>Keys are yours and are stored encrypted. The plugin has no backend of its own: your key goes to the provider
-you chose and nowhere else.</p>
-
-<pre class="formula">Tokens per page  =  the fixed instruction (about 420)
-                 +  the words of your page you chose to send
-                 +  each destination's title and summary
-                 +  the reply (about 260)</pre>
-
-<p>The Setup screen shows what one full scan would cost at your current settings, priced for your configured
-model, and updates as you change any of the three settings that affect it. It assumes every indexed page is
-scanned once; real scans usually cost less, because pages already at their link limit are skipped before the
-model is asked anything.</p>
-
-<p>A monthly spend cap pauses AI calls before you overshoot it, and the engine falls back to the free one. The
-AI Keys screen reports what was actually billed, which is the authoritative figure &mdash; the estimate is a
-guide.</p>
-
-<h2>16. Requirements</h2>
-
-<table>
-<tr><th></th><th></th></tr>
-<tr><td>WordPress</td><td>6.2 or newer</td></tr>
-<tr><td>PHP</td><td>7.4 or newer</td></tr>
-<tr><td>An API key</td><td>Optional. Everything except the AI Suggestion engine works without one</td></tr>
-<tr><td>Google Search Console</td><td>Optional. Only the GSC keyword engine needs it</td></tr>
-</table>
-
 <div class="footer">
-AI Internal Linking, version 0.22.0. Every number in this document is taken from the plugin itself and checked
-against it. The diagram <code>ai-selection-flowchart.png</code> beside this file shows the same process as a
-flowchart.<br />
+AI Internal Linking, version 0.23.2. Every number in this document is taken from the plugin itself and checked
+against it. The diagram <code>ai-selection-flowchart.png</code> beside this file shows the same process as a flowchart.
+Applying links, the guarantees, the admin screens and costs are covered in the plugin's own readme.<br />
 Made by Shikher Goyal.
 </div>
 
