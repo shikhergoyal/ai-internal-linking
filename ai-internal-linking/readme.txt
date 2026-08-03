@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.21.2
+Stable tag: 0.22.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.22.0 =
+* The two documents are now one. "Overview" and "Formulas" covered much of the same ground in a different order, so anyone reading both met the three engines twice, the two scores twice, the limits twice and the worked example twice — and the two could drift apart, which they had. There is now a single document, AI-Internal-Linking.doc, and it is ordered as the plugin actually works rather than as a set of topics.
+* It follows the six stages in sequence: how your site is read, how a page is chosen to work on, how the shortlist of possible destinations is built, how the destination is settled by whichever of the three engines gets there first, how the wording is settled, and how the two scores are worked out. Each stage says what can end it, because a suggestion you expected and did not get was almost always ended at a specific stage.
+* Every duplicated passage was removed rather than merged twice, and the parts that were only in one of the two are all carried over: the seven eligibility rules, the vocabulary comparison, where a link may never be placed, applying and undoing, what the plugin will never do, the admin tour, and the cost breakdown.
+* The old files are removed. Anyone with a downloaded copy of either should replace it with the single document.
 
 = 0.21.2 =
 * Corrected a wrong pointer added in 0.21.1: the formulas document said "Minimum relevance" lives on the Setup screen. It is on the Settings screen. Every other screen reference in both documents was checked against the code and is correct.
