@@ -44,6 +44,29 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 
 defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
 
+// In-memory transients, so cached lookups can be seeded by a test.
+$ailinking_transients = array();
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $k ) { // phpcs:ignore
+		global $ailinking_transients;
+		return isset( $ailinking_transients[ $k ] ) ? $ailinking_transients[ $k ] : false;
+	}
+}
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $k, $v, $ttl = 0 ) { // phpcs:ignore
+		global $ailinking_transients;
+		$ailinking_transients[ $k ] = $v;
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_transient' ) ) {
+	function delete_transient( $k ) { // phpcs:ignore
+		global $ailinking_transients;
+		unset( $ailinking_transients[ $k ] );
+		return true;
+	}
+}
+
 $plugin = __DIR__ . '/../ai-internal-linking/includes';
 require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
@@ -352,6 +375,10 @@ class FakeWpdb { // phpcs:ignore
 	}
 }
 
+// Seed the site-wide word cache: these are words the whole site uses, which
+// must never be sent to the model as a description of any single page.
+$ailinking_transients['ailinking_site_wide_terms'] = array( 'india' => true, 'correct' => true );
+
 $wpdb       = new FakeWpdb();
 $wpdb->rows = array(
 	11 => array( 'alpha', 'beta', 'gamma', 'delta', 'epsilon' ),
@@ -371,8 +398,20 @@ eq(
 foreach ( array( 11, 12, 13 ) as $pid ) {
 	ok( ! empty( $terms[ $pid ] ), "page {$pid} is never silently empty" );
 }
-eq( substr_count( $wpdb->queries[0], 'LIMIT 3' ), 3, 'every page carries its own LIMIT, not one shared one' );
+eq( substr_count( $wpdb->queries[0], 'LIMIT 29' ), 3, 'every page carries its own LIMIT, not one shared one' );
+ok( false !== strpos( $wpdb->queries[0], 'LIMIT 29' ), 'more rows are fetched than shown, because site-wide words get filtered out' );
 ok( false === strpos( $wpdb->queries[0], 'IN (' ), 'no single-LIMIT IN() query, which cannot bound per page' );
+
+// The filter that the model's descriptions depend on.
+$wpdb->rows[21] = array( 'india', 'correct', 'monsoon', 'rainfall', 'delta' );
+$terms          = Tfidf::top_terms_for( array( 21 ), 3 );
+eq( implode( ',', $terms[21] ), 'monsoon,rainfall,delta', 'words the whole site uses are dropped, and real ones take their place' );
+ok( ! in_array( 'india', $terms[21], true ), 'REGRESSION: a site-wide word is never sent as a page description' );
+ok( ! in_array( 'correct', $terms[21], true ), 'REGRESSION: nor is boilerplate that appears on nearly every page' );
+
+$wpdb->rows[22] = array( 'india', 'correct' );
+$terms          = Tfidf::top_terms_for( array( 22 ), 3 );
+ok( empty( $terms[22] ), 'a page with nothing but site-wide words is described by nothing rather than by noise' );
 
 $wpdb->queries = array();
 $terms         = Tfidf::top_terms_for( array( 11, 11, 11 ), 2 );

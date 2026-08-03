@@ -59,6 +59,9 @@ class Indexer {
 	 */
 	public static function start_full_reindex() {
 		Schema::ensure_installed(); // guarantee tables exist before writing.
+		// Which words count as site-wide is derived from the term table this run
+		// is about to rewrite, so the cached answer must not outlive it.
+		Tfidf::flush_site_wide_terms();
 		$total    = self::count_total();
 		$progress = array(
 			'total'     => $total,

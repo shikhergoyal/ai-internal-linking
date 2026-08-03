@@ -121,6 +121,10 @@ class Schema {
 		delete_transient( 'ailinking_lock_index' );
 		delete_transient( 'ailinking_lock_suggest' );
 		delete_transient( 'ailinking_lock_embed' );
+		// The site-wide word list is derived from the term table that was just
+		// emptied, so keeping it would describe pages using a vocabulary that no
+		// longer exists.
+		delete_transient( 'ailinking_site_wide_terms' );
 	}
 
 	/**
