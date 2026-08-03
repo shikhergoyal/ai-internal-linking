@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.20.1
+Stable tag: 0.20.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.20.2 =
+* Fixed a way that applying a link could damage a page. When deciding where an anchor may be placed, the plugin split your content into tags and text by ending each tag at the first ">". A ">" written inside a quoted attribute — "<img alt=\"a > b\">" — therefore ended the tag early, and everything after it was treated as ordinary body text. If the anchor phrase happened to sit there, the link was spliced inside the attribute, breaking the tag.
+* The check meant to prevent exactly this could not see it. It compares the visible text before and after the change, and the function it uses to strip tags mis-reads the same construct in the same way, so both sides matched and the broken markup was saved. Anything already applied is reversible with Undo, which keeps the original content.
+* Tags, comments and processing instructions are now recognised with the quoting rules that actually apply, so a ">" inside an attribute no longer ends a tag. A genuine occurrence elsewhere on the page is still linked normally; only the attribute is now correctly out of bounds.
+* Covered by 15 new unit tests, 336 in total, including that nothing is ever spliced inside an attribute or a comment.
 
 = 0.20.1 =
 * Fixed the check that decides whether a database upgrade landed. A stray control character in the pattern meant the filter that skips index definitions never matched, so "PRIMARY KEY" and "UNIQUE KEY" were read as if they were column names. Since no table has columns by those names, every upgrade concluded the schema had not been applied, spent three futile retries, and then recorded a list of missing columns that were never columns at all. The schema itself was always correct and no data was affected; the damage was three wasted attempts per upgrade and a misleading warning.
