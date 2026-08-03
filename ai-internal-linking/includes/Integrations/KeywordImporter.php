@@ -154,7 +154,9 @@ class KeywordImporter {
 			'keyword_norm'      => substr( strtolower( $keyword ), 0, 191 ),
 			'source'            => $source,
 			'page_url'          => substr( $page, 0, 2048 ),
-			'post_id'           => $post_id > 0 ? $post_id : null,
+			// 0, not null: the unique key below relies on it, and MySQL treats
+			// every NULL as distinct, so unmapped phrases would keep duplicating.
+			'post_id'           => $post_id > 0 ? $post_id : 0,
 			'clicks'            => (int) $clicks,
 			'impressions'       => (int) $impressions,
 			'position'          => (float) $position,
@@ -177,18 +179,55 @@ class KeywordImporter {
 	/**
 	 * Insert a batch of rows built by build_row().
 	 *
+	 * Upserts rather than inserts. Search Console reports the same phrase for a
+	 * page across several date ranges and property variants, so a plain insert
+	 * stored the phrase again every time: one real site accumulated 107
+	 * duplicated groups, several repeated eight times, each copy consuming a
+	 * slot of the 500-phrase pool the engine actually looks at. The unique key
+	 * on (keyword_norm, post_id, source) makes the repeat collide, and the
+	 * update keeps the newer metrics instead of dropping the row on the floor.
+	 *
 	 * @param array[] $rows Rows.
-	 * @return int Number of rows inserted.
+	 * @return int Number of rows stored (inserted or refreshed).
 	 */
 	public static function insert_rows( array $rows ) {
 		global $wpdb;
 		$table = Tables::keywords();
 		$n     = 0;
+
 		foreach ( $rows as $r ) {
-			if ( $wpdb->insert( $table, $r, array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%d', '%f' ) ) ) {
+			$ok = $wpdb->query(
+				$wpdb->prepare(
+					"INSERT INTO {$table}
+					 (keyword, keyword_norm, source, page_url, post_id, clicks, impressions, position, ctr, is_striking, opportunity_score)
+					 VALUES (%s, %s, %s, %s, %d, %d, %d, %f, %f, %d, %f)
+					 ON DUPLICATE KEY UPDATE
+					   keyword = VALUES(keyword),
+					   page_url = VALUES(page_url),
+					   clicks = VALUES(clicks),
+					   impressions = VALUES(impressions),
+					   position = VALUES(position),
+					   ctr = VALUES(ctr),
+					   is_striking = VALUES(is_striking),
+					   opportunity_score = VALUES(opportunity_score)", // phpcs:ignore WordPress.DB.PreparedSQL
+					$r['keyword'],
+					$r['keyword_norm'],
+					$r['source'],
+					$r['page_url'],
+					(int) $r['post_id'],
+					(int) $r['clicks'],
+					(int) $r['impressions'],
+					(float) $r['position'],
+					(float) $r['ctr'],
+					(int) $r['is_striking'],
+					(float) $r['opportunity_score']
+				)
+			);
+			if ( false !== $ok ) {
 				$n++;
 			}
 		}
+
 		return $n;
 	}
 

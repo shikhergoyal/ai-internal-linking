@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.19.4
+Stable tag: 0.20.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,19 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.20.0 =
+* Search Console imports no longer store the same phrase twice. Search Console reports a phrase for a page across several date ranges and property variants, and each report was stored as a new row: one site had 107 duplicated groups, several repeated eight times. Because the engine only ever looks at the 500 most valuable phrases, every copy was taking a slot that a different phrase should have had. A unique key now makes a repeat update the existing row instead, duplicates already stored are removed on upgrade, and unmapped phrases are recorded against page 0 rather than NULL, since MySQL treats every NULL as distinct and would have let them keep duplicating.
+* Fixed a database upgrade that could retry for ever. 0.19.1 stopped the version being recorded before the tables really changed, which was right, but if a host refuses the change outright — no permission, a locked table — nothing ever succeeded and the upgrade ran on every single admin request, making the whole admin slow. It now gives up after three attempts, records the version, and stores which columns are missing so the problem can be seen rather than felt.
+* The Suggestions screen no longer offers bulk actions that cannot work. On the Applied tab every option was a no-op — applied rows are excluded from bulk status changes by design, and re-applying one fails — so choosing anything returned "0 of N done". Each tab now offers only what can succeed there, and the bar is hidden entirely where nothing can.
+* "Max internal links per 1,000 words" was editable on two screens at once, both writing the same setting. Changing it on Settings and then saving Setup & Dashboard from a page loaded earlier silently put the old value back. Settings is now the only place it is stored; Setup shows the current value with a link across.
+* An upgrade no longer overturns a deliberate choice. Sites that had picked "Title only" before 0.19.0 expressed it as zero words per destination, and the new description setting defaulted them to summaries — changing behaviour, and the bill, without being asked. That choice is now carried over.
+* The two length dropdowns beside "How each destination page is described" had no label of their own, so a screen reader announced them as unexplained dropdowns. Both are now labelled.
+* The key form hides fields the chosen provider has no use for. "Base URL" and "Azure api-version" appeared for every provider, explained away by a hint; they now appear only where they apply.
+* Bulk actions report anything the server discarded. A request above the 50-id ceiling had the remainder dropped in silence, so a partial run looked complete.
+* Removed the keyword_map table. It has been created on every install since the first release and read by nothing; the keyword engine joins the keywords table to the index directly. It is dropped on upgrade alongside the other retired tables.
+* Documentation: both presentation documents said version 0.15.1, five releases behind. The engines were numbered "1 of 3", "2 of 3" and "3 of 3" in an order that contradicted the run order stated a page earlier, so they are now named rather than numbered, each saying where it runs. One sentence still said the model is shown "titles and words" after the surrounding section had moved to summaries. The Setup screen controls are now named where the mechanism is explained, so a reader can find them. And the step describing the free engine's vocabulary dropped the distinction between the 40 words taken from the page being read and the 300 from each page being considered.
+* Covered by 4 new unit tests, 291 in total.
 
 = 0.19.4 =
 * Fixed: a summary could stop in the middle of a name. A full stop after an initial was read as the end of a sentence, so "headed by Sardar Vallabhbhai Patel, with V. P. Menon as its secretary" was cut to "...with V." and the summary trailed off mid-name.

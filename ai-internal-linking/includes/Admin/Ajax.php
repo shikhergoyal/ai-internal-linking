@@ -251,7 +251,9 @@ class Ajax {
 		global $wpdb;
 
 		$op  = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( $_POST['op'] ) ) : '';
-		$ids = BulkActions::sanitize_ids( isset( $_POST['ids'] ) ? wp_unslash( $_POST['ids'] ) : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$clean   = BulkActions::sanitize( isset( $_POST['ids'] ) ? wp_unslash( $_POST['ids'] ) : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$ids     = $clean['ids'];
+		$dropped = (int) $clean['dropped'];
 
 		if ( empty( $ids ) || ! BulkActions::is_allowed( $op ) ) {
 			wp_send_json_error( array( 'message' => __( 'Invalid request.', 'ai-internal-linking' ) ), 400 );
@@ -276,6 +278,7 @@ class Ajax {
 					'changed'  => $summary['applied'],
 					'failed'   => $summary['failed'],
 					'reasons'  => $labels,
+					'dropped'  => $dropped,
 				)
 			);
 		}
@@ -306,6 +309,7 @@ class Ajax {
 				'changed'   => (int) $changed,
 				'failed'    => max( 0, count( $ids ) - (int) $changed ),
 				'reasons'   => array(),
+				'dropped'   => $dropped,
 			)
 		);
 	}

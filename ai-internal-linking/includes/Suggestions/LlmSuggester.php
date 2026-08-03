@@ -427,7 +427,17 @@ class LlmSuggester {
 	 * @return string One of DESCRIBE_MODES.
 	 */
 	public static function describe_mode() {
-		$mode = (string) Settings::get( 'llm_describe_mode', 'summary' );
+		$stored = Settings::get( 'llm_describe_mode', '' );
+		if ( '' === $stored || null === $stored ) {
+			// No stored mode means this site predates 0.19.0. Before that,
+			// "Title only" was expressed as zero words per destination, and a
+			// blanket default of 'summary' would silently overturn that choice
+			// and start billing for it.
+			$stored = ( 0 === (int) Settings::get( 'llm_candidate_words', self::DEFAULT_CANDIDATE_WORDS ) )
+				? 'title'
+				: 'summary';
+		}
+		$mode = (string) $stored;
 		/**
 		 * Filter how destinations are described to the model.
 		 *

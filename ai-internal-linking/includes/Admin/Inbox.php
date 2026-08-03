@@ -197,14 +197,34 @@ class Inbox {
 			</ul>
 			<div style="clear:both;"></div>
 
+			<?php
+			// Only offer what can actually succeed here. On the Applied tab every
+			// option is a no-op: applied rows are excluded from bulk status
+			// changes by design, and re-applying them fails on status. Offering
+			// them anyway just returns "0 of N done".
+			$bulk_ops = array();
+			if ( 'pending' === $status ) {
+				$bulk_ops = array( 'approved', 'rejected', 'apply' );
+			} elseif ( 'approved' === $status ) {
+				$bulk_ops = array( 'apply', 'rejected', 'pending' );
+			} elseif ( 'rejected' === $status ) {
+				$bulk_ops = array( 'pending' );
+			}
+			$bulk_labels = array(
+				'approved' => __( 'Approve', 'ai-internal-linking' ),
+				'rejected' => __( 'Reject', 'ai-internal-linking' ),
+				'pending'  => __( 'Move back to pending', 'ai-internal-linking' ),
+				'apply'    => __( 'Apply to content', 'ai-internal-linking' ),
+			);
+			?>
+			<?php if ( $bulk_ops ) : ?>
 			<div class="ailinking-bulkbar" id="ailinking-bulkbar">
 				<label class="screen-reader-text" for="ailinking-bulk-op"><?php esc_html_e( 'Bulk action', 'ai-internal-linking' ); ?></label>
 				<select id="ailinking-bulk-op">
 					<option value=""><?php esc_html_e( 'Bulk actions', 'ai-internal-linking' ); ?></option>
-					<option value="approved"><?php esc_html_e( 'Approve', 'ai-internal-linking' ); ?></option>
-					<option value="rejected"><?php esc_html_e( 'Reject', 'ai-internal-linking' ); ?></option>
-					<option value="pending"><?php esc_html_e( 'Move back to pending', 'ai-internal-linking' ); ?></option>
-					<option value="apply"><?php esc_html_e( 'Apply to content', 'ai-internal-linking' ); ?></option>
+					<?php foreach ( $bulk_ops as $op ) : ?>
+						<option value="<?php echo esc_attr( $op ); ?>"><?php echo esc_html( $bulk_labels[ $op ] ); ?></option>
+					<?php endforeach; ?>
 				</select>
 				<button type="button" class="button" id="ailinking-bulk-go" disabled><?php esc_html_e( 'Go', 'ai-internal-linking' ); ?></button>
 				<span class="ailinking-bulk-count" id="ailinking-bulk-count"><?php esc_html_e( 'Nothing selected', 'ai-internal-linking' ); ?></span>
@@ -213,6 +233,7 @@ class Inbox {
 					<?php esc_html_e( 'Applying writes the link into your content. Each one still saves a revision and an undo record first, and pages owned by a page builder are skipped rather than rewritten — you will be told how many.', 'ai-internal-linking' ); ?>
 				</p>
 			</div>
+			<?php endif; ?>
 
 			<table class="wp-list-table widefat fixed striped ailinking-inbox">
 				<thead>
@@ -247,7 +268,6 @@ class Inbox {
 								<th scope="row" class="check-column">
 									<input type="checkbox" class="ailinking-cb"
 										value="<?php echo esc_attr( $row['id'] ); ?>"
-										data-status="<?php echo esc_attr( $row['status'] ); ?>"
 										data-safety="<?php echo esc_attr( $safety ); ?>" />
 								</th>
 								<td class="col-score"><span class="ailinking-conf"><?php echo esc_html( $conf ); ?>%</span></td>
