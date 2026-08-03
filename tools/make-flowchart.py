@@ -72,6 +72,7 @@ def draw_text_block(title, desc, cx, cy, maxw, ink=INK, sub=GREY):
 
 
 AI_PUR = (124, 58, 167)
+SHOW_NO_AI = False   # badge only the steps a model touches; leave the rest bare
 
 
 def badge(x_right, y_edge, text, kind):
@@ -91,9 +92,10 @@ def badge(x_right, y_edge, text, kind):
 def node(y, title, desc, pal, shape="rect", bdg=None):
     """Draw a spine node. Returns (top, bottom, right_edge)."""
     dark, light = pal
-    # Every step is marked, so "unmarked" can never be mistaken for "unknown".
-    if bdg is None and shape != "oval":
-        bdg = ("NO AI", "no")
+    # Only AI is badged: a mark means a model was involved, and an unmarked
+    # step means it was not. The "no" badges stay in the data but are not drawn.
+    if bdg and bdg[1] != "ai" and not SHOW_NO_AI:
+        bdg = None
     if shape == "diamond":
         # Text sits in a band around the middle; work out the height needed so
         # the widest line still fits inside the sloping sides.
@@ -157,10 +159,16 @@ def skip(ymid, x_from, title, desc, label="No"):
 def stage(y0, y1, num, name, pal):
     d.rounded_rectangle([BAND, y0, BAND + 36, y1], radius=7, fill=pal[0])
     txt = "%d   %s" % (num, name)
+    # A short stage makes a short band; step the label down until it fits.
+    fnt = f_stage
+    for size in (17, 15, 13, 11):
+        fnt = ImageFont.truetype(FB, size)
+        if tw(txt, fnt) <= (y1 - y0) - 16:
+            break
     tmp = Image.new("RGBA", (int(y1 - y0), 36), (0, 0, 0, 0))
     td = ImageDraw.Draw(tmp)
-    a, b, c, e = td.textbbox((0, 0), txt, font=f_stage)
-    td.text(((y1 - y0 - (c - a)) / 2, (36 - (e - b)) / 2 - b), txt, font=f_stage, fill=WHITE)
+    a, b, c, e = td.textbbox((0, 0), txt, font=fnt)
+    td.text(((y1 - y0 - (c - a)) / 2, (36 - (e - b)) / 2 - b), txt, font=fnt, fill=WHITE)
     rot = tmp.rotate(90, expand=True)
     img.paste(rot, (BAND, int(y0)), rot)
 
@@ -172,21 +180,16 @@ d.text((BAND, 62), "Every number below is the shipped default. Nothing is writte
 
 # Callout: where AI is, and is not, used.
 cy0 = 96
-CH = 150
+CH = 102
 d.rounded_rectangle([BAND, cy0, SKX1, cy0 + CH], radius=8, fill=(247, 243, 252), outline=AI_PUR, width=2)
 d.rectangle([BAND, cy0, BAND + 6, cy0 + CH], fill=AI_PUR)
-d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  EVERY STEP BELOW IS MARKED, SO NOTHING IS LEFT TO ASSUMPTION",
-       font=f_lbl, fill=AI_PUR)
+d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  ONLY THE PURPLE MARKS BELOW", font=f_lbl, fill=AI_PUR)
 for i, ln in enumerate([
-    "A model is contacted from ONE place in this pipeline: the AI Suggestion engine, one request per source page. There is a second model call in the plugin, the",
-    "Test connection button on the AI Keys screen, which sends a 5-token ping and never touches your content. Nothing else here contacts a model, ever.",
-    "",
-    "That single pipeline reply is not small, though. It decides the three things that matter most, marked AI 1, 2 and 3 below: which page to link to, which phrase",
-    "to use as the anchor, and the relevance figure on that row. Everything else, including the shortlist and the destination summaries the model is shown, is",
-    "ordinary code. The AI engine is also OFF until you switch it on, and it is skipped for any page whose link budget the GSC engine already filled.",
+    "One request per source page, from the AI Suggestion engine. That single reply decides the three things marked AI below: which page to link to, which",
+    "phrase becomes the anchor, and the relevance figure on that row. Every unmarked step is ordinary code with no model involved. The engine ships",
+    "switched off, and is skipped for any page whose link budget the GSC engine already filled.",
 ]):
-    if ln:
-        d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
+    d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
 badge(SKX1 - 18, cy0 + 14, "AI", "ai")
 d.text((SKX0, cy0 + CH + 22), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
 
@@ -196,12 +199,10 @@ _, prev, _ = node(y, "INDEX / RE-INDEX SITE", "you press the button; nothing run
 # ---------------- 1  INDEXING ----------------
 s_top = prev + 30
 steps = [
-    ("Read every page from the database", "get_post directly, plus each builder's own stored fields. It never requests your site over HTTP", "rect", None),
-    ("Reduce to plain words", "tags, scripts, styles and EVERY heading are stripped, so a heading can never become an anchor", "rect", None),
-    ("Can this page be a source?", "it must be published, of a content type you ticked, and not a WooCommerce cart or checkout page", "diamond",
+    ("Read every page and reduce it to plain words", "get_post directly, plus each builder's own stored fields, then tags, scripts, styles and EVERY heading are stripped. It never requests your site over HTTP, and a heading can never become an anchor", "rect", None),
+    ("Can this page be indexed?", "it must be published, of a content type you ticked, and not a WooCommerce cart or checkout page", "diamond",
      ("Not indexed", "drafts, unticked types, Woo system pages")),
-    ("Count each page's words", "how often every surviving word is used, keeping the 300 most frequent", "rect", None),
-    ("Content index", "title, address, language, plain text, word counts, content hash", "db", None),
+    ("The site index", "one row per page: title, address, language, plain text and content hash, plus how often each of its 300 most distinctive words is used. All of it is counted HERE, once, not during a scan", "db", None),
 ]
 db_y = None
 for title, desc, shape, sk in steps:
@@ -217,10 +218,8 @@ stage(s_top, prev, 1, "INDEXING", S1)
 # ---------------- 2  SOURCE PAGE ----------------
 s_top = prev + 30
 arrow(prev, prev + 34, S2)
-t, prev, _ = node(prev + 34, "Take the next page in scope", "the scan walks your pages one at a time", S2)
-arrow(prev, prev + 34, S2)
-t, b, xr = node(prev + 34, "Room for more links?",
-                "5 per 1,000 words by default, never fewer than 2. Links already in your content count", S2, "diamond")
+t, b, xr = node(prev + 34, "Next page in scope: room for more links?",
+                "the scan walks your pages one at a time. The budget is 5 links per 1,000 words by default and never fewer than 2, and links already in your content count towards it", S2, "diamond")
 skip((t + b) / 2, xr, "Page skipped", "already at its link limit")
 prev = b
 stage(s_top, prev, 2, "SOURCE PAGE", S2)
@@ -228,14 +227,11 @@ stage(s_top, prev, 2, "SOURCE PAGE", S2)
 # ---------------- 3  SHORTLIST ----------------
 s_top = prev + 30
 steps = [
-    ("Could this page be a destination?", "not itself, published, right content type, not excluded, not a Woo system page, same language, and at least 2 words in common", "diamond",
-     ("Never considered", "one of seven absolute rules"), None),
-    ("Compare distinctive vocabulary", "rare shared words count most, and a word appearing on over 40% of your pages counts for nothing", "rect", None,
+    ("Could this page be a destination?", "not itself, published, right content type, not excluded, not a Woo system page, same language, at least 2 words in common, not already linked from here, and not a pair you have already approved or rejected", "diamond",
+     ("Never considered", "one absolute rule failed, or your earlier decision already settled this pair"), None),
+    ("Rank the survivors, keep the closest N", "reads the word counts already in the index: rare shared words count most, and a word appearing on over 40% of your pages counts for nothing. Keeps 15 by default, adjustable from 5 to 200", "rect", None,
      ("NO AI  —  arithmetic only", "no")),
-    ("Term index", "up to 300 words per page, with how often each appears", "db", None, None),
-    ("Keep the closest N", "15 by default, adjustable from 5 to 200. This shortlist is built BEFORE any engine chooses, so the model never sees your whole site", "rect", None,
-     ("NO AI", "no")),
-    ("Describe each destination", "whole sentences copied out of that page, scored by its own distinctive words. Nothing here is written by a model", "rect", None,
+    ("Describe each destination", "whole sentences copied out of that page and scored by its own distinctive words, never written by a model. The shortlist is finished before any engine runs, so no model ever sees your whole site", "rect", None,
      ("NO AI  —  extracted, not generated", "no")),
 ]
 for title, desc, shape, sk, bd in steps:
@@ -277,10 +273,7 @@ steps = [
      ("AI OUTPUT 2 of 3: the anchor, checked here", "ai")),
     ("Can it legally be placed?", "not in a heading, not inside an existing link, not in code, and not inside a tag's attributes", "diamond",
      ("Never even suggested", "checked before storing, so the queue holds nothing unusable"), None),
-    ("Already linked, or already judged?", "one link per destination per page, and a pair you approved or rejected is never offered again", "diamond",
-     ("Skipped", "the link already exists, or your earlier decision stands"), None),
-    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation", "rect", None,
-     ("NO AI  —  the model never chooses the position", "no")),
+    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation. The model never chooses the position", "rect", None, None),
 ]
 for title, desc, shape, sk, bd in steps:
     arrow(prev, prev + 34, S5)
@@ -295,8 +288,7 @@ s_top = prev + 30
 for title, desc, bd in [
     ("Score it", "0.60 x relevance + 0.40 x naturalness. On an AI row the relevance IS the model's own confidence figure; the other two engines compute it. Naturalness is never AI: 2 to 4 words and 8 to 60 characters score best",
      ("AI OUTPUT 3 of 3: the relevance figure", "ai")),
-    ("Apply the per page cap", "at most 8 new suggestions from one page in a single scan, however many the engines found", ("NO AI", "no")),
-    ("Show it to you", "source, destination, anchor, the sentence around it, the score, and which engine proposed it", None),
+    ("Show it to you", "at most 8 new suggestions per page reach your inbox from one scan, however many the engines found. Each shows the source, destination, anchor, the sentence around it, the score, and which engine proposed it", None),
 ]:
     arrow(prev, prev + 30, S6)
     t, prev, _ = node(prev + 30, title, desc, S6, "rect", bd)
@@ -305,8 +297,7 @@ t, b, xr = node(prev + 34, "You approve it?", "nothing is ever inserted without 
 skip((t + b) / 2, xr, "Rejected and remembered", "the pair is never offered again on a later scan")
 prev = b
 for title, desc, bd in [
-    ("Save a revision and an undo record", "both are written BEFORE the post is touched, so every insertion has two ways back", None),
-    ("Splice the link in", "a byte-exact insertion. If anything but the new link would change, the write is refused",
+    ("Back it up, then splice the link in", "a WordPress revision and an undo record are written BEFORE the post is touched, so every insertion has two ways back. The insertion itself is byte-exact: if anything but the new link would change, the write is refused",
      ("NO AI  —  no model ever writes to your site", "no")),
     ("Re-index the page", "the new link is counted at once, so the next scan sees it and the link budget updates", None),
 ]:
