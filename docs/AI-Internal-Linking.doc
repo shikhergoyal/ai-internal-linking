@@ -72,7 +72,10 @@ expected to be linked sometimes is not.</p>
 
 <p>The image <code>backend-process-flowchart.png</code> beside this document shows all six stages as a single
 diagram: every decision, every branch where a suggestion is thrown away and why, every default limit and the
-screen that changes it, and the things this plugin deliberately does not do.</p>
+screen that changes it, and the things this plugin deliberately does not do. Each step is also marked to show
+whether AI is involved. There is exactly one model call in the whole plugin, one request per source page, and
+its reply supplies three things: the destination, the anchor phrase, and the relevance figure on that row.
+Every other step, including the shortlist and the destination summaries the model is shown, is ordinary code.</p>
 <h2>4. Stage 1: how your site is read</h2>
 
 <p><strong>Internally, from your WordPress database. It never requests your own pages over the internet.</strong></p>
