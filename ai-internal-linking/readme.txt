@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.19.3
+Stable tag: 0.19.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,11 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.19.4 =
+* Fixed: a summary could stop in the middle of a name. A full stop after an initial was read as the end of a sentence, so "headed by Sardar Vallabhbhai Patel, with V. P. Menon as its secretary" was cut to "...with V." and the summary trailed off mid-name.
+* The rule is structural rather than a word list: a full stop preceded by a single standing letter is punctuation inside a sentence, which holds wherever initials are written that way. A short list of English abbreviations (Dr., Prof., etc.) follows as a secondary hint and can be replaced through the ailinking_sentence_abbreviations filter, since no list can cover a language it was not written for.
+* Covered by 9 new unit tests, 287 in total.
 
 = 0.19.3 =
 * Summaries no longer lean on knowing English. 0.19.2 kept exam wording out of summaries using a list of English phrases, which is no use to a site in another language or one whose pages are laid out differently. That list is now a secondary hint, and three structural signals do the real work — none of them needs to know the language or the page format.
