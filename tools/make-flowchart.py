@@ -91,6 +91,9 @@ def badge(x_right, y_edge, text, kind):
 def node(y, title, desc, pal, shape="rect", bdg=None):
     """Draw a spine node. Returns (top, bottom, right_edge)."""
     dark, light = pal
+    # Every step is marked, so "unmarked" can never be mistaken for "unknown".
+    if bdg is None and shape != "oval":
+        bdg = ("NO AI", "no")
     if shape == "diamond":
         # Text sits in a band around the middle; work out the height needed so
         # the widest line still fits inside the sloping sides.
@@ -123,6 +126,8 @@ def node(y, title, desc, pal, shape="rect", bdg=None):
         d.line([(RIGHT, y + ry), (RIGHT, y + h - ry)], fill=dark, width=2)
         d.ellipse([LEFT, y, RIGHT, y + ry * 2], fill=light, outline=dark, width=2)
         draw_text_block(title, desc, CX, y + h / 2 + 2, RIGHT - LEFT - 40)
+        if bdg:
+            badge(RIGHT - 14, y + ry, bdg[0], bdg[1])
         return y, y + h, RIGHT
     h = body + 26
     d.rounded_rectangle([LEFT, y, RIGHT, y + h], radius=6, fill=light, outline=dark, width=2)
@@ -167,19 +172,25 @@ d.text((BAND, 62), "Every number below is the shipped default. Nothing is writte
 
 # Callout: where AI is, and is not, used.
 cy0 = 96
-d.rounded_rectangle([BAND, cy0, SKX1, cy0 + 96], radius=8, fill=(247, 243, 252), outline=AI_PUR, width=2)
-d.rectangle([BAND, cy0, BAND + 6, cy0 + 96], fill=AI_PUR)
-d.text((BAND + 22, cy0 + 14), "AI IS CALLED IN EXACTLY ONE PLACE", font=f_lbl, fill=AI_PUR)
+CH = 150
+d.rounded_rectangle([BAND, cy0, SKX1, cy0 + CH], radius=8, fill=(247, 243, 252), outline=AI_PUR, width=2)
+d.rectangle([BAND, cy0, BAND + 6, cy0 + CH], fill=AI_PUR)
+d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  EVERY STEP BELOW IS MARKED, SO NOTHING IS LEFT TO ASSUMPTION",
+       font=f_lbl, fill=AI_PUR)
 for i, ln in enumerate([
-    "One request to your chosen model per source page, and only if you switched the AI engine on. That single reply supplies three things, marked",
-    "AI below: the destination it picks, the anchor phrase it proposes, and the relevance figure you see on that row. Every other step is ordinary",
-    "code with no model involved, including the shortlist, the destination summaries the model is shown, and both of the other two engines.",
+    "A model is contacted from ONE place in this pipeline: the AI Suggestion engine, one request per source page. There is a second model call in the plugin, the",
+    "Test connection button on the AI Keys screen, which sends a 5-token ping and never touches your content. Nothing else here contacts a model, ever.",
+    "",
+    "That single pipeline reply is not small, though. It decides the three things that matter most, marked AI 1, 2 and 3 below: which page to link to, which phrase",
+    "to use as the anchor, and the relevance figure on that row. Everything else, including the shortlist and the destination summaries the model is shown, is",
+    "ordinary code. The AI engine is also OFF until you switch it on, and it is skipped for any page whose link budget the GSC engine already filled.",
 ]):
-    d.text((BAND + 22, cy0 + 36 + i * 19), ln, font=f_note, fill=(70, 60, 90))
+    if ln:
+        d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
 badge(SKX1 - 18, cy0 + 14, "AI", "ai")
-d.text((SKX0, cy0 + 118), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
+d.text((SKX0, cy0 + CH + 22), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
 
-y = cy0 + 118
+y = cy0 + CH + 22
 _, prev, _ = node(y, "INDEX / RE-INDEX SITE", "you press the button; nothing runs on a timer", NEUT, "oval")
 
 # ---------------- 1  INDEXING ----------------
@@ -243,8 +254,8 @@ t, prev, _ = node(prev + 34, "Three engines, always in this order",
 for title, desc, bd in [
     ("1.  GSC keyword", "Google decides: your page mentions a phrase another page already ranks for. That phrase becomes the anchor. Stops at 3 identical anchors aimed at one page",
      ("NO AI  —  Google data + exact matching", "no")),
-    ("2.  AI Suggestion", "THE ONLY MODEL CALL IN THE PLUGIN. One request per page. It receives your page text plus the numbered shortlist, and answers with a NUMBER, an anchor phrase, and its own confidence",
-     ("AI  —  one call per page", "ai")),
+    ("2.  AI Suggestion", "OFF until you switch it on, and skipped entirely if the engine above already filled this page's budget. When it does run: one request, temperature 0, carrying your page text plus the numbered shortlist. It answers with a NUMBER, an anchor phrase and its own confidence. The reason it gives is read and discarded",
+     ("AI  —  the only call in this pipeline", "ai")),
     ("3.  Related Content", "no key needed: the highest shared vocabulary wins, and the anchor is drawn from that page's title",
      ("NO AI  —  arithmetic only", "no")),
 ]:
@@ -344,9 +355,11 @@ tbl_bottom = fy + 46 + len(limits) * 24
 ny = tbl_bottom + 26
 d.text((BAND, ny), "NOT IN THIS PLUGIN, AND DELIBERATELY SO", font=f_lbl, fill=(150, 55, 55))
 notes = [
-    "The AI engine is optional. Switch it off, or supply no key, and the plugin still works: the GSC keyword and Related Content engines need no model and cost nothing.",
+    "The AI engine ships switched OFF. Leave it off, or supply no key, and the plugin still works: the GSC keyword and Related Content engines need no model and cost nothing.",
+    "The AI engine runs second of three, so it is skipped for any page whose link budget the GSC keyword engine has already filled. On those pages no model is contacted at all.",
     "If the model fails, times out or answers with something unusable, the scan does not stop. That page simply falls through to the Related Content engine.",
     "No model ever writes to your site, and no model is ever shown your whole site. It sees one page and a shortlist of at most 200 titles and summaries.",
+    "The only other model call in the plugin is the Test connection button on the AI Keys screen: a 5-token ping that never sees your content and never creates a suggestion.",
     "No sitemap and no HTTP crawl. It reads your database, so caching, staging and password protection cannot affect it, and drafts can be indexed.",
     "No synonym, stem or partial matching. An anchor must appear in your text word for word, or no suggestion is made at all.",
     "No page-type priority and no orphan boost when ranking. Internal PageRank IS measured, but it is only reported in Link Health.",
