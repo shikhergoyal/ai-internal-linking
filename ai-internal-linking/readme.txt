@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.15.1
+Stable tag: 0.16.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,7 +27,7 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 **Three suggestion engines**
 
 * **GSC keyword** (free). A page mentions a query another page already ranks for, without linking to it, so the ranking query becomes the anchor. Runs first, because search demand is stronger evidence than similarity.
-* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
+* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages, each one shown as its title plus the words that page uses most, so the model judges a destination by what it is about rather than only by what it is called. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
 * **Related Content** (free). A local relevance engine that fills whatever link budget the other two leave. Needs no keys and makes no external calls.
 
 **How it reads your content**
@@ -50,7 +50,7 @@ Orphans, dead ends, broken links, over and under-linked pages, internal PageRank
 
 **Cost control, if you use a key**
 
-Keys are yours and are stored encrypted. A live ticker shows tokens and estimated cost while a scan runs, the AI Keys tab breaks usage down per key and per model, and a monthly spend cap pauses AI calls before you overshoot it. How much of each page the AI reads is a setting, so the main cost lever is in your hands.
+Keys are yours and are stored encrypted. A live ticker shows tokens and estimated cost while a scan runs, the AI Keys tab breaks usage down per key and per model, and a monthly spend cap pauses AI calls before you overshoot it. Everything the model is given is a setting: how much of each page it reads, how many possible destinations it is shown, and how much it is told about each one. A live estimate on the Setup screen prices a full scan as you change them, so you can see what a change costs before you commit to it rather than after.
 
 **Coming next**
 
@@ -64,6 +64,14 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.16.0 =
+* The AI engine now tells the model what each possible destination is about, not just what it is called. Until this release the model chose a destination from its title alone, which is a thin thing to judge a page by: two posts both called "Getting started" were indistinguishable to it, and a page whose title says little about its subject was effectively invisible. Each entry on the shortlist now carries that page's own most-used words alongside its title, so an entry reads "12. Getting started — onboarding, checkout, refund, subscription" instead of "12. Getting started". This was the single biggest limit on suggestion quality, and at the default of 10 words it costs about 200 extra tokens per page to fix.
+* Those words come from the index built during "Index / Re-index site", not from re-reading anything, so this adds no scanning time — only the tokens, which the estimate on the Setup screen now shows you before you commit to them. Words your whole site uses are already filtered out during indexing, so what is sent is what actually distinguishes one page from another. The new "Words describing each destination" control sets how many, from Title only (the old behaviour, still available) up to 30. The default is 10.
+* How many possible destinations the model is shown is now yours to set too, from 5 to 200, with presets at 10, 15, 25, 40 and 60. It was fixed at 15. A short list is cheap but may not contain the right destination at all; a long one costs more and invites weaker picks, because a page ranked fiftieth by wording is on the list precisely because it has little in common with yours. The default stays at 15, so upgrading changes nothing until you decide otherwise.
+* Fixed a quiet defect this exposed. The shortlist was worked out by fetching 18 candidates and showing 15, the three spares covering pages that get filtered out afterwards (the page itself, anything it already links to, any pair you have already judged). On a well-linked page more than three were filtered away and the model was silently shown a shorter list than intended — the pages with the most established linking, where good suggestions are hardest to find, were the ones given the least to work with. The headroom is now proportional, half again plus a fixed margin, and it scales with whatever shortlist size you choose.
+* Setup & Dashboard shows a live cost estimate beside the three AI controls: tokens per page and the money for one full scan of your indexed pages, priced for your configured model, updating as you change any of them. Previously the only way to find out what a setting change cost was to run a scan and read the ticker afterwards. Both new settings are clamped on save and on read, so a value can never be stored that the plugin would then reject, and both are overridable in code via the ailinking_llm_candidates and ailinking_llm_candidate_words filters.
+* Covered by 64 new unit tests, 159 in total.
 
 = 0.15.1 =
 * The live token counter is now four labelled figures instead of a sentence. It used to read "Tokens: 39.8k in, 5.0k out, est. $0.1950 over 19 AI requests", which is a lot to parse while watching a scan move. It now shows the input tokens, output tokens, estimated cost and request count as separate values, each under its own label, in a bordered strip beneath the progress bar. The figures use tabular digits so they do not jitter as they tick upward. The markup is built on the server, so the version drawn when the page loads and the version drawn live during a scan come from the same code and cannot drift apart, and it stays translatable.

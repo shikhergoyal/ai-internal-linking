@@ -30,7 +30,7 @@ The admin is a single page with six tabs:
 Suggestions come from three engines, which run in order and are labelled in the inbox:
 
 1. **GSC keyword** evidence. A page mentions a query another page already ranks for, without linking to it, so the ranking keyword becomes the anchor.
-2. **AI Suggestion**, optional. Any chat model (Claude, OpenAI, Gemini, Groq, xAI, DeepSeek, OpenRouter, Perplexity, local) proposes links from a real shortlist of related pages. Candidate targets are constrained to pages that exist, and every anchor is verified to appear verbatim in the body before it becomes a suggestion.
+2. **AI Suggestion**, optional. Any chat model (Claude, OpenAI, Gemini, Groq, xAI, DeepSeek, OpenRouter, Perplexity, local) proposes links from a real shortlist of related pages, each shown as its title plus the words that page uses most. Candidate targets are constrained to pages that exist, and every anchor is verified to appear verbatim in the body before it becomes a suggestion. How much of the page it reads, how long the shortlist is and how much it is told about each destination are all settings, with a live cost estimate beside them.
 3. **Related Content**, a local TF-IDF relevance engine, fills the rest.
 
 ## How it reads your content

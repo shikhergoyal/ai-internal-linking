@@ -37,7 +37,26 @@ class LlmSuggester {
 
 	/** Values offered in the Setup screen dropdowns. */
 	const CANDIDATE_PRESETS = array( 10, 15, 25, 40, 60 );
-	const CANDIDATE_WORD_PRESETS = array( 0, 5, 10, 15, 20 );
+
+	/** 0 is "title only"; the list reaches the ceiling so no custom box is needed. */
+	const CANDIDATE_WORD_PRESETS = array( 0, 5, 10, 15, 20, 30 );
+
+	// -----------------------------------------------------------------------
+	// Coefficients for the Setup screen's cost estimate. Rough by design; the
+	// usage ticker reports what was actually billed.
+	// -----------------------------------------------------------------------
+
+	/** English prose runs about three tokens to four words. */
+	const TOKENS_PER_WORD = 1.35;
+
+	/** System instruction, JSON scaffolding and the article title. */
+	const PROMPT_OVERHEAD_TOKENS = 420;
+
+	/** Assumed length of a page title, in words. */
+	const TITLE_WORDS = 8;
+
+	/** A JSON reply carrying a handful of links. */
+	const REPLY_TOKENS = 260;
 
 	/**
 	 * Words of each page sent to the model when no setting is stored.
@@ -320,15 +339,29 @@ class LlmSuggester {
 	 */
 	public static function max_candidates() {
 		$n = (int) Settings::get( 'llm_candidates', self::DEFAULT_CANDIDATES );
-		if ( $n <= 0 ) {
-			$n = self::DEFAULT_CANDIDATES;
-		}
 		/**
 		 * Filter the number of possible destinations shown to the model.
 		 *
 		 * @param int $n Candidate count.
 		 */
 		$n = (int) apply_filters( 'ailinking_llm_candidates', $n );
+		return self::clamp_candidates( $n );
+	}
+
+	/**
+	 * Clamp a shortlist size into the supported range. (pure)
+	 *
+	 * Shared by the reader and the Setup screen's save handler, so a value can
+	 * never be stored that the reader would then reject.
+	 *
+	 * @param int $n Requested count.
+	 * @return int
+	 */
+	public static function clamp_candidates( $n ) {
+		$n = (int) $n;
+		if ( $n <= 0 ) {
+			$n = self::DEFAULT_CANDIDATES;
+		}
 		return max( self::MIN_CANDIDATES, min( self::MAX_CANDIDATES_LIMIT, $n ) );
 	}
 
@@ -345,7 +378,21 @@ class LlmSuggester {
 		 * @param int $n Words per destination.
 		 */
 		$n = (int) apply_filters( 'ailinking_llm_candidate_words', $n );
-		return max( 0, min( self::MAX_CANDIDATE_WORDS, $n ) );
+		return self::clamp_candidate_words( $n );
+	}
+
+	/**
+	 * Clamp the per-destination word count. (pure)
+	 *
+	 * Unlike the other two, 0 is a meaningful choice here rather than "unset":
+	 * it means send titles only, which is what this plugin did before the
+	 * setting existed. So 0 survives the clamp instead of falling back.
+	 *
+	 * @param int $n Requested words per destination.
+	 * @return int
+	 */
+	public static function clamp_candidate_words( $n ) {
+		return max( 0, min( self::MAX_CANDIDATE_WORDS, (int) $n ) );
 	}
 
 	/**
@@ -362,6 +409,29 @@ class LlmSuggester {
 	public static function fetch_count( $wanted ) {
 		$wanted = max( 1, (int) $wanted );
 		return (int) min( 400, ceil( $wanted * 1.5 ) + 6 );
+	}
+
+	/**
+	 * Estimate the tokens one source page costs, at given settings. (pure)
+	 *
+	 * Deliberately approximate, and used only to put a number next to the three
+	 * controls before a scan is run. The plugin's own ticker reports what was
+	 * actually billed; this is the "what would that change cost me?" figure that
+	 * has to exist before you change anything, not after.
+	 *
+	 * @param int $page_words      Words of the source page sent.
+	 * @param int $candidates      Destinations shown.
+	 * @param int $candidate_words Words describing each destination.
+	 * @return array{in:int,out:int}
+	 */
+	public static function estimate_tokens( $page_words, $candidates, $candidate_words ) {
+		$words = max( 0, (int) $page_words )
+			+ max( 0, (int) $candidates ) * ( self::TITLE_WORDS + max( 0, (int) $candidate_words ) );
+
+		return array(
+			'in'  => (int) round( self::PROMPT_OVERHEAD_TOKENS + $words * self::TOKENS_PER_WORD ),
+			'out' => (int) self::REPLY_TOKENS,
+		);
 	}
 
 	/**

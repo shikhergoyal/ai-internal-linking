@@ -91,7 +91,10 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <p>Your whole site has already been read before the model is involved. Indexing goes through every page and records the words it uses, and those records are what narrow 350 pages down to the handful worth considering for this one. The model is then given your page's own text along with that shortlist, and chooses from it.</p>
 
-<pre class="formula">shortlist   = the 18 best matches from the free engine, trimmed to 15
+<pre class="formula">shortlist   = the best matches from the free engine
+              (how many is your setting, default 15, range 5-200)
+each entry  = the page title + the words that page uses most
+              (how many words is your setting, default 10, up to 30)
 page sent   = the first N words          (your setting, default 1,000)
 reply limit = short, about 600 words
 creativity  = turned off, so the same page always gives the same answer
@@ -105,11 +108,11 @@ relevance   = the model's own confidence, 0 to 1
 
 <p><strong>First, eligibility, which is absolute.</strong> A page is never considered if it is the page being read, is not published, is not one of the content types you ticked as link targets, was marked excluded, is a WooCommerce cart or checkout page, is in a different language, or shares fewer than two meaningful words with the page being read. A page can be an obvious match to any human and still never appear because of one of those, most often because its content type was never ticked as a target.</p>
 
-<p><strong>Second, vocabulary, and nothing else.</strong> Not categories, not tags, not dates, not existing links. Just words, and not even all of them: filler words, anything under three letters, headings, the title, and any word appearing on more than 40 percent of your pages are all set aside first. On a cooking site the word "recipe" is ignored automatically, because it cannot tell two of your pages apart. What remains is each page's distinctive vocabulary, and "closest" means the pages that share most of it, weighted so that a rare shared word counts for far more than a common one. Everything eligible is scored, sorted, and the top 18 become the shortlist.</p>
+<p><strong>Second, vocabulary, and nothing else.</strong> Not categories, not tags, not dates, not existing links. Just words, and not even all of them: filler words, anything under three letters, headings, the title, and any word appearing on more than 40 percent of your pages are all set aside first. On a cooking site the word "recipe" is ignored automatically, because it cannot tell two of your pages apart. What remains is each page's distinctive vocabulary, and "closest" means the pages that share most of it, weighted so that a rare shared word counts for far more than a common one. Everything eligible is scored, sorted, and the best of them become the shortlist.</p>
 
-<p><strong>Why 18 and 15?</strong> They are judgement calls rather than derived numbers. Fifteen is how many the model is shown: enough to choose well, not so many that it starts favouring whatever is near the top of a long list, and already nearly twice the 8 suggestions a page can accept from one scan. Eighteen is simply fifteen plus three spare, because the list gets filtered in between, dropping the page itself, anything already linked, and any pair you have already judged. On a page that already links to most of its closest matches those three spares run out and the model is shown a shorter list, which is why the AI engine has less to say about your most established pages.</p>
+<p><strong>How long is that list?</strong> Your choice, on the Setup screen: 15 by default, anywhere from 5 to 200. Show too few and the right destination may simply not be on the list, and no amount of intelligence will find it. Show too many and you pay more for worse answers, because a page ranked fiftieth by shared wording is down there precisely because it has little in common with yours. Fifteen is already nearly twice the 8 suggestions a page can accept from one scan. Raise it if the AI keeps proposing nothing where you can see an obvious destination; lower it if what you reject is mostly loose, only-vaguely-related pairings. The list is filtered after it is drawn up, dropping the page itself, anything already linked and any pair you have judged, so the plugin always fetches more than it will show, in proportion to the number you chose.</p>
 
-<p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of page titles, and it replies with a number:</p>
+<p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of pages, each one a title plus the words that page uses most, and it replies with a number:</p>
 
 <pre class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
 
@@ -117,10 +120,10 @@ ARTICLE TITLE: Build a Content Calendar   {"n": 1,
 ARTICLE TEXT: ...your content marketing    "anchor": "content marketing strategy",
 strategy stays consistent...               "reason": "the article plans a strategy",
                                            "confidence": 0.86}
-POSSIBLE DESTINATIONS:
-  1. Content Marketing Strategy: A Guide
-  2. Social Media Scheduling Tools
-  3. Editorial Workflow for Small Teams</pre>
+POSSIBLE DESTINATIONS (title - words that page uses most):
+  1. Content Marketing Strategy: A Guide - audience, funnel, pillar
+  2. Social Media Scheduling Tools - buffer, queue, crosspost
+  3. Editorial Workflow for Small Teams - brief, reviewer, deadline</pre>
 
 <p>Notice what is missing: <strong>no web addresses anywhere</strong>. The model picks number 1. The plugin then looks up which page that is and takes its address from its own index. The model never handles a URL, so it cannot invent one.</p>
 
@@ -138,7 +141,7 @@ POSSIBLE DESTINATIONS:
 
 <table>
 <tr><th>Check</th><th>If it fails</th></tr>
-<tr><td>The page it chose must be one of the 15 it was shown</td><td>Discarded</td></tr>
+<tr><td>The page it chose must be one it was actually shown</td><td>Discarded</td></tr>
 <tr><td>The wording it chose must already appear in your page, word for word</td><td>Discarded</td></tr>
 <tr><td>Headings and the title are stripped before the model sees the text</td><td>Cannot be chosen at all</td></tr>
 </table>
@@ -159,7 +162,7 @@ POSSIBLE DESTINATIONS:
 <table>
 <tr><th>What was rejected</th><th>Why</th></tr>
 <tr><td><strong>A different source page</strong></td><td>Nothing was rejected. Every published page in your chosen content types is read in turn. A page is only skipped if it has already reached its link limit, which protects pages that are well linked already</td></tr>
-<tr><td><strong>Pages outside the closest 18</strong></td><td>They share too little vocabulary with this page. Sending all 350 to the model would cost roughly twenty times more and produce worse answers, because a long list invites weak picks</td></tr>
+<tr><td><strong>Pages that missed the shortlist</strong></td><td>They share too little vocabulary with this page. Sending all 350 to the model would cost roughly twenty times more and produce worse answers, because a long list invites weak picks</td></tr>
 <tr><td><strong>A page you already link to</strong></td><td>The link exists. Suggesting it again is noise</td></tr>
 <tr><td><strong>A pair you already judged</strong></td><td>You approved or rejected it before. It is not offered a second time</td></tr>
 <tr><td><strong>The page itself</strong></td><td>A page cannot link to itself</td></tr>

@@ -147,12 +147,12 @@ class Tfidf {
 	}
 
 	/**
-	 * The most distinctive words for a set of pages, in one query.
+	 * The most distinctive words for a set of pages.
 	 *
 	 * Used to tell the model what each possible destination is actually about,
 	 * rather than making it judge from a title alone. Batched deliberately: one
-	 * query for the whole shortlist, not one per page, because this runs inside
-	 * a scan that is already doing a network round trip per post.
+	 * round trip per 40 pages, not one per page, because this runs inside a scan
+	 * that is already doing a network round trip per post.
 	 *
 	 * Ordered by raw frequency, which is what the table is indexed for. Rarity
 	 * weighting would be better but needs a second pass over document
@@ -173,32 +173,41 @@ class Tfidf {
 		}
 
 		$table = Tables::tfidf();
-		$ph    = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-		$args  = $ids;
-		// Generous ceiling so no page is starved, then trimmed per page below.
-		$args[] = count( $ids ) * $per_post * 4;
+		$out   = array();
 
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT post_id, term FROM {$table}
-				 WHERE post_id IN ($ph)
-				 ORDER BY post_id ASC, tf DESC
-				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
-				$args
-			),
-			ARRAY_A
-		);
-
-		$out = array();
-		foreach ( (array) $rows as $r ) {
-			$pid = (int) $r['post_id'];
-			if ( ! isset( $out[ $pid ] ) ) {
-				$out[ $pid ] = array();
+		// One bounded subquery per page, UNION ALL'd into a single round trip.
+		//
+		// The obvious "WHERE post_id IN (...) ORDER BY tf DESC LIMIT n" does not
+		// work here, and fails silently rather than loudly: a LIMIT applies to
+		// the whole result, not per page, so the first pages in the list eat the
+		// entire allowance (up to MAX_TERMS_PER_POST rows each) and every page
+		// after them comes back with no words at all. Each subquery carries its
+		// own LIMIT, so every page gets exactly its share.
+		foreach ( array_chunk( $ids, 40 ) as $chunk ) {
+			$parts = array();
+			$args  = array();
+			foreach ( $chunk as $id ) {
+				$parts[] = "(SELECT post_id, term FROM {$table} WHERE post_id = %d ORDER BY tf DESC LIMIT %d)";
+				$args[]  = $id;
+				$args[]  = $per_post;
 			}
-			if ( count( $out[ $pid ] ) < $per_post ) {
-				$out[ $pid ][] = (string) $r['term'];
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare( implode( ' UNION ALL ', $parts ), $args ), // phpcs:ignore WordPress.DB.PreparedSQL
+				ARRAY_A
+			);
+
+			foreach ( (array) $rows as $r ) {
+				$pid = (int) $r['post_id'];
+				if ( ! isset( $out[ $pid ] ) ) {
+					$out[ $pid ] = array();
+				}
+				if ( count( $out[ $pid ] ) < $per_post ) {
+					$out[ $pid ][] = (string) $r['term'];
+				}
 			}
 		}
+
 		return $out;
 	}
 

@@ -215,3 +215,25 @@
 .ailinking-usage-list li {
 	margin: 2px 0;
 }
+
+/* Setup screen: the AI budget group and its live cost estimate. */
+.ailinking-subhead th {
+	padding-top: 24px;
+	border-top: 1px solid #dcdcde;
+	font-weight: 400;
+}
+
+.ailinking-subhead h3 {
+	margin: 0 0 4px;
+	font-size: 14px;
+}
+
+.ailinking-estimate {
+	display: inline-block;
+	margin: 0 0 6px;
+	padding: 8px 12px;
+	background: #f0f6fc;
+	border-left: 4px solid #2271b1;
+	font-size: 14px;
+	font-variant-numeric: tabular-nums;
+}

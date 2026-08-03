@@ -362,21 +362,93 @@
 			} );
 		}
 
-		// Word-budget selector: reveal the free number field only for "Custom".
-		var wordsSelect = document.getElementById( 'ailinking-ai-words' );
-		var wordsCustom = document.getElementById( 'ailinking-ai-words-custom' );
-		if ( wordsSelect && wordsCustom ) {
-			wordsSelect.addEventListener( 'change', function () {
-				var custom = 'custom' === wordsSelect.value;
-				wordsCustom.style.display = custom ? 'inline-block' : 'none';
+		// --- AI engine budget controls ------------------------------------
+		// Two preset-or-custom pairs and one plain select, all feeding a live
+		// cost estimate so the price of a change is visible before saving it.
+
+		function pickedValue( selectId, numberId ) {
+			var sel = document.getElementById( selectId );
+			if ( ! sel ) {
+				return 0;
+			}
+			if ( 'custom' === sel.value ) {
+				var num = document.getElementById( numberId );
+				return num ? parseInt( num.value, 10 ) || 0 : 0;
+			}
+			return parseInt( sel.value, 10 ) || 0;
+		}
+
+		function money( cents ) {
+			if ( cents < 100 ) {
+				return '$' + ( cents / 100 ).toFixed( cents < 10 ? 3 : 2 );
+			}
+			return '$' + ( cents / 100 ).toFixed( 2 );
+		}
+
+		function thousands( n ) {
+			return String( Math.round( n ) ).replace( /\B(?=(\d{3})+(?!\d))/g, ',' );
+		}
+
+		function updateEstimate() {
+			var box = document.getElementById( 'ailinking-ai-estimate' );
+			if ( ! box ) {
+				return;
+			}
+			var d = box.dataset;
+			var pageWords = pickedValue( 'ailinking-ai-words', 'ailinking-ai-words-custom' );
+			var cands     = pickedValue( 'ailinking-ai-candidates', 'ailinking-ai-candidates-custom' );
+			var cwSel     = document.getElementById( 'ailinking-ai-candidate-words' );
+			var candWords = cwSel ? parseInt( cwSel.value, 10 ) || 0 : 0;
+
+			// Mirrors LlmSuggester::estimate_tokens(); the coefficients come
+			// from the PHP constants via data attributes, so there is one source.
+			var words  = pageWords + cands * ( parseFloat( d.titleWords ) + candWords );
+			var tokIn  = Math.round( parseFloat( d.overhead ) + words * parseFloat( d.perWord ) );
+			var tokOut = parseInt( d.reply, 10 ) || 0;
+			var pages  = parseInt( d.pages, 10 ) || 0;
+			var perPage = tokIn + tokOut;
+
+			if ( ! pages ) {
+				box.textContent = ( cfg.i18n.estimateNone || '%s tokens per page' )
+					.replace( '%s', thousands( perPage ) );
+				return;
+			}
+
+			var cents = ( tokIn * parseFloat( d.rateIn ) + tokOut * parseFloat( d.rateOut ) ) / 1000000;
+			box.textContent = ( cfg.i18n.estimate || '%1$s tokens per page, %2$s per scan of %3$s pages' )
+				.replace( '%1$s', thousands( perPage ) )
+				.replace( '%2$s', money( cents * pages ) )
+				.replace( '%3$s', thousands( pages ) );
+		}
+
+		[
+			[ 'ailinking-ai-words', 'ailinking-ai-words-custom' ],
+			[ 'ailinking-ai-candidates', 'ailinking-ai-candidates-custom' ]
+		].forEach( function ( pair ) {
+			var sel = document.getElementById( pair[0] );
+			var num = document.getElementById( pair[1] );
+			if ( ! sel || ! num ) {
+				return;
+			}
+			sel.addEventListener( 'change', function () {
+				var custom = 'custom' === sel.value;
+				num.style.display = custom ? 'inline-block' : 'none';
 				if ( custom ) {
-					wordsCustom.focus();
+					num.focus();
 				} else {
 					// Keep the field in step so it shows the value actually in use.
-					wordsCustom.value = wordsSelect.value;
+					num.value = sel.value;
 				}
+				updateEstimate();
 			} );
+			num.addEventListener( 'input', updateEstimate );
+		} );
+
+		var candWordsSelect = document.getElementById( 'ailinking-ai-candidate-words' );
+		if ( candWordsSelect ) {
+			candWordsSelect.addEventListener( 'change', updateEstimate );
 		}
+		updateEstimate();
 
 		// Fetch Search Console data (Keywords page), one API page per request.
 		var gscBtn = document.getElementById( 'ailinking-gsc-fetch' );
