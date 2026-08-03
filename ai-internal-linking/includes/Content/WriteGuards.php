@@ -19,6 +19,18 @@ defined( 'ABSPATH' ) || exit;
 
 class WriteGuards {
 
+	/**
+	 * Matches one HTML tag, comment, doctype or processing instruction.
+	 *
+	 * Attribute-aware on purpose. The obvious '<[^>]+>' ends a tag at the first
+	 * '>', including one sitting inside a quoted attribute value, so
+	 * '<img alt="a > b">' is split mid-tag and the remainder is treated as body
+	 * text. Anchor text found there was spliced INSIDE the attribute, producing
+	 * broken markup, and the visible-text integrity check could not see it
+	 * because strip_tags() mis-parses the same construct identically.
+	 */
+	const TAG_PATTERN = '/(<!--.*?-->|<!\[CDATA\[.*?\]\]>|<![^>]*>|<\?.*?\?>|<\/?[a-zA-Z][a-zA-Z0-9:_.-]*(?:\s+[^\s"\'>\/=]+(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'>`]+))?)*\s*\/?>)/s';
+
 	// Never link inside these elements: existing links, code, preformatted, scripts,
 	// styles, or any heading (H1-H6).
 	const SKIP_TAGS = array( 'a', 'code', 'pre', 'script', 'style', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' );
@@ -81,7 +93,7 @@ class WriteGuards {
 			return $out;
 		}
 
-		$tokens = preg_split( '/(<[^>]+>)/', $html, -1, PREG_SPLIT_DELIM_CAPTURE );
+		$tokens = preg_split( self::TAG_PATTERN, $html, -1, PREG_SPLIT_DELIM_CAPTURE );
 		if ( false === $tokens ) {
 			return $out;
 		}

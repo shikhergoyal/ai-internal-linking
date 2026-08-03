@@ -42,6 +42,17 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( $u ) { // phpcs:ignore
+		return htmlspecialchars( (string) $u, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_attr' ) ) {
+	function esc_attr( $a ) { // phpcs:ignore
+		return htmlspecialchars( (string) $a, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
 defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
 
 // In-memory transients, so cached lookups can be seeded by a test.
@@ -83,6 +94,7 @@ require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider 
 require_once $plugin . '/Providers/AnthropicProvider.php';
 require_once $plugin . '/Providers/Registry.php';
 require_once $plugin . '/Install/Schema.php';
+require_once $plugin . '/Content/WriteGuards.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -96,6 +108,7 @@ use AILinking\Admin\BulkActions;
 use AILinking\Suggestions\Summarizer;
 use AILinking\Providers\AnthropicProvider;
 use AILinking\Providers\Registry;
+use AILinking\Content\WriteGuards;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -740,6 +753,47 @@ ok( count( $cols ) > 15, 'the whole table is parsed, not a fragment' );
 foreach ( $cols as $c ) {
 	ok( (bool) preg_match( '/^[a-z0-9_]+$/', $c ), "column name '{$c}' looks like a column name" );
 }
+
+// ---------------------------------------------------------------------------
+// WriteGuards — the only code that edits a reader's content.
+//
+// The tokenizer must understand that a ">" inside a quoted attribute does not
+// end a tag. It used to, so "<img alt='a > b strategy'>" was split mid-tag,
+// the remainder was treated as body text, and an anchor found there was spliced
+// INSIDE the attribute. The visible-text integrity check could not catch it
+// either, because strip_tags() mis-parses the same construct the same way, so
+// the broken markup would have been saved.
+// ---------------------------------------------------------------------------
+
+function wg( $html, $anchor ) {
+	return WriteGuards::insert_anchor( $html, $anchor, 'https://x.test/p', 'id1' );
+}
+
+$r = wg( '<p>the content marketing strategy works</p>', 'content marketing strategy' );
+ok( ! empty( $r['ok'] ), 'a plain body match is linked' );
+ok( false !== strpos( $r['html'], '>content marketing strategy</a>' ), 'the anchor text is preserved exactly' );
+
+$r = wg( '<p><img alt="a > b strategy"> real strategy here</p>', 'strategy' );
+ok( ! empty( $r['ok'] ), 'a raw > inside an attribute does not block a genuine match' );
+ok( false === strpos( $r['html'], 'alt="a > b <a ' ), 'REGRESSION: nothing is ever spliced inside an attribute value' );
+ok( false !== strpos( $r['html'], 'real <a href="https://x.test/p" data-ailinking-id="id1">strategy</a> here' ), 'the real body occurrence is the one linked' );
+eq( substr_count( $r['html'], '<a href' ), 1, 'exactly one link is inserted' );
+
+ok( empty( wg( '<h2>content marketing strategy</h2>', 'content marketing strategy' )['ok'] ), 'headings are never linked' );
+ok( empty( wg( '<p><a href="#">content marketing strategy</a></p>', 'content marketing strategy' )['ok'] ), 'existing links are never nested' );
+ok( empty( wg( '<pre>content marketing strategy</pre>', 'content marketing strategy' )['ok'] ), 'preformatted text is never linked' );
+ok( empty( wg( '<p>contents marketing strategyx</p>', 'content marketing strategy' )['ok'] ), 'partial words never match' );
+ok( empty( wg( '<p>anything at all</p>', '' )['ok'] ), 'an empty anchor is refused' );
+
+$r = wg( '<p>cost (per unit) rose</p>', 'cost (per unit)' );
+ok( ! empty( $r['ok'] ), 'regex metacharacters in an anchor are treated literally' );
+
+$r = wg( '<p>l&#39;été chaud arrive</p>', 'été' );
+ok( ! empty( $r['ok'] ), 'a Unicode word boundary matches correctly' );
+
+$r = wg( '<p><!-- strategy in a comment --> real strategy</p>', 'strategy' );
+ok( ! empty( $r['ok'] ), 'a comment does not derail the scan' );
+ok( false === strpos( $r['html'], '<!-- <a' ), 'nothing is spliced inside a comment' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.
