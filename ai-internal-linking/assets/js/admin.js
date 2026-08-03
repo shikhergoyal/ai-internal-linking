@@ -603,8 +603,17 @@
 			var d = box.dataset;
 			var pageWords = pickedValue( 'ailinking-ai-words', 'ailinking-ai-words-custom' );
 			var cands     = pickedValue( 'ailinking-ai-candidates', 'ailinking-ai-candidates-custom' );
-			var cwSel     = document.getElementById( 'ailinking-ai-candidate-words' );
-			var candWords = cwSel ? parseInt( cwSel.value, 10 ) || 0 : 0;
+			// How much each destination carries depends on how it is described.
+			var modeSel = document.getElementById( 'ailinking-ai-describe' );
+			var mode = modeSel ? modeSel.value : 'keywords';
+			var candWords = 0;
+			if ( 'summary' === mode ) {
+				var swSel = document.getElementById( 'ailinking-ai-summary-words' );
+				candWords = swSel ? parseInt( swSel.value, 10 ) || 0 : 0;
+			} else if ( 'keywords' === mode ) {
+				var cwSel = document.getElementById( 'ailinking-ai-candidate-words' );
+				candWords = cwSel ? parseInt( cwSel.value, 10 ) || 0 : 0;
+			}
 
 			// Mirrors LlmSuggester::estimate_tokens(); the coefficients come
 			// from the PHP constants via data attributes, so there is one source.
@@ -650,10 +659,27 @@
 			num.addEventListener( 'input', updateEstimate );
 		} );
 
-		var candWordsSelect = document.getElementById( 'ailinking-ai-candidate-words' );
-		if ( candWordsSelect ) {
-			candWordsSelect.addEventListener( 'change', updateEstimate );
+		// Show only the length control that belongs to the chosen description mode.
+		var describeSel = document.getElementById( 'ailinking-ai-describe' );
+		function syncDescribeMode() {
+			var picked = describeSel ? describeSel.value : '';
+			Array.prototype.slice.call( document.querySelectorAll( '.ailinking-describe-len' ) )
+				.forEach( function ( box ) {
+					box.style.display = ( box.getAttribute( 'data-mode' ) === picked ) ? 'inline' : 'none';
+				} );
+			updateEstimate();
 		}
+		if ( describeSel ) {
+			describeSel.addEventListener( 'change', syncDescribeMode );
+			syncDescribeMode();
+		}
+
+		[ 'ailinking-ai-candidate-words', 'ailinking-ai-summary-words' ].forEach( function ( id ) {
+			var el = document.getElementById( id );
+			if ( el ) {
+				el.addEventListener( 'change', updateEstimate );
+			}
+		} );
 		updateEstimate();
 
 		// Fetch Search Console data (Keywords page), one API page per request.

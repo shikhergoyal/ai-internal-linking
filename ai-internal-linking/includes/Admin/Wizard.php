@@ -16,6 +16,7 @@ use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
 use AILinking\Suggestions\LlmSuggester;
+use AILinking\Suggestions\Summarizer;
 use AILinking\Providers\Pricing;
 
 defined( 'ABSPATH' ) || exit;
@@ -83,6 +84,12 @@ class Wizard {
 		$ai_cand_words = isset( $_POST['llm_candidate_words'] ) ? (int) $_POST['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS;
 		$ai_cand_words = LlmSuggester::clamp_candidate_words( $ai_cand_words );
 
+		// How a destination is described, and how long that description runs.
+		// Both lengths are stored whichever mode is chosen, so switching back
+		// and forth does not lose the other one's setting.
+		$ai_mode    = LlmSuggester::clamp_describe_mode( isset( $_POST['llm_describe_mode'] ) ? sanitize_key( wp_unslash( $_POST['llm_describe_mode'] ) ) : '' );
+		$ai_sum_len = Summarizer::clamp_words( isset( $_POST['llm_summary_words'] ) ? (int) $_POST['llm_summary_words'] : Summarizer::DEFAULT_WORDS );
+
 		Settings::update(
 			array(
 				'crawl_post_types'    => $crawl,
@@ -91,6 +98,8 @@ class Wizard {
 				'llm_max_words'       => $ai_words,
 				'llm_candidates'      => $ai_candidates,
 				'llm_candidate_words' => $ai_cand_words,
+				'llm_describe_mode'   => $ai_mode,
+				'llm_summary_words'   => $ai_sum_len,
 				'wizard_complete'     => true,
 			)
 		);
@@ -331,43 +340,67 @@ class Wizard {
 							</p>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><label for="ailinking-ai-candidate-words"><?php esc_html_e( 'Words describing each destination page', 'ai-internal-linking' ); ?></label></th>
+										<tr>
+						<th scope="row"><label for="ailinking-ai-describe"><?php esc_html_e( 'How each destination page is described', 'ai-internal-linking' ); ?></label></th>
 						<td>
-							<?php $ai_cw = LlmSuggester::clamp_candidate_words( isset( $settings['llm_candidate_words'] ) ? $settings['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS ); ?>
-							<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
-								<?php foreach ( LlmSuggester::CANDIDATE_WORD_PRESETS as $preset ) : ?>
-									<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_cw ); ?>>
-										<?php
-										if ( 0 === $preset ) {
-											esc_html_e( 'Title only', 'ai-internal-linking' );
-										} else {
+							<?php
+							$ai_cw   = LlmSuggester::clamp_candidate_words( isset( $settings['llm_candidate_words'] ) ? $settings['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS );
+							$ai_mode = LlmSuggester::clamp_describe_mode( isset( $settings['llm_describe_mode'] ) ? $settings['llm_describe_mode'] : 'summary' );
+							$ai_sw   = Summarizer::clamp_words( isset( $settings['llm_summary_words'] ) ? $settings['llm_summary_words'] : Summarizer::DEFAULT_WORDS );
+							?>
+							<select id="ailinking-ai-describe" name="llm_describe_mode">
+								<option value="summary" <?php selected( 'summary', $ai_mode ); ?>><?php esc_html_e( 'A short summary (recommended)', 'ai-internal-linking' ); ?></option>
+								<option value="keywords" <?php selected( 'keywords', $ai_mode ); ?>><?php esc_html_e( 'A list of key words', 'ai-internal-linking' ); ?></option>
+								<option value="title" <?php selected( 'title', $ai_mode ); ?>><?php esc_html_e( 'Title only', 'ai-internal-linking' ); ?></option>
+							</select>
+							<span class="ailinking-describe-len" data-mode="summary" style="display:<?php echo 'summary' === $ai_mode ? 'inline' : 'none'; ?>;">
+								<select id="ailinking-ai-summary-words" name="llm_summary_words">
+									<?php foreach ( Summarizer::PRESETS as $preset ) : ?>
+										<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_sw ); ?>>
+											<?php
+											printf(
+												/* translators: %s: number of words */
+												esc_html__( '%s words', 'ai-internal-linking' ),
+												esc_html( number_format_i18n( $preset ) )
+											);
+											echo $preset === Summarizer::DEFAULT_WORDS ? esc_html__( ' (default)', 'ai-internal-linking' ) : '';
+											?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</span>
+							<span class="ailinking-describe-len" data-mode="keywords" style="display:<?php echo 'keywords' === $ai_mode ? 'inline' : 'none'; ?>;">
+								<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
+									<?php foreach ( LlmSuggester::CANDIDATE_WORD_PRESETS as $preset ) : ?>
+										<?php if ( 0 === $preset ) { continue; } ?>
+										<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_cw ); ?>>
+											<?php
 											printf(
 												/* translators: %s: number of words */
 												esc_html__( '%s words', 'ai-internal-linking' ),
 												esc_html( number_format_i18n( $preset ) )
 											);
 											echo $preset === LlmSuggester::DEFAULT_CANDIDATE_WORDS ? esc_html__( ' (default)', 'ai-internal-linking' ) : '';
-										}
-										?>
-									</option>
-								<?php endforeach; ?>
-							</select>
+											?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</span>
 							<p class="description">
 								<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
-								<?php esc_html_e( 'Sets how much the AI is told about each page on the shortlist, beyond its title.', 'ai-internal-linking' ); ?>
+								<?php esc_html_e( 'Sets what the AI is told about each page on the shortlist, beyond its title.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
-								<strong><?php esc_html_e( 'Why it matters.', 'ai-internal-linking' ); ?></strong>
-								<?php esc_html_e( 'On “Title only”, two pages both called “Getting started” look identical to the AI. Attaching a few of each page’s own most-used words is usually the cheapest way to get better picks.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Why a summary.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'On “Title only”, two pages both called “Getting started” look identical to the AI. A key-word list fixes that cheaply, but wastes room on near-duplicates such as “zone” and “zones”. A summary reads naturally and carries the unusual terms a short word list cuts off, which is usually the best value.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
-								<strong><?php esc_html_e( 'Where the words come from.', 'ai-internal-linking' ); ?></strong>
-								<?php esc_html_e( 'The existing index, not a fresh read, so this costs no extra time — only the tokens shown below. Words your whole site uses are filtered out.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Where it comes from.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'The summary is built from the page’s own most representative sentences, using the index you already have — no AI call, and nothing is written into your pages. Wording your whole site repeats is ignored, so menus and standard intros cannot end up in it.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
 								<strong><?php esc_html_e( 'Not link text.', 'ai-internal-linking' ); ?></strong>
-								<?php esc_html_e( 'These words describe the destination page and never become the link. The anchor always comes from the page being read, and is checked to appear there word-for-word.', 'ai-internal-linking' ); ?>
+								<?php esc_html_e( 'This describes the destination page and never becomes the link. The anchor always comes from the page being read, and is checked to appear there word-for-word.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -380,7 +413,9 @@ class Wizard {
 							// Cents per 1M tokens, resolved for the configured model.
 							$rate_in  = Pricing::cents_float( $chat_provider, $chat_model, 1000000, 0 );
 							$rate_out = Pricing::cents_float( $chat_provider, $chat_model, 0, 1000000 );
-							$est      = LlmSuggester::estimate_tokens( $ai_words, $ai_cands, $ai_cw );
+							// Words per destination depends on how they are described.
+							$per_dest = ( 'summary' === $ai_mode ) ? $ai_sw : ( ( 'keywords' === $ai_mode ) ? $ai_cw : 0 );
+							$est      = LlmSuggester::estimate_tokens( $ai_words, $ai_cands, $per_dest );
 							?>
 							<p id="ailinking-ai-estimate" class="ailinking-estimate"
 								data-pages="<?php echo esc_attr( (string) $indexed ); ?>"

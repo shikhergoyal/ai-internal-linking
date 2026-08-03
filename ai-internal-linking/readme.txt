@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.18.0
+Stable tag: 0.19.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,7 +27,7 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 **Three suggestion engines**
 
 * **GSC keyword** (free). A page mentions a query another page already ranks for, without linking to it, so the ranking query becomes the anchor. Runs first, because search demand is stronger evidence than similarity.
-* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages, each one shown as its title plus the words that page uses most, so the model judges a destination by what it is about rather than only by what it is called. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
+* **AI Suggestion** (optional, your own key). Any chat model picks links from a shortlist of genuinely related pages, each one shown as its title plus a short summary of what that page covers, so the model judges a destination by what it is about rather than only by what it is called. The summary is extracted from the page's own sentences — no second AI call, and nothing written into your content. It cannot invent a target or an anchor: candidates are restricted to pages that exist, and every proposed anchor is verified to appear verbatim in the body or the pick is discarded.
 * **Related Content** (free). A local relevance engine that fills whatever link budget the other two leave. Needs no keys and makes no external calls.
 
 **How it reads your content**
@@ -64,6 +64,16 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.19.0 =
+* Each possible destination is now described to the AI by a short summary of the page, instead of a list of key words. A word list is a poor description: it wastes room on near-duplicates such as "zone" and "zones", it strips out the relationships between ideas, and the unusual terms that actually distinguish a page often sit just below the cut. A summary carries all of that in the page's own sentences, and reads as English rather than as a bag of words.
+* The summary is extracted, not written. The plugin scores every sentence on a page against that page's own distinctive vocabulary, which it already has from indexing, and keeps the two or three that represent it best. No AI call is involved, nothing is generated, and nothing is written into your content. It works the same on a brand-new site with no SEO plugin, no excerpts and no API key.
+* Boilerplate cannot get into a summary, and that falls out of the method rather than being a special case. Words your whole site repeats are excluded before scoring, so a sentence built from them scores zero however often it appears. On a real site whose every page opened with the same "By the end you will be able to…" block, not one summary picked it up.
+* Sentences that repeat a point are dropped, including paraphrases. Pages restate things in "key points" panels, and the restatement scores as well as the original, so both used to be chosen. Two sentences sharing most of their distinctive words now count as one, which is what stops a summary saying the same thing twice in different words.
+* Summaries are built once, on first use, and stored. They are not built during indexing, because scoring a sentence needs to know which words the whole site uses and that is not known until the whole site is indexed — a page indexed first would otherwise be judged against an almost empty site, where nothing looks common and boilerplate scores as well as substance. A page's summary is discarded whenever its content changes.
+* "How each destination page is described" on Setup & Dashboard offers a short summary (the new default), a list of key words (the previous behaviour), or the title alone, with a length for each. Pages too short to summarise fall back to key words on their own, so nothing is ever described by a bare title by accident. Overridable in code with the ailinking_llm_describe_mode and ailinking_llm_summary_words filters.
+* Cost, measured on a 350-page site: a 40-word summary per destination works out about 25% more per scan than a 10-word list. The live estimate on the Setup screen accounts for the mode you pick, so the figure updates as you switch between them.
+* Covered by 26 new unit tests, 250 in total, including that site-wide boilerplate is never summarised and that a restated fact appears only once.
 
 = 0.18.0 =
 * Fixed: the plugin could not use current-generation Claude models at all. Every request sent a `temperature` parameter, and newer Claude models reject it outright rather than ignoring it, so selecting one produced a bare "400 Bad Request" — which reads like a broken API key, not like a model that needs different options. The AI engine would simply go quiet. If a model refuses the parameter, the plugin now drops it, remembers that model refuses it, and retries once. The only thing lost is the determinism `temperature: 0` bought, and these models are consistent enough without it; a silent engine was much the worse trade.

@@ -78,6 +78,7 @@ require_once $plugin . '/Suggestions/LlmSuggester.php';
 require_once __DIR__ . '/stubs/tables.php'; // Must precede Tfidf, which calls it.
 require_once $plugin . '/Suggestions/Tfidf.php';
 require_once $plugin . '/Admin/BulkActions.php';
+require_once $plugin . '/Suggestions/Summarizer.php';
 require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider implements it.
 require_once $plugin . '/Providers/AnthropicProvider.php';
 require_once $plugin . '/Providers/Registry.php';
@@ -91,6 +92,7 @@ use AILinking\Security\Redactor;
 use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Admin\BulkActions;
+use AILinking\Suggestions\Summarizer;
 use AILinking\Providers\AnthropicProvider;
 use AILinking\Providers\Registry;
 
@@ -556,6 +558,75 @@ eq( Registry::resolve_model_choice( '__custom', '' ), '', 'Other with nothing ty
 eq( Registry::resolve_model_choice( 'claude-sonnet-5', 'ignored' ), 'claude-sonnet-5', 'the custom box is ignored unless Other is chosen' );
 eq( Registry::resolve_model_choice( '  claude-opus-5  ', '' ), 'claude-opus-5', 'a listed value is trimmed too' );
 ok( '__custom' !== Registry::resolve_model_choice( '__custom', 'x' ), 'the sentinel is never stored as a model id' );
+
+// ---------------------------------------------------------------------------
+// Summarizer — extractive page summaries.
+//
+// The property that matters: boilerplate cannot win. Words a site repeats
+// everywhere are excluded from the weights before scoring, so a sentence made
+// of them scores zero however often it appears.
+// ---------------------------------------------------------------------------
+
+eq( Summarizer::clamp_words( 40 ), 40, 'a normal length passes through' );
+eq( Summarizer::clamp_words( 0 ), Summarizer::DEFAULT_WORDS, 'zero falls back to the default' );
+eq( Summarizer::clamp_words( 5 ), Summarizer::MIN_WORDS, 'below the floor is raised' );
+eq( Summarizer::clamp_words( 9999 ), Summarizer::MAX_WORDS, 'a runaway value is capped' );
+ok( in_array( Summarizer::DEFAULT_WORDS, Summarizer::PRESETS, true ), 'the default is selectable' );
+
+eq( count( Summarizer::sentences( 'One two. Three four! Five six?' ) ), 3, 'sentences split on terminal punctuation' );
+eq( count( Summarizer::sentences( '' ) ), 0, 'empty text yields no sentences' );
+eq(
+	count( Summarizer::sentences( 'Indian Railways has 68 divisions.A zone is headed by a manager.' ) ),
+	2,
+	'a full stop running into the next capital still splits (stripped block markup does this)'
+);
+
+eq( Summarizer::dedupe_key( 'The Sufi movement began early.' ), Summarizer::dedupe_key( 'the sufi movement began early' ), 'the dedupe key ignores case and punctuation' );
+ok( Summarizer::dedupe_key( 'Soil forms from parent rock.' ) !== Summarizer::dedupe_key( 'Salinity varies by ocean.' ), 'different sentences get different keys' );
+
+$boiler = 'Overview of this article. By the end you will be able to draft model answers for the questions below. '
+	. 'Ocean salinity averages 35 parts per thousand, meaning 35 grams of dissolved salt in every kilogram of seawater. '
+	. 'By the end you will be able to draft model answers for the questions below.';
+// "overview", "end", "able", "draft", "model", "answers", "questions" are the
+// words this imaginary site repeats everywhere, so they are not in the weights.
+$weights = array( 'salinity' => 12, 'ocean' => 9, 'dissolved' => 6, 'salt' => 6, 'seawater' => 5, 'grams' => 3 );
+$sum     = Summarizer::summarize( $boiler, $weights, 60 );
+ok( false !== strpos( $sum, 'salinity averages 35' ), 'the sentence built from the page own vocabulary is chosen' );
+ok( false === strpos( $sum, 'draft model answers' ), 'REGRESSION: repeated site boilerplate is never summarised' );
+
+// A page that restates the same block twice must not be summarised twice.
+$dupe = 'Indian Railways has 18 administrative zones and 68 divisions across the country. '
+	. 'Indian Railways has 18 administrative zones and 68 divisions across the country. '
+	. 'The newest zone is South Coast Railway with its headquarters at Visakhapatnam.';
+$w2   = array( 'railways' => 9, 'zones' => 8, 'divisions' => 6, 'zone' => 6, 'coast' => 4, 'visakhapatnam' => 3, 'headquarters' => 3 );
+$sum2 = Summarizer::summarize( $dupe, $w2, 80 );
+eq( substr_count( $sum2, 'has 18 administrative zones' ), 1, 'REGRESSION: a restated block appears once, not twice' );
+ok( false !== strpos( $sum2, 'South Coast Railway' ), 'the slot freed by dedupe is given to a different sentence' );
+
+// Paraphrase, not exact repetition: different strings, one fact. An exact-text
+// check misses this, which is why the overlap check exists.
+$para = 'South Coast Railway, at Visakhapatnam, is the newest railway zone in the country. '
+	. 'The South Coast Railway, with its headquarters at Visakhapatnam, is the newest zone. '
+	. 'Konkan Railway is run by a separate corporation and is not a zonal railway at all.';
+$w3   = array( 'railway' => 9, 'zone' => 7, 'visakhapatnam' => 5, 'newest' => 4, 'coast' => 4, 'south' => 4, 'headquarters' => 3, 'konkan' => 3, 'corporation' => 2, 'zonal' => 2 );
+$sum3 = Summarizer::summarize( $para, $w3, 80 );
+eq( substr_count( $sum3, 'Visakhapatnam' ), 1, 'REGRESSION: the same fact in different words is only stated once' );
+ok( false !== strpos( $sum3, 'Konkan' ), 'the freed slot goes to a genuinely different fact' );
+
+eq( Summarizer::overlap( array( 'a' => true, 'b' => true ), array( 'a' => true, 'b' => true ) ), 1.0, 'identical word sets overlap fully' );
+eq( Summarizer::overlap( array( 'a' => true ), array( 'b' => true ) ), 0.0, 'unrelated word sets do not overlap' );
+eq( Summarizer::overlap( array( 'a' => true, 'b' => true ), array( 'a' => true, 'b' => true, 'c' => true, 'd' => true ) ), 1.0, 'a sentence wholly contained in a longer one counts as a repeat' );
+eq( Summarizer::overlap( array(), array( 'a' => true ) ), 0.0, 'an empty set never counts as a repeat' );
+
+eq( Summarizer::summarize( '', $weights, 40 ), '', 'no text, no summary' );
+eq( Summarizer::summarize( $boiler, array(), 40 ), '', 'no distinctive words, no summary' );
+eq( Summarizer::summarize( 'Too short.', $weights, 40 ), '', 'a page of fragments yields nothing, so the caller can fall back' );
+
+$long = Summarizer::summarize( $boiler, $weights, 25 );
+ok( str_word_count( $long ) <= 30, 'the word budget is respected (allowing the trim marker)' );
+
+eq( Summarizer::trim_to_words( 'one two three four five', 3 ), 'one two three…', 'trimming marks that it was cut' );
+eq( Summarizer::trim_to_words( 'one two', 10 ), 'one two', 'text under the limit is untouched' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

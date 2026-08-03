@@ -169,6 +169,7 @@ class Schema {
 			parsed_text longtext NULL,
 			content_hash char(32) NOT NULL DEFAULT '',
 			word_count int unsigned NOT NULL DEFAULT 0,
+			summary text NULL,
 			lang_code varchar(10) NOT NULL DEFAULT 'und',
 			lang_source varchar(10) NOT NULL DEFAULT 'none',
 			is_woo_product tinyint(1) NOT NULL DEFAULT 0,

@@ -241,6 +241,9 @@ class Indexer {
 			Tfidf::store_for_post( $post_id, $text );
 			self::rebuild_link_graph( $post_id, $parsed['links'], $post->post_title );
 		}
+		// No need to clear the stored summary here: the upsert above is a
+		// REPLACE, which rewrites the whole row, so an existing summary is
+		// already gone and will be rebuilt from the new text on next use.
 
 		return true;
 	}
