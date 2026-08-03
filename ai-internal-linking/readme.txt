@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.20.0
+Stable tag: 0.20.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,11 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.20.1 =
+* Fixed the check that decides whether a database upgrade landed. A stray control character in the pattern meant the filter that skips index definitions never matched, so "PRIMARY KEY" and "UNIQUE KEY" were read as if they were column names. Since no table has columns by those names, every upgrade concluded the schema had not been applied, spent three futile retries, and then recorded a list of missing columns that were never columns at all. The schema itself was always correct and no data was affected; the damage was three wasted attempts per upgrade and a misleading warning.
+* The reason it shipped is worth recording: the parser had a test, but the test contained its own copy of the logic instead of calling the plugin's. It passed while the shipped code was broken. It now calls the real method, and asserts specifically that PRIMARY KEY, UNIQUE KEY, KEY and INDEX lines are never mistaken for columns.
+* Covered by 30 new unit tests, 321 in total.
 
 = 0.20.0 =
 * Search Console imports no longer store the same phrase twice. Search Console reports a phrase for a page across several date ranges and property variants, and each report was stored as a new row: one site had 107 duplicated groups, several repeated eight times. Because the engine only ever looks at the 500 most valuable phrases, every copy was taking a slot that a different phrase should have had. A unique key now makes a repeat update the existing row instead, duplicates already stored are removed on upgrade, and unmapped phrases are recorded against page 0 rather than NULL, since MySQL treats every NULL as distinct and would have let them keep duplicating.

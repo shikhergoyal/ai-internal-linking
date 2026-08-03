@@ -82,6 +82,7 @@ require_once $plugin . '/Suggestions/Summarizer.php';
 require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider implements it.
 require_once $plugin . '/Providers/AnthropicProvider.php';
 require_once $plugin . '/Providers/Registry.php';
+require_once $plugin . '/Install/Schema.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -359,6 +360,10 @@ class FakeWpdb { // phpcs:ignore
 			$sql = preg_replace( '/%d/', (string) (int) $a, $sql, 1 );
 		}
 		return $sql;
+	}
+
+	public function get_charset_collate() { // phpcs:ignore
+		return 'DEFAULT CHARACTER SET utf8mb4';
 	}
 
 	public function get_results( $sql, $mode = null ) { // phpcs:ignore
@@ -711,6 +716,30 @@ ok( '' !== $fs, 'an all-questions page is still summarised, because a question b
 
 eq( Summarizer::trim_to_words( 'one two three four five', 3 ), 'one two three…', 'trimming marks that it was cut' );
 eq( Summarizer::trim_to_words( 'one two', 10 ), 'one two', 'text under the limit is untouched' );
+
+// ---------------------------------------------------------------------------
+// Schema::index_columns — the parser that decides whether a migration landed.
+//
+// This is tested through the REAL method on purpose. A previous version was
+// checked with a re-implementation of the same logic in the test, which passed
+// while the shipped regex was corrupt: a stray byte made the key-line filter
+// never match, so "PRIMARY KEY" and "UNIQUE KEY" were read as column names,
+// every upgrade decided the schema did not match, and each one burned three
+// futile retries before giving up.
+// ---------------------------------------------------------------------------
+
+$cols = \AILinking\Install\Schema::index_columns();
+ok( in_array( 'post_id', $cols, true ), 'a real column is found' );
+ok( in_array( 'summary', $cols, true ), 'the newest column is found' );
+ok( in_array( 'parsed_text', $cols, true ), 'and one from the middle of the table' );
+ok( ! in_array( 'primary', $cols, true ), 'REGRESSION: PRIMARY KEY is not read as a column' );
+ok( ! in_array( 'unique', $cols, true ), 'REGRESSION: UNIQUE KEY is not read as a column' );
+ok( ! in_array( 'key', $cols, true ), 'REGRESSION: a KEY line is not read as a column' );
+ok( ! in_array( 'index', $cols, true ), 'REGRESSION: an INDEX line is not read as a column' );
+ok( count( $cols ) > 15, 'the whole table is parsed, not a fragment' );
+foreach ( $cols as $c ) {
+	ok( (bool) preg_match( '/^[a-z0-9_]+$/', $c ), "column name '{$c}' looks like a column name" );
+}
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.
