@@ -156,6 +156,10 @@ class Admin {
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
 					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),
+					/* translators: 1: tokens per page, 2: money for a whole scan, 3: page count */
+					'estimate'      => __( 'About %1$s tokens per page — roughly %2$s for one full scan of %3$s pages.', 'ai-internal-linking' ),
+					/* translators: %s: tokens per page */
+					'estimateNone'  => __( 'About %s tokens per page. Index the site to see what a full scan would cost.', 'ai-internal-linking' ),
 					'found'         => __( 'found', 'ai-internal-linking' ),
 					'paused'        => __( 'Paused', 'ai-internal-linking' ),
 					'confirmScan'   => __( 'Start a new scan? This replaces the current Pending suggestions (Approved and Applied ones are kept).', 'ai-internal-linking' ),

@@ -22,8 +22,41 @@ defined( 'ABSPATH' ) || exit;
 
 class LlmSuggester {
 
-	/** Max candidates shown to the model. */
-	const MAX_CANDIDATES = 15;
+	/** Possible destinations shown to the model when no setting is stored. */
+	const DEFAULT_CANDIDATES = 15;
+
+	/** Bounds for the shortlist. Below 5 the model has nothing to choose from. */
+	const MIN_CANDIDATES = 5;
+	const MAX_CANDIDATES_LIMIT = 200;
+
+	/** Distinctive words sent per destination when no setting is stored. */
+	const DEFAULT_CANDIDATE_WORDS = 10;
+
+	/** 0 means title only. Beyond 30 the list stops being a summary. */
+	const MAX_CANDIDATE_WORDS = 30;
+
+	/** Values offered in the Setup screen dropdowns. */
+	const CANDIDATE_PRESETS = array( 10, 15, 25, 40, 60 );
+
+	/** 0 is "title only"; the list reaches the ceiling so no custom box is needed. */
+	const CANDIDATE_WORD_PRESETS = array( 0, 5, 10, 15, 20, 30 );
+
+	// -----------------------------------------------------------------------
+	// Coefficients for the Setup screen's cost estimate. Rough by design; the
+	// usage ticker reports what was actually billed.
+	// -----------------------------------------------------------------------
+
+	/** English prose runs about three tokens to four words. */
+	const TOKENS_PER_WORD = 1.35;
+
+	/** System instruction, JSON scaffolding and the article title. */
+	const PROMPT_OVERHEAD_TOKENS = 420;
+
+	/** Assumed length of a page title, in words. */
+	const TITLE_WORDS = 8;
+
+	/** A JSON reply carrying a handful of links. */
+	const REPLY_TOKENS = 260;
 
 	/**
 	 * Words of each page sent to the model when no setting is stored.
@@ -74,7 +107,7 @@ class LlmSuggester {
 				continue;
 			}
 			$candidates[] = $c;
-			if ( count( $candidates ) >= self::MAX_CANDIDATES ) {
+			if ( count( $candidates ) >= self::max_candidates() ) {
 				break;
 			}
 		}
@@ -182,16 +215,38 @@ class LlmSuggester {
 	private static function user_prompt( $title, $text, array $candidates ) {
 		$excerpt = self::truncate_words( $text, self::max_words() );
 
+		// A title alone is a thin description of a page: two posts both called
+		// "Getting started" look identical to the model. Sending each possible
+		// destination's own most-used words gives it something to judge.
+		$per_page = self::candidate_words();
+		$terms    = array();
+		if ( $per_page > 0 ) {
+			$ids = array();
+			foreach ( $candidates as $c ) {
+				$ids[] = (int) $c['post_id'];
+			}
+			$terms = Tfidf::top_terms_for( $ids, $per_page );
+		}
+
 		$lines = array();
 		$i     = 1;
 		foreach ( $candidates as $c ) {
-			$lines[] = $i . '. ' . trim( (string) $c['title'] );
+			$line = $i . '. ' . trim( (string) $c['title'] );
+			$tid  = (int) $c['post_id'];
+			if ( ! empty( $terms[ $tid ] ) ) {
+				$line .= ' - ' . implode( ', ', $terms[ $tid ] );
+			}
+			$lines[] = $line;
 			$i++;
 		}
 
+		$heading = $per_page > 0
+			? "CANDIDATE PAGES (title - words that page uses most):\n"
+			: "CANDIDATE PAGES:\n";
+
 		return "ARTICLE TITLE: " . trim( (string) $title ) . "\n\n"
 			. "ARTICLE TEXT:\n" . $excerpt . "\n\n"
-			. "CANDIDATE PAGES:\n" . implode( "\n", $lines );
+			. $heading . implode( "\n", $lines );
 	}
 
 	/**
@@ -275,6 +330,108 @@ class LlmSuggester {
 			$words = self::DEFAULT_MAX_WORDS;
 		}
 		return max( self::MIN_WORDS, min( self::MAX_WORDS_LIMIT, $words ) );
+	}
+
+	/**
+	 * How many possible destinations to show the model.
+	 *
+	 * @return int
+	 */
+	public static function max_candidates() {
+		$n = (int) Settings::get( 'llm_candidates', self::DEFAULT_CANDIDATES );
+		/**
+		 * Filter the number of possible destinations shown to the model.
+		 *
+		 * @param int $n Candidate count.
+		 */
+		$n = (int) apply_filters( 'ailinking_llm_candidates', $n );
+		return self::clamp_candidates( $n );
+	}
+
+	/**
+	 * Clamp a shortlist size into the supported range. (pure)
+	 *
+	 * Shared by the reader and the Setup screen's save handler, so a value can
+	 * never be stored that the reader would then reject.
+	 *
+	 * @param int $n Requested count.
+	 * @return int
+	 */
+	public static function clamp_candidates( $n ) {
+		$n = (int) $n;
+		if ( $n <= 0 ) {
+			$n = self::DEFAULT_CANDIDATES;
+		}
+		return max( self::MIN_CANDIDATES, min( self::MAX_CANDIDATES_LIMIT, $n ) );
+	}
+
+	/**
+	 * How many distinctive words to send per destination. 0 means title only.
+	 *
+	 * @return int
+	 */
+	public static function candidate_words() {
+		$n = (int) Settings::get( 'llm_candidate_words', self::DEFAULT_CANDIDATE_WORDS );
+		/**
+		 * Filter the words sent per destination.
+		 *
+		 * @param int $n Words per destination.
+		 */
+		$n = (int) apply_filters( 'ailinking_llm_candidate_words', $n );
+		return self::clamp_candidate_words( $n );
+	}
+
+	/**
+	 * Clamp the per-destination word count. (pure)
+	 *
+	 * Unlike the other two, 0 is a meaningful choice here rather than "unset":
+	 * it means send titles only, which is what this plugin did before the
+	 * setting existed. So 0 survives the clamp instead of falling back.
+	 *
+	 * @param int $n Requested words per destination.
+	 * @return int
+	 */
+	public static function clamp_candidate_words( $n ) {
+		return max( 0, min( self::MAX_CANDIDATE_WORDS, (int) $n ) );
+	}
+
+	/**
+	 * How many candidates to fetch so that filtering cannot starve the list.
+	 *
+	 * The shortlist is filtered after it is computed, dropping the page itself,
+	 * anything already linked and anything already judged. Fetching exactly the
+	 * number to be shown means a well linked page ends up showing far fewer, so
+	 * this asks for half again plus a fixed margin. (pure)
+	 *
+	 * @param int $wanted Destinations to show.
+	 * @return int
+	 */
+	public static function fetch_count( $wanted ) {
+		$wanted = max( 1, (int) $wanted );
+		return (int) min( 400, ceil( $wanted * 1.5 ) + 6 );
+	}
+
+	/**
+	 * Estimate the tokens one source page costs, at given settings. (pure)
+	 *
+	 * Deliberately approximate, and used only to put a number next to the three
+	 * controls before a scan is run. The plugin's own ticker reports what was
+	 * actually billed; this is the "what would that change cost me?" figure that
+	 * has to exist before you change anything, not after.
+	 *
+	 * @param int $page_words      Words of the source page sent.
+	 * @param int $candidates      Destinations shown.
+	 * @param int $candidate_words Words describing each destination.
+	 * @return array{in:int,out:int}
+	 */
+	public static function estimate_tokens( $page_words, $candidates, $candidate_words ) {
+		$words = max( 0, (int) $page_words )
+			+ max( 0, (int) $candidates ) * ( self::TITLE_WORDS + max( 0, (int) $candidate_words ) );
+
+		return array(
+			'in'  => (int) round( self::PROMPT_OVERHEAD_TOKENS + $words * self::TOKENS_PER_WORD ),
+			'out' => (int) self::REPLY_TOKENS,
+		);
 	}
 
 	/**

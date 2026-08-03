@@ -147,6 +147,71 @@ class Tfidf {
 	}
 
 	/**
+	 * The most distinctive words for a set of pages.
+	 *
+	 * Used to tell the model what each possible destination is actually about,
+	 * rather than making it judge from a title alone. Batched deliberately: one
+	 * round trip per 40 pages, not one per page, because this runs inside a scan
+	 * that is already doing a network round trip per post.
+	 *
+	 * Ordered by raw frequency, which is what the table is indexed for. Rarity
+	 * weighting would be better but needs a second pass over document
+	 * frequencies, and for a handful of descriptive words the difference does
+	 * not justify the extra query.
+	 *
+	 * @param int[] $post_ids Page ids.
+	 * @param int   $per_post Words to return for each.
+	 * @return array<int,string[]> post id => words, most used first.
+	 */
+	public static function top_terms_for( array $post_ids, $per_post = 10 ) {
+		global $wpdb;
+
+		$ids      = array_values( array_unique( array_map( 'intval', $post_ids ) ) );
+		$per_post = max( 1, (int) $per_post );
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$table = Tables::tfidf();
+		$out   = array();
+
+		// One bounded subquery per page, UNION ALL'd into a single round trip.
+		//
+		// The obvious "WHERE post_id IN (...) ORDER BY tf DESC LIMIT n" does not
+		// work here, and fails silently rather than loudly: a LIMIT applies to
+		// the whole result, not per page, so the first pages in the list eat the
+		// entire allowance (up to MAX_TERMS_PER_POST rows each) and every page
+		// after them comes back with no words at all. Each subquery carries its
+		// own LIMIT, so every page gets exactly its share.
+		foreach ( array_chunk( $ids, 40 ) as $chunk ) {
+			$parts = array();
+			$args  = array();
+			foreach ( $chunk as $id ) {
+				$parts[] = "(SELECT post_id, term FROM {$table} WHERE post_id = %d ORDER BY tf DESC LIMIT %d)";
+				$args[]  = $id;
+				$args[]  = $per_post;
+			}
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare( implode( ' UNION ALL ', $parts ), $args ), // phpcs:ignore WordPress.DB.PreparedSQL
+				ARRAY_A
+			);
+
+			foreach ( (array) $rows as $r ) {
+				$pid = (int) $r['post_id'];
+				if ( ! isset( $out[ $pid ] ) ) {
+					$out[ $pid ] = array();
+				}
+				if ( count( $out[ $pid ] ) < $per_post ) {
+					$out[ $pid ][] = (string) $r['term'];
+				}
+			}
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Generate ranked link candidates for a source post.
 	 *
 	 * Relevance = weighted overlap: how much of the source's idf-weighted content

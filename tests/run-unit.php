@@ -42,6 +42,8 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 	}
 }
 
+defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
+
 $plugin = __DIR__ . '/../ai-internal-linking/includes';
 require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
@@ -50,6 +52,8 @@ require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
 require_once $plugin . '/Security/Redactor.php';
 require_once $plugin . '/Suggestions/LlmSuggester.php';
+require_once __DIR__ . '/stubs/tables.php'; // Must precede Tfidf, which calls it.
+require_once $plugin . '/Suggestions/Tfidf.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -58,6 +62,7 @@ use AILinking\Providers\Pricing;
 use AILinking\Providers\UsageStats;
 use AILinking\Security\Redactor;
 use AILinking\Suggestions\LlmSuggester;
+use AILinking\Suggestions\Tfidf;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -221,6 +226,174 @@ ok( LlmSuggester::MIN_WORDS < LlmSuggester::PRESET_MAX_WORDS, 'floor is below th
 ok( LlmSuggester::PRESET_MAX_WORDS <= LlmSuggester::MAX_WORDS_LIMIT, 'presets never exceed the hard ceiling' );
 ok( in_array( LlmSuggester::DEFAULT_MAX_WORDS, LlmSuggester::PRESETS, true ), 'the default is selectable as a preset' );
 ok( in_array( LlmSuggester::MIN_WORDS, LlmSuggester::PRESETS, true ), 'the floor is selectable as a preset' );
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::clamp_candidates — how many destinations the model is shown.
+// ---------------------------------------------------------------------------
+
+eq( LlmSuggester::clamp_candidates( 15 ), 15, 'a normal shortlist size passes through' );
+eq( LlmSuggester::clamp_candidates( LlmSuggester::MIN_CANDIDATES ), LlmSuggester::MIN_CANDIDATES, 'the floor itself is allowed' );
+eq( LlmSuggester::clamp_candidates( 2 ), LlmSuggester::MIN_CANDIDATES, 'too short a list is raised to the floor' );
+eq( LlmSuggester::clamp_candidates( 60 ), 60, 'a custom value above the presets is allowed' );
+eq( LlmSuggester::clamp_candidates( LlmSuggester::MAX_CANDIDATES_LIMIT ), 200, 'the ceiling itself is allowed' );
+eq( LlmSuggester::clamp_candidates( 5000 ), LlmSuggester::MAX_CANDIDATES_LIMIT, 'a runaway value is capped' );
+eq( LlmSuggester::clamp_candidates( 0 ), LlmSuggester::DEFAULT_CANDIDATES, 'zero falls back to the default, not the floor' );
+eq( LlmSuggester::clamp_candidates( -3 ), LlmSuggester::DEFAULT_CANDIDATES, 'a negative value falls back to the default' );
+ok( in_array( LlmSuggester::DEFAULT_CANDIDATES, LlmSuggester::CANDIDATE_PRESETS, true ), 'the default is selectable as a preset' );
+foreach ( LlmSuggester::CANDIDATE_PRESETS as $p ) {
+	eq( LlmSuggester::clamp_candidates( $p ), $p, "preset {$p} survives the clamp unchanged" );
+}
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::clamp_candidate_words — 0 means "titles only" here, which is a
+// real choice rather than an unset value, so it must survive the clamp.
+// ---------------------------------------------------------------------------
+
+eq( LlmSuggester::clamp_candidate_words( 0 ), 0, 'zero survives: it means send titles only' );
+eq( LlmSuggester::clamp_candidate_words( 10 ), 10, 'a normal value passes through' );
+eq( LlmSuggester::clamp_candidate_words( LlmSuggester::MAX_CANDIDATE_WORDS ), 30, 'the ceiling itself is allowed' );
+eq( LlmSuggester::clamp_candidate_words( 500 ), LlmSuggester::MAX_CANDIDATE_WORDS, 'a runaway value is capped' );
+eq( LlmSuggester::clamp_candidate_words( -5 ), 0, 'a negative value becomes titles only' );
+ok( in_array( LlmSuggester::DEFAULT_CANDIDATE_WORDS, LlmSuggester::CANDIDATE_WORD_PRESETS, true ), 'the default is selectable as a preset' );
+ok( in_array( 0, LlmSuggester::CANDIDATE_WORD_PRESETS, true ), 'titles-only is offered in the dropdown' );
+eq( max( LlmSuggester::CANDIDATE_WORD_PRESETS ), LlmSuggester::MAX_CANDIDATE_WORDS, 'the presets reach the ceiling, so no custom box is needed' );
+foreach ( LlmSuggester::CANDIDATE_WORD_PRESETS as $p ) {
+	eq( LlmSuggester::clamp_candidate_words( $p ), $p, "preset {$p} survives the clamp unchanged" );
+}
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::fetch_count — headroom over what is shown, because the pool is
+// filtered afterwards (already linked, already judged) and could otherwise
+// starve a well-linked page of destinations.
+// ---------------------------------------------------------------------------
+
+ok( LlmSuggester::fetch_count( 15 ) > 15, 'always fetches more than it will show' );
+eq( LlmSuggester::fetch_count( 15 ), 29, '15 shown fetches 29' );
+eq( LlmSuggester::fetch_count( 10 ), 21, '10 shown fetches 21' );
+ok( LlmSuggester::fetch_count( 200 ) <= 400, 'the fetch is bounded even at the largest shortlist' );
+ok( LlmSuggester::fetch_count( 0 ) > 0, 'a zero request still fetches something' );
+$prev = 0;
+foreach ( array( 5, 10, 15, 25, 40, 60, 200 ) as $n ) {
+	$got = LlmSuggester::fetch_count( $n );
+	ok( $got >= $prev, "fetch count never decreases as the shortlist grows ({$n})" );
+	$prev = $got;
+}
+
+// ---------------------------------------------------------------------------
+// LlmSuggester::estimate_tokens — the figure shown beside the three controls.
+// ---------------------------------------------------------------------------
+
+$e = LlmSuggester::estimate_tokens( 1000, 15, 10 );
+// 1000 + 15*(8+10) = 1270 words; 420 + 1270*1.35 = 2134.5 -> 2135.
+eq( $e['in'], 2135, 'default settings estimate 2,135 input tokens' );
+eq( $e['out'], LlmSuggester::REPLY_TOKENS, 'the reply estimate is the flat constant' );
+ok(
+	LlmSuggester::estimate_tokens( 1000, 15, 20 )['in'] > LlmSuggester::estimate_tokens( 1000, 15, 10 )['in'],
+	'more words per destination costs more'
+);
+ok(
+	LlmSuggester::estimate_tokens( 1000, 40, 10 )['in'] > LlmSuggester::estimate_tokens( 1000, 15, 10 )['in'],
+	'a longer shortlist costs more'
+);
+ok(
+	LlmSuggester::estimate_tokens( 2000, 15, 10 )['in'] > LlmSuggester::estimate_tokens( 1000, 15, 10 )['in'],
+	'reading more of the page costs more'
+);
+eq(
+	LlmSuggester::estimate_tokens( 1000, 15, 0 )['in'],
+	LlmSuggester::estimate_tokens( 1000, 15, -5 )['in'],
+	'a negative word count is treated as titles only'
+);
+ok( LlmSuggester::estimate_tokens( 0, 0, 0 )['in'] >= LlmSuggester::PROMPT_OVERHEAD_TOKENS, 'the fixed prompt overhead is never lost' );
+
+// ---------------------------------------------------------------------------
+// Tfidf::top_terms_for — the words attached to each possible destination.
+//
+// Not a pure function, but the one bug worth guarding here is in the SQL and it
+// fails silently: with a single global LIMIT over "post_id IN (...)", the first
+// pages in the list consume the whole allowance and every page after them comes
+// back with no words at all — the feature would look like it worked while doing
+// nothing for most of the shortlist. The fake below reproduces MySQL's per
+// subquery LIMIT faithfully enough to catch a regression to that shape.
+// ---------------------------------------------------------------------------
+
+class FakeWpdb { // phpcs:ignore
+
+	public $queries = array();
+	public $rows    = array(); // post_id => terms, most used first.
+
+	public function prepare( $sql, $args ) { // phpcs:ignore
+		foreach ( (array) $args as $a ) {
+			$sql = preg_replace( '/%d/', (string) (int) $a, $sql, 1 );
+		}
+		return $sql;
+	}
+
+	public function get_results( $sql, $mode = null ) { // phpcs:ignore
+		$this->queries[] = $sql;
+		$out             = array();
+		// Each bounded subquery contributes its own rows, up to its own LIMIT.
+		preg_match_all( '/post_id = (\d+) ORDER BY tf DESC LIMIT (\d+)/', $sql, $hits, PREG_SET_ORDER );
+		foreach ( $hits as $hit ) {
+			$pid   = (int) $hit[1];
+			$terms = isset( $this->rows[ $pid ] ) ? array_slice( $this->rows[ $pid ], 0, (int) $hit[2] ) : array();
+			foreach ( $terms as $t ) {
+				$out[] = array( 'post_id' => (string) $pid, 'term' => $t );
+			}
+		}
+		return $out;
+	}
+}
+
+$wpdb       = new FakeWpdb();
+$wpdb->rows = array(
+	11 => array( 'alpha', 'beta', 'gamma', 'delta', 'epsilon' ),
+	12 => array( 'one', 'two' ),
+	13 => array( 'red', 'green', 'blue', 'white' ),
+);
+
+$terms = Tfidf::top_terms_for( array( 11, 12, 13 ), 3 );
+eq( count( $wpdb->queries ), 1, 'a whole shortlist is fetched in one round trip' );
+eq( implode( ',', $terms[11] ), 'alpha,beta,gamma', 'the most used words come back, in order' );
+eq( implode( ',', $terms[12] ), 'one,two', 'a page with fewer words than asked for returns what it has' );
+eq(
+	implode( ',', $terms[13] ),
+	'red,green,blue',
+	'the LAST page on the list still gets its words (the bug this guards against starved it)'
+);
+foreach ( array( 11, 12, 13 ) as $pid ) {
+	ok( ! empty( $terms[ $pid ] ), "page {$pid} is never silently empty" );
+}
+eq( substr_count( $wpdb->queries[0], 'LIMIT 3' ), 3, 'every page carries its own LIMIT, not one shared one' );
+ok( false === strpos( $wpdb->queries[0], 'IN (' ), 'no single-LIMIT IN() query, which cannot bound per page' );
+
+$wpdb->queries = array();
+$terms         = Tfidf::top_terms_for( array( 11, 11, 11 ), 2 );
+eq( count( $terms ), 1, 'duplicate ids are collapsed' );
+eq( implode( ',', $terms[11] ), 'alpha,beta', 'the per-page count is respected' );
+
+$wpdb->queries = array();
+$terms         = Tfidf::top_terms_for( array(), 10 );
+eq( count( $terms ), 0, 'an empty shortlist returns nothing' );
+eq( count( $wpdb->queries ), 0, 'an empty shortlist runs no query at all' );
+
+$wpdb->queries = array();
+$terms         = Tfidf::top_terms_for( array( 11, 999 ), 3 );
+ok( ! isset( $terms[999] ), 'a page with no indexed words is simply absent, not an empty entry' );
+
+// A shortlist can now be up to 200 pages, so the statement has to stay bounded.
+$wpdb->queries = array();
+$many          = range( 1, 45 );
+Tfidf::top_terms_for( $many, 5 );
+eq( count( $wpdb->queries ), 2, '45 pages are split into two statements, not one huge one' );
+
+$wpdb->queries = array();
+Tfidf::top_terms_for( range( 1, 200 ), 10 );
+eq( count( $wpdb->queries ), 5, 'the largest allowed shortlist takes five statements' );
+
+$wpdb->queries = array();
+$terms         = Tfidf::top_terms_for( array( 11 ), 0 );
+eq( count( $terms[11] ), 1, 'a zero word count still returns something rather than a broken query' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

@@ -32,7 +32,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <table>
 <tr><th>Word</th><th>What it actually means</th></tr>
-<tr><td><strong>Shortlist</strong></td><td>A small group of pages worth thinking about. Your site might have 350 pages, but only about 18 of them could sensibly be linked from any given article. That smaller group is the shortlist. Working it out first is what stops the plugin comparing every page against every other page.</td></tr>
+<tr><td><strong>Shortlist</strong></td><td>A small group of pages worth thinking about. Your site might have 350 pages, but only a dozen or two of them could sensibly be linked from any given article. That smaller group is the shortlist. Working it out first is what stops the plugin comparing every page against every other page.</td></tr>
 <tr><td><strong>Possible destination</strong></td><td>One page on that shortlist. A page that <em>might</em> end up being linked to, once the wording has been checked.</td></tr>
 <tr><td><strong>Wording</strong></td><td>The words that become clickable. If a sentence reads "your content marketing strategy should be planned", the wording might be "content marketing strategy". Often called anchor text.</td></tr>
 <tr><td><strong>Relevance</strong></td><td>A number from 0 to 1 answering one question: should these two pages be connected at all? Higher is better.</td></tr>
@@ -67,12 +67,19 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <p>Those records are then used to narrow the choice. This page is compared against every other page you have, and only the closest are kept. The model receives your page's own text together with that shortlist, so it is reading your actual content, not guessing from titles alone:</p>
 
-<pre class="formula">The shortlist   the 18 closest matches for this page,
+<pre class="formula">The shortlist   the closest matches for this page,
                 minus the page itself,
                 minus anything it already links to,
                 minus anything already suggested before.
 
-Sent to the model   the first 15 of those, as a numbered list of titles.
+Sent to the model   a numbered list of what survives.
+                    How many is your setting: 15 by default,
+                    anywhere from 5 to 200.
+
+Each entry is   the page's title, followed by the words that page
+                uses most. How many words is your setting too:
+                10 by default, up to 30, or none at all if you
+                pick "Title only".
 
 Also sent   your page's title, and the opening part of your page
             (how much is your setting: 1,000 words by default,
@@ -121,7 +128,7 @@ Creativity    turned off completely, so the same page gives the same answer.</pr
 
 <h4>How "closest" is decided</h4>
 
-<div class="formula">For each word the two pages share:
+<pre class="formula">For each word the two pages share:
 
     how rare that word is across your whole site
       x  the smaller of the two pages' usage counts
@@ -129,23 +136,25 @@ Creativity    turned off completely, so the same page gives the same answer.</pr
 Add all of those up, then divide by the reading page's own total.
 
 The result is between 0 and 1: the share of this page's distinctive
-vocabulary that the other page also covers.</div>
+vocabulary that the other page also covers.</pre>
 
 <p>Two details in there are doing real work. <strong>Rarity</strong> means a shared unusual word counts for far more than a shared ordinary one, which is what stops every page on your site looking related to every other. <strong>The smaller of the two counts</strong> stops a page that repeats one word two hundred times from appearing related to everything that mentions it once.</p>
 
-<p>Every eligible page gets a score this way. They are sorted, highest first, and the top 18 become the shortlist. Nothing else about them is considered.</p>
+<p>Every eligible page gets a score this way. They are sorted, highest first, and the best of them become the shortlist. Nothing else about them is considered.</p>
 
-<div class="key"><strong>So, in one sentence:</strong> the shortlist is the eighteen pages that share the most distinctive vocabulary with the page being read, out of everything published, in the same language, of a content type you chose as a link target.</div>
+<div class="key"><strong>So, in one sentence:</strong> the shortlist is the pages that share the most distinctive vocabulary with the page being read, out of everything published, in the same language, of a content type you chose as a link target.</div>
 
-<h3>Why 18, and why 15?</h3>
+<h3>How long is the shortlist?</h3>
 
-<p>Honest answer: these are judgement calls, not numbers derived from anything. It is worth knowing which is which.</p>
+<p>You decide. The setting is on the Setup &amp; Dashboard screen, it starts at 15, and it accepts anything from 5 to 200. Fifteen is a starting point, not a law, so it is worth knowing what pulls in each direction.</p>
 
-<p><strong>15 is the real number.</strong> That is how many titles the model is shown. It is a balance between two opposite problems. Show too few and the model has nothing good to pick from. Show too many and the quality drops, because a long list makes any model lean towards whatever sits near the top of it rather than judging the whole list evenly. Fifteen is also comfortably more than can be used: a page accepts at most 8 new suggestions from one scan, so the model is already offered nearly twice what it could possibly need.</p>
+<p><strong>Why not fewer.</strong> The model can only choose from what it is shown. If the right destination is not on the list, no amount of intelligence will find it, and a short list makes that more likely on a large site. Fifteen is also comfortably more than can be used: a page accepts at most 8 new suggestions from one scan, so the model is already offered nearly twice what it could possibly need.</p>
 
-<p><strong>18 is just 15 with three spare.</strong> The list is filtered between being worked out and being sent: the page itself is removed, so is anything it already links to, and so is any pair you have already approved or rejected. Asking for exactly 15 would mean sending fewer than 15 whenever any of those applied. Three spare covers the usual case.</p>
+<p><strong>Why not more.</strong> Two reasons. Cost, which is straightforward — a longer list is more to send on every page of every scan. And quality, which is less obvious: a page ranked fiftieth by shared wording is down there precisely because it has little in common with yours, so a longer list is mostly filled with weaker options. Long lists also make any model lean towards whatever sits near the top rather than judging the whole list evenly.</p>
 
-<div class="note"><strong>Where the spare three run out.</strong> On a page that already links to many of its closest matches, more than three of the eighteen get filtered away, and the model is shown a shorter list. Nothing breaks and nothing is wrong with the suggestions that result, but a well linked page gives the AI less to work with than a fresh one. If you ever find the AI engine going quiet on your most established pages, this is why.</div>
+<p><strong>A practical steer.</strong> Raise it if the AI keeps proposing nothing on pages where you can see an obvious destination it never offered. Lower it if the suggestions you reject are mostly loose, only-vaguely-related pairings.</p>
+
+<div class="note"><strong>Something you do not have to think about.</strong> The list is filtered after it is worked out: the page itself is removed, so is anything it already links to, and so is any pair you have already approved or rejected. So the plugin always fetches noticeably more than it will show, and that headroom scales with whatever number you choose. Earlier versions fetched a flat three spare, which ran out on well-linked pages and quietly showed the model a shorter list than intended — the pages with the most established linking, where good suggestions are hardest to find, were getting the least to work with. That is fixed.</div>
 
 <h3>What the model gets back, and what it must return</h3>
 
@@ -155,12 +164,14 @@ Article title: Build a Content Calendar     Page number: 1
 Article text:  ...your content marketing    Wording:     content marketing strategy
 strategy stays consistent...                Reason:      the article plans a strategy
                                             Confidence:  0.86
-Possible destinations:
-  1. Content Marketing Strategy: A Guide
-  2. Social Media Scheduling Tools
-  3. Editorial Workflow for Small Teams</pre>
+Possible destinations (title - words that page uses most):
+  1. Content Marketing Strategy: A Guide - audience, funnel, pillar, cadence
+  2. Social Media Scheduling Tools - buffer, queue, crosspost, analytics
+  3. Editorial Workflow for Small Teams - brief, reviewer, deadline, handoff</pre>
 
-<p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
+<p><strong>The words after each title are what make this work.</strong> A title on its own is a thin description of a page. Two posts both called "Getting started" look identical to the model, and a title that says little about its subject makes that page effectively invisible. Attaching each page's own most-used words gives the model something real to judge. Those words come from the index built when you ran "Index / Re-index site", not from re-reading anything, and the words your whole site uses were already thrown away during indexing, so what is left is what actually tells one page from another.</p>
+
+<p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and words, and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
 
 <h3>What the plugin does with that reply</h3>
 

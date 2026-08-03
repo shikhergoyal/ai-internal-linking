@@ -16,6 +16,7 @@ use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
 use AILinking\Suggestions\LlmSuggester;
+use AILinking\Providers\Pricing;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -69,13 +70,28 @@ class Wizard {
 		}
 		$ai_words = LlmSuggester::clamp_words( $ai_words );
 
+		// Same preset-or-custom shape as the word budget above.
+		$c_preset = isset( $_POST['llm_candidates_preset'] ) ? sanitize_key( wp_unslash( $_POST['llm_candidates_preset'] ) ) : '';
+		if ( 'custom' === $c_preset ) {
+			$ai_candidates = isset( $_POST['llm_candidates_custom'] ) ? (int) $_POST['llm_candidates_custom'] : LlmSuggester::DEFAULT_CANDIDATES;
+		} else {
+			$ai_candidates = (int) $c_preset;
+		}
+		$ai_candidates = LlmSuggester::clamp_candidates( $ai_candidates );
+
+		// 0 is a real choice here ("titles only"), so no preset/custom split.
+		$ai_cand_words = isset( $_POST['llm_candidate_words'] ) ? (int) $_POST['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS;
+		$ai_cand_words = LlmSuggester::clamp_candidate_words( $ai_cand_words );
+
 		Settings::update(
 			array(
-				'crawl_post_types'   => $crawl,
-				'target_post_types'  => $targets,
-				'max_links_per_1000' => $density,
-				'llm_max_words'      => $ai_words,
-				'wizard_complete'    => true,
+				'crawl_post_types'    => $crawl,
+				'target_post_types'   => $targets,
+				'max_links_per_1000'  => $density,
+				'llm_max_words'       => $ai_words,
+				'llm_candidates'      => $ai_candidates,
+				'llm_candidate_words' => $ai_cand_words,
+				'wizard_complete'     => true,
 			)
 		);
 
@@ -208,11 +224,19 @@ class Wizard {
 						<th scope="row"><label for="ailinking-density"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="number" min="1" max="20" id="ailinking-density" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" /></td>
 					</tr>
+					<tr class="ailinking-subhead">
+						<th colspan="2">
+							<h3><?php esc_html_e( 'What the AI engine is given', 'ai-internal-linking' ); ?></h3>
+							<p class="description">
+								<?php esc_html_e( 'These three settings decide everything the model sees when it proposes a link, and between them they decide the bill. They do nothing at all unless “AI link suggestions” is switched on under Providers — the free engines always read the whole page and cost nothing.', 'ai-internal-linking' ); ?>
+							</p>
+						</th>
+					</tr>
 					<tr>
 						<th scope="row"><label for="ailinking-ai-words"><?php esc_html_e( 'Words per page sent to the AI', 'ai-internal-linking' ); ?></label></th>
 						<td>
 							<?php
-							$ai_words  = (int) ( isset( $settings['llm_max_words'] ) ? $settings['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS );
+							$ai_words  = LlmSuggester::clamp_words( isset( $settings['llm_max_words'] ) ? $settings['llm_max_words'] : LlmSuggester::DEFAULT_MAX_WORDS );
 							$presets   = LlmSuggester::PRESETS;
 							$is_custom = ! in_array( $ai_words, $presets, true );
 							?>
@@ -252,6 +276,126 @@ class Wizard {
 							</p>
 							<p class="description">
 								<?php esc_html_e( 'This is the main cost lever: the bill scales almost linearly with it, because every post in a scan is one request. Doubling the words roughly doubles the input tokens. It has no effect at all unless AI link suggestions are enabled, and it never affects the free engines, which always read the whole page.', 'ai-internal-linking' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ailinking-ai-candidates"><?php esc_html_e( 'Possible destinations shown to the AI', 'ai-internal-linking' ); ?></label></th>
+						<td>
+							<?php
+							$ai_cands    = LlmSuggester::clamp_candidates( isset( $settings['llm_candidates'] ) ? $settings['llm_candidates'] : LlmSuggester::DEFAULT_CANDIDATES );
+							$c_presets   = LlmSuggester::CANDIDATE_PRESETS;
+							$c_is_custom = ! in_array( $ai_cands, $c_presets, true );
+							?>
+							<select id="ailinking-ai-candidates" name="llm_candidates_preset">
+								<?php foreach ( $c_presets as $preset ) : ?>
+									<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( ! $c_is_custom && $preset === $ai_cands ); ?>>
+										<?php
+										printf(
+											/* translators: %s: number of pages */
+											esc_html__( '%s pages', 'ai-internal-linking' ),
+											esc_html( number_format_i18n( $preset ) )
+										);
+										echo $preset === LlmSuggester::DEFAULT_CANDIDATES ? esc_html__( ' (default)', 'ai-internal-linking' ) : '';
+										?>
+									</option>
+								<?php endforeach; ?>
+								<option value="custom" <?php selected( $c_is_custom ); ?>><?php esc_html_e( 'Custom…', 'ai-internal-linking' ); ?></option>
+							</select>
+							<input type="number" min="<?php echo esc_attr( (string) LlmSuggester::MIN_CANDIDATES ); ?>"
+								max="<?php echo esc_attr( (string) LlmSuggester::MAX_CANDIDATES_LIMIT ); ?>" step="1"
+								id="ailinking-ai-candidates-custom" name="llm_candidates_custom"
+								value="<?php echo esc_attr( (string) $ai_cands ); ?>"
+								style="width:8em; display:<?php echo $c_is_custom ? 'inline-block' : 'none'; ?>;" />
+							<p class="description">
+								<?php esc_html_e( 'The model never searches your site. It is handed a shortlist of pages this one could link to, and it may only choose from that list. This is how long the list is.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: 1: minimum, 2: maximum */
+									esc_html__( 'The shortlist is the pages that share the most distinctive wording with the page being read, worked out by the free engine before the model is involved. A short list is cheap but may not contain the right destination at all; a long one costs more and invites weak picks, because a page ranked fiftieth by wording is on the list precisely because it has little in common. Anywhere from %1$d to %2$d.', 'ai-internal-linking' ),
+									(int) LlmSuggester::MIN_CANDIDATES,
+									(int) LlmSuggester::MAX_CANDIDATES_LIMIT
+								);
+								?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="ailinking-ai-candidate-words"><?php esc_html_e( 'Words describing each destination', 'ai-internal-linking' ); ?></label></th>
+						<td>
+							<?php $ai_cw = LlmSuggester::clamp_candidate_words( isset( $settings['llm_candidate_words'] ) ? $settings['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS ); ?>
+							<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
+								<?php foreach ( LlmSuggester::CANDIDATE_WORD_PRESETS as $preset ) : ?>
+									<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_cw ); ?>>
+										<?php
+										if ( 0 === $preset ) {
+											esc_html_e( 'Title only', 'ai-internal-linking' );
+										} else {
+											printf(
+												/* translators: %s: number of words */
+												esc_html__( '%s words', 'ai-internal-linking' ),
+												esc_html( number_format_i18n( $preset ) )
+											);
+											echo $preset === LlmSuggester::DEFAULT_CANDIDATE_WORDS ? esc_html__( ' (default)', 'ai-internal-linking' ) : '';
+										}
+										?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description">
+								<?php esc_html_e( 'How much the model is told about each page on that shortlist. On “Title only” it must judge a destination from its title alone, so two pages both called “Getting started” look identical to it. Adding words attaches that page’s own most-used words to its title, which is usually the cheapest way to get better picks.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'The words come from the index built during “Index / Re-index site”, not from a fresh read, so this costs no extra time — only the tokens shown below. Common words your whole site uses are already filtered out, so what is sent is what makes each page different.', 'ai-internal-linking' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Estimated cost', 'ai-internal-linking' ); ?></th>
+						<td>
+							<?php
+							$chat_provider = (string) Settings::get( 'chat_provider', 'none' );
+							$chat_model    = (string) Settings::get( 'chat_model', '' );
+							// Cents per 1M tokens, resolved for the configured model.
+							$rate_in  = Pricing::cents_float( $chat_provider, $chat_model, 1000000, 0 );
+							$rate_out = Pricing::cents_float( $chat_provider, $chat_model, 0, 1000000 );
+							$est      = LlmSuggester::estimate_tokens( $ai_words, $ai_cands, $ai_cw );
+							?>
+							<p id="ailinking-ai-estimate" class="ailinking-estimate"
+								data-pages="<?php echo esc_attr( (string) $indexed ); ?>"
+								data-rate-in="<?php echo esc_attr( (string) $rate_in ); ?>"
+								data-rate-out="<?php echo esc_attr( (string) $rate_out ); ?>"
+								data-overhead="<?php echo esc_attr( (string) LlmSuggester::PROMPT_OVERHEAD_TOKENS ); ?>"
+								data-per-word="<?php echo esc_attr( (string) LlmSuggester::TOKENS_PER_WORD ); ?>"
+								data-title-words="<?php echo esc_attr( (string) LlmSuggester::TITLE_WORDS ); ?>"
+								data-reply="<?php echo esc_attr( (string) LlmSuggester::REPLY_TOKENS ); ?>">
+								<?php
+								printf(
+									/* translators: 1: tokens per page, 2: page count */
+									esc_html__( 'About %1$s tokens per page, across %2$s indexed pages.', 'ai-internal-linking' ),
+									esc_html( number_format_i18n( $est['in'] + $est['out'] ) ),
+									esc_html( number_format_i18n( $indexed ) )
+								);
+								?>
+							</p>
+							<p class="description">
+								<?php
+								if ( 'none' === $chat_provider || '' === $chat_model ) {
+									esc_html_e( 'A rough figure for one full scan, updated as you change the three settings above. No chat model is configured yet, so the money figure uses a deliberately high fallback rate; set your provider and model under Providers for a closer number.', 'ai-internal-linking' );
+								} else {
+									printf(
+										/* translators: 1: provider slug, 2: model id */
+										esc_html__( 'A rough figure for one full scan, updated as you change the three settings above, priced for %1$s %2$s. The Providers screen reports what was actually billed.', 'ai-internal-linking' ),
+										esc_html( $chat_provider ),
+										esc_html( $chat_model )
+									);
+								}
+								?>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'It assumes every indexed page is scanned once and each is a single request. Real scans usually cost less, because pages already at their link limit are skipped before the model is asked anything.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
