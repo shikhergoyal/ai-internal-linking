@@ -228,7 +228,7 @@ class Wizard {
 						<th colspan="2">
 							<h3><?php esc_html_e( 'What the AI engine is given', 'ai-internal-linking' ); ?></h3>
 							<p class="description">
-								<?php esc_html_e( 'These three settings decide everything the model sees when it proposes a link, and between them they decide the bill. They do nothing at all unless “AI link suggestions” is switched on under Providers — the free engines always read the whole page and cost nothing.', 'ai-internal-linking' ); ?>
+								<?php esc_html_e( 'These three settings decide everything the AI sees, and between them they decide the bill. They do nothing unless “AI link suggestions” is switched on under Providers.', 'ai-internal-linking' ); ?>
 							</p>
 						</th>
 					</tr>
@@ -261,10 +261,11 @@ class Wizard {
 								value="<?php echo esc_attr( (string) $ai_words ); ?>"
 								style="width:8em; display:<?php echo $is_custom ? 'inline-block' : 'none'; ?>;" />
 							<p class="description">
+								<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
 								<?php
 								printf(
 									/* translators: 1: minimum words, 2: largest preset, 3: hard ceiling */
-									esc_html__( 'How much of each page the AI engine reads when "AI link suggestions" is on. Presets run from %1$d to %2$d words; choose Custom to enter any value up to %3$s. Anything past this point is invisible to the AI, so on long articles it only proposes links from the opening section.', 'ai-internal-linking' ),
+									esc_html__( 'Sets how much of each page the AI reads. Presets run %1$d to %2$d words; Custom accepts any number up to %3$s.', 'ai-internal-linking' ),
 									(int) LlmSuggester::MIN_WORDS,
 									(int) LlmSuggester::PRESET_MAX_WORDS,
 									esc_html( number_format_i18n( LlmSuggester::MAX_WORDS_LIMIT ) )
@@ -272,10 +273,12 @@ class Wizard {
 								?>
 							</p>
 							<p class="description">
-								<?php esc_html_e( 'A page can only supply the words it actually has, so setting this above your longest article simply means "send the whole page". The ceiling exists so a mistyped value cannot exceed a model\'s context window, which fails the request and still bills for the attempt.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Why it matters.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'The AI cannot see past this point, so on a long article it only proposes links from the opening section.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
-								<?php esc_html_e( 'This is the main cost lever: the bill scales almost linearly with it, because every post in a scan is one request. Doubling the words roughly doubles the input tokens. It has no effect at all unless AI link suggestions are enabled, and it never affects the free engines, which always read the whole page.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Cost.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'This is the main cost lever. Every page is one request, so doubling the words roughly doubles the bill. It does nothing unless AI link suggestions are on, and never affects the free engines, which always read the whole page.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -308,13 +311,19 @@ class Wizard {
 								value="<?php echo esc_attr( (string) $ai_cands ); ?>"
 								style="width:8em; display:<?php echo $c_is_custom ? 'inline-block' : 'none'; ?>;" />
 							<p class="description">
-								<?php esc_html_e( 'The model never searches your site. It is handed a shortlist of pages this one could link to, and it may only choose from that list. This is how long the list is.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'Sets how many pages the AI may choose between. It never searches your site — it only picks from this shortlist.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
+								<strong><?php esc_html_e( 'How the list is built.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'The free engine ranks every eligible page by how much distinctive wording it shares with the page being read, then passes over the top few. This happens before the AI is involved.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<strong><?php esc_html_e( 'Choosing a number.', 'ai-internal-linking' ); ?></strong>
 								<?php
 								printf(
 									/* translators: 1: minimum, 2: maximum */
-									esc_html__( 'The shortlist is the pages that share the most distinctive wording with the page being read, worked out by the free engine before the model is involved. A short list is cheap but may not contain the right destination at all; a long one costs more and invites weak picks, because a page ranked fiftieth by wording is on the list precisely because it has little in common. Anywhere from %1$d to %2$d.', 'ai-internal-linking' ),
+									esc_html__( 'Too few, and the right page may not be on the list at all. Too many costs more and invites weak picks, because a page ranked fiftieth is there precisely because it has little in common. Anywhere from %1$d to %2$d.', 'ai-internal-linking' ),
 									(int) LlmSuggester::MIN_CANDIDATES,
 									(int) LlmSuggester::MAX_CANDIDATES_LIMIT
 								);
@@ -345,13 +354,20 @@ class Wizard {
 								<?php endforeach; ?>
 							</select>
 							<p class="description">
-								<?php esc_html_e( 'How much the model is told about each page on that shortlist. On “Title only” it must judge a destination from its title alone, so two pages both called “Getting started” look identical to it. Adding words attaches that page’s own most-used words to its title, which is usually the cheapest way to get better picks.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'Sets how much the AI is told about each page on the shortlist, beyond its title.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
-								<?php esc_html_e( 'The words come from the index built during “Index / Re-index site”, not from a fresh read, so this costs no extra time — only the tokens shown below. Common words your whole site uses are already filtered out, so what is sent is what makes each page different.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Why it matters.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'On “Title only”, two pages both called “Getting started” look identical to the AI. Attaching a few of each page’s own most-used words is usually the cheapest way to get better picks.', 'ai-internal-linking' ); ?>
 							</p>
 							<p class="description">
-								<?php esc_html_e( 'To be clear about what these words are not: they describe the destination page, and they never become link text. The anchor is always taken from the page being read — the words above — and is checked to appear there word-for-word before a suggestion is kept. These words only influence which destination gets chosen.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Where the words come from.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'The existing index, not a fresh read, so this costs no extra time — only the tokens shown below. Words your whole site uses are filtered out.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<strong><?php esc_html_e( 'Not link text.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'These words describe the destination page and never become the link. The anchor always comes from the page being read, and is checked to appear there word-for-word.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -384,13 +400,18 @@ class Wizard {
 								?>
 							</p>
 							<p class="description">
+								<strong><?php esc_html_e( 'What this is.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'A rough figure for one full scan, updated as you change the three settings above.', 'ai-internal-linking' ); ?>
+							</p>
+							<p class="description">
+								<strong><?php esc_html_e( 'How it is priced.', 'ai-internal-linking' ); ?></strong>
 								<?php
 								if ( 'none' === $chat_provider || '' === $chat_model ) {
-									esc_html_e( 'A rough figure for one full scan, updated as you change the three settings above. No chat model is configured yet, so the money figure uses a deliberately high fallback rate; set your provider and model under Providers for a closer number.', 'ai-internal-linking' );
+									esc_html_e( 'No chat model is set yet, so this uses a deliberately high fallback rate. Choose your provider and model under Providers for a closer number.', 'ai-internal-linking' );
 								} else {
 									printf(
 										/* translators: 1: provider slug, 2: model id */
-										esc_html__( 'A rough figure for one full scan, updated as you change the three settings above, priced for %1$s %2$s. The Providers screen reports what was actually billed.', 'ai-internal-linking' ),
+										esc_html__( 'Using your configured model, %1$s %2$s. The Providers screen reports what was actually billed.', 'ai-internal-linking' ),
 										esc_html( $chat_provider ),
 										esc_html( $chat_model )
 									);
@@ -398,7 +419,8 @@ class Wizard {
 								?>
 							</p>
 							<p class="description">
-								<?php esc_html_e( 'It assumes every indexed page is scanned once and each is a single request. Real scans usually cost less, because pages already at their link limit are skipped before the model is asked anything.', 'ai-internal-linking' ); ?>
+								<strong><?php esc_html_e( 'Why real scans cost less.', 'ai-internal-linking' ); ?></strong>
+								<?php esc_html_e( 'This assumes every indexed page is scanned. In practice pages already at their link limit are skipped before the AI is asked anything.', 'ai-internal-linking' ); ?>
 							</p>
 						</td>
 					</tr>
