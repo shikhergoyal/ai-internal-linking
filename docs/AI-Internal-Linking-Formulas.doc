@@ -300,16 +300,39 @@ Worth           how many people saw it  x  possible gain  x  realistic</pre>
 
 <h2>The two scores on every suggestion</h2>
 
-<pre class="formula">Naturalness   start at                                        0.45
-              add 0.30 x relevance
-              add 0.15  if the wording is more than one word
-              add 0.10  if it is 8 to 60 characters long
-              take off 0.20  if it is under 5 characters
-              take off 0.15  if it is over 70 characters
+<p>Every suggestion carries two numbers, and they answer different questions. They are worked out separately and on purpose: if one were partly made of the other, the blend at the bottom would not mean what it says.</p>
+
+<h3>Relevance: should these two pages be connected at all?</h3>
+
+<p>A number from 0 to 1. It says nothing about how the link reads &mdash; only whether the two pages belong together. Each engine has its own evidence, so each works it out differently:</p>
+
+<table>
+<tr><th>Engine</th><th>How relevance is decided</th><th>What a high score means</th></tr>
+<tr><td><strong>GSC keyword</strong></td><td>Starts at 0.50 for every match, then rises with how much traffic the phrase could realistically gain</td><td>People are searching this phrase, another of your pages already ranks for it, and this page mentions it without linking</td></tr>
+<tr><td><strong>AI Suggestion</strong></td><td>The model states its own confidence in the pick, from 0 to 1. If it gives none, 0.70 is assumed</td><td>The model, having read your page and a short description of each candidate, is sure this is the right destination</td></tr>
+<tr><td><strong>Related Content</strong></td><td>The share of this page&rsquo;s distinctive vocabulary that the other page also uses</td><td>The two pages talk about the same uncommon things, not merely the same common ones</td></tr>
+</table>
+
+<div class="note"><strong>The three numbers are not comparable with each other.</strong> A 0.85 from the AI is the model&rsquo;s opinion. A 0.85 from Related Content would mean two pages share most of their distinctive wording, which almost never happens &mdash; that engine scores between 0.08 and 0.50 in normal use. Judge each engine against others of its own kind, which is why the review screen labels the source of every suggestion.</div>
+
+<p><strong>Why the floor is set where it is.</strong> The Setup screen has a minimum relevance, and it applies to the Related Content engine only. Below it, two pages share so little wording that the overlap is chance. The default is deliberately low, because a much stricter test runs afterwards regardless: the wording has to be found in your page, and that rejects far more pairs than the score ever does.</p>
+
+<h3>Naturalness: does this wording read well as a link?</h3>
+
+<p>This looks only at the phrase that would become clickable. It knows nothing about relevance.</p>
+
+<pre class="formula">Naturalness   start at                                    0.55
+              add 0.20  if the wording is 2 to 4 words
+              take off 0.15  if it is 5 words or more
+              add 0.15  if it is 8 to 60 characters long
+              take off 0.30  if it is under 5 characters
+              take off 0.25  if it is over 70 characters
 
 Overall       0.60 x relevance   +   0.40 x naturalness</pre>
 
-<p><strong>What each one is for.</strong> Relevance asks whether these two pages belong together. Naturalness asks whether this particular wording reads well where it sits. A link is worth making only when both are true, so the review screen shows the blend. In practice relevance carries most of the weight.</p>
+<p>A single word is neither rewarded nor punished. Chinese, Japanese and Thai do not put spaces between words, so every phrase in those languages would otherwise count as one word and every suggestion on such a site would be marked down for the writing system it uses. Length is counted in characters rather than bytes for the same reason: a three-character Hindi or Arabic phrase is nine bytes, and counting bytes would call it long enough when it is not.</p>
+
+<div class="key"><strong>What the percentage in the review screen is.</strong> The two blended, 60 percent relevance and 40 percent naturalness. Because well-formed wording tends to score alike, most of the movement between suggestions comes from relevance &mdash; which is the intended behaviour, not a quirk: the wording being acceptable is a condition, while the pages belonging together is the actual judgement.</div>
 
 <h2>The Related Content engine</h2>
 
@@ -372,7 +395,7 @@ At least 2 meaningful words must be shared, or the pair is ignored.</pre>
 <table>
 <tr><th>Limit</th><th>Default</th><th>Why it exists</th></tr>
 <tr><td>Links per 1,000 words</td><td>5</td><td>Stops a page turning into a wall of links</td></tr>
-<tr><td>New suggestions per page</td><td>8</td><td>Keeps a review session manageable</td></tr>
+<tr><td>New suggestions per page</td><td>8</td><td>Keeps a review session manageable. Settings screen</td></tr>
 <tr><td>Wording length</td><td>2 to 4 words</td><td>Descriptive, but never a whole sentence</td></tr>
 <tr><td>Same wording to the same page</td><td>3</td><td>Repetition looks manipulative to a search engine</td></tr>
 <tr><td>Lowest relevance accepted</td><td>0.08</td><td>Below this, shared words are coincidence</td></tr>

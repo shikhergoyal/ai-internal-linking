@@ -152,27 +152,75 @@ class SettingsPage {
 						<th scope="row"><label for="min_relevance"><?php esc_html_e( 'Minimum relevance', 'ai-internal-linking' ); ?></label></th>
 						<td>
 							<input type="number" step="0.01" min="0" max="1" id="min_relevance" name="min_relevance" value="<?php echo esc_attr( $settings['min_relevance'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Discard candidate links below this relevance score (0–1).', 'ai-internal-linking' ); ?></p>
+						<p class="description">
+							<strong><?php esc_html_e( 'What relevance means.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'A number from 0 to 1 answering one question: do these two pages belong together? It is not a measure of how well the link reads — that is naturalness, and the two are combined into the percentage shown in the review screen.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'How each engine works it out.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'Related Content compares the two pages word by word, and the score is the share of this page’s distinctive vocabulary that the other page also uses. AI Suggestion uses the model’s own stated confidence in the pick. GSC keyword starts at 0.50 because a phrase people actually search for is stronger evidence than any word overlap, then adds more for striking-distance rankings.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'What this setting does.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'It sets the floor for the Related Content engine only. Below it, two pages share so little wording that the overlap is coincidence. It does not filter AI or Search Console suggestions, which are judged on different evidence and are not comparable to a word-overlap score.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'Choosing a number.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'The default of 0.08 is deliberately low, because the anchor still has to be found in your text before anything is suggested, and that rejects far more than this does. Raise it to 0.15 or 0.20 if the Related Content suggestions you reject feel only loosely related.', 'ai-internal-linking' ); ?>
+						</p>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="max_suggestions_post"><?php esc_html_e( 'Max suggestions per page', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="number" min="1" max="50" id="max_suggestions_post" name="max_suggestions_post" value="<?php echo esc_attr( (int) $settings['max_suggestions_post'] ); ?>" /></td>
+						<td>
+							<input type="number" min="1" max="50" id="max_suggestions_post" name="max_suggestions_post" value="<?php echo esc_attr( (int) $settings['max_suggestions_post'] ); ?>" />
+						<p class="description">
+							<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'The most new suggestions any one page can produce in a single scan, across all three engines together.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'Why a limit.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'It keeps a review session finishable. The link limit below is the real constraint on your content; this one is about how much you are asked to judge at once.', 'ai-internal-linking' ); ?>
+						</p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="min_anchor_words"><?php esc_html_e( 'Minimum anchor words', 'ai-internal-linking' ); ?></label></th>
 						<td>
 							<input type="number" min="1" max="4" id="min_anchor_words" name="min_anchor_words" value="<?php echo esc_attr( (int) $settings['min_anchor_words'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Prefer descriptive phrase anchors. Set to 2 to avoid single-word links; set to 1 to allow single words as a fallback.', 'ai-internal-linking' ); ?></p>
+						<p class="description">
+							<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'The shortest phrase allowed to become a link.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'Why 2.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'A one-word link tells a reader almost nothing about where it goes, and search engines read the linked words as a description of the destination. Set it to 1 only if you would rather have a single-word link than none at all.', 'ai-internal-linking' ); ?>
+						</p>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="max_anchor_words"><?php esc_html_e( 'Maximum anchor words', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="number" min="2" max="6" id="max_anchor_words" name="max_anchor_words" value="<?php echo esc_attr( (int) $settings['max_anchor_words'] ); ?>" /></td>
+						<td>
+							<input type="number" min="2" max="6" id="max_anchor_words" name="max_anchor_words" value="<?php echo esc_attr( (int) $settings['max_anchor_words'] ); ?>" />
+						<p class="description">
+							<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'The longest phrase allowed to become a link. Past four or five words a link starts to swallow the sentence around it, which reads badly and dilutes what the link is about.', 'ai-internal-linking' ); ?>
+						</p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="max_links_per_1000"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="number" min="1" max="20" id="max_links_per_1000" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" /></td>
+						<td>
+							<input type="number" min="1" max="20" id="max_links_per_1000" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" />
+						<p class="description">
+							<strong><?php esc_html_e( 'What it does.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'Caps how densely a page may be linked, counting links already in your content as well as new ones. A page that has reached its limit is skipped before any engine is asked about it.', 'ai-internal-linking' ); ?>
+						</p>
+						<p class="description">
+							<strong><?php esc_html_e( 'Why it matters.', 'ai-internal-linking' ); ?></strong>
+							<?php esc_html_e( 'Every page gets at least two regardless of length, so short pages are not shut out.', 'ai-internal-linking' ); ?>
+						</p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Keyword suggestions', 'ai-internal-linking' ); ?></th>
