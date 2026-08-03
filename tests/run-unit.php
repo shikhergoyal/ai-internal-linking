@@ -55,6 +55,8 @@ require_once $plugin . '/Suggestions/LlmSuggester.php';
 require_once __DIR__ . '/stubs/tables.php'; // Must precede Tfidf, which calls it.
 require_once $plugin . '/Suggestions/Tfidf.php';
 require_once $plugin . '/Admin/BulkActions.php';
+require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider implements it.
+require_once $plugin . '/Providers/AnthropicProvider.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -65,6 +67,7 @@ use AILinking\Security\Redactor;
 use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Admin\BulkActions;
+use AILinking\Providers\AnthropicProvider;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -450,6 +453,53 @@ eq( $sum['applied'] + $sum['failed'], 0, 'an empty result set summarises to noth
 
 ok( BulkActions::reason_label( 'suggest_only' ) !== 'suggest_only', 'known reasons get a readable label' );
 eq( BulkActions::reason_label( 'weird_new_code' ), 'weird_new_code', 'an unmapped reason falls back to the raw code rather than vanishing' );
+
+// ---------------------------------------------------------------------------
+// AnthropicProvider::is_temperature_error — recognising a model that refuses a
+// parameter, so the call can be retried without it instead of the AI engine
+// silently going dead the day someone selects a newer model.
+// ---------------------------------------------------------------------------
+
+$temp_err = array( 'error' => array( 'message' => '`temperature` is deprecated for this model.' ) );
+ok( AnthropicProvider::is_temperature_error( 400, $temp_err ), 'the real message seen from the API is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'temperature is not supported' ) ) ), 'not supported is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'Unsupported parameter: temperature' ) ) ), 'unsupported is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'message' => 'temperature: unexpected field' ) ), 'a top-level message is read too' );
+ok( AnthropicProvider::is_temperature_error( 400, null, '{"error":{"message":"temperature cannot be set here"}}' ), 'the raw body is used when JSON did not decode' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'TEMPERATURE IS DEPRECATED' ) ) ), 'matching is case-insensitive' );
+
+ok( ! AnthropicProvider::is_temperature_error( 401, $temp_err ), 'an auth failure is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 429, $temp_err ), 'a rate limit is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 500, $temp_err ), 'a server error is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'max_tokens is too large' ) ) ), 'an unrelated 400 is left alone' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'invalid request' ) ) ), 'a vague 400 does not trigger a retry' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'the temperature outside is 30 degrees' ) ) ), 'the word alone is not enough — it needs a refusal too' );
+ok( ! AnthropicProvider::is_temperature_error( 200, $temp_err ), 'a successful reply is never a parameter error' );
+
+// ---------------------------------------------------------------------------
+// Pricing — Anthropic rates. Opus had no entry at all and fell through to the
+// generic default, which under-priced it by roughly 30x and would have let the
+// monthly spend cap sail past its limit.
+// ---------------------------------------------------------------------------
+
+$opus_cents   = Pricing::cents_float( 'anthropic', 'claude-opus-5', 1000000, 0 );
+$sonnet_cents = Pricing::cents_float( 'anthropic', 'claude-sonnet-5', 1000000, 0 );
+$haiku_cents  = Pricing::cents_float( 'anthropic', 'claude-haiku-4-5-20251001', 1000000, 0 );
+$unknown      = Pricing::cents_float( 'anthropic', 'claude-something-unreleased', 1000000, 0 );
+
+eq( $opus_cents, 1500.0, 'opus input is priced at $15 per 1M' );
+eq( $sonnet_cents, 300.0, 'sonnet input is priced at $3 per 1M' );
+eq( $haiku_cents, 80.0, 'haiku input is priced at $0.80 per 1M' );
+ok( $opus_cents > $sonnet_cents, 'opus is priced above sonnet' );
+ok( $sonnet_cents > $haiku_cents, 'sonnet is priced above haiku' );
+ok( $opus_cents > $unknown, 'REGRESSION: opus must not fall through to the cheap generic default' );
+ok( Pricing::cents_float( 'anthropic', 'claude-opus-5', 0, 1000000 ) > Pricing::cents_float( 'anthropic', 'claude-sonnet-5', 0, 1000000 ), 'opus output also costs more than sonnet' );
+
+// The model list the Providers screen offers must be usable with the fix above.
+$models = ( new AnthropicProvider() )->default_models();
+ok( in_array( 'claude-sonnet-5', $models['chat'], true ), 'the current Sonnet is offered' );
+ok( in_array( 'claude-opus-5', $models['chat'], true ), 'the current Opus is offered' );
+eq( $models['chat'][0], 'claude-sonnet-5', 'the default pick is the current mid-tier model' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

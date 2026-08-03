@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.17.0
+Stable tag: 0.18.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,13 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.18.0 =
+* Fixed: the plugin could not use current-generation Claude models at all. Every request sent a `temperature` parameter, and newer Claude models reject it outright rather than ignoring it, so selecting one produced a bare "400 Bad Request" — which reads like a broken API key, not like a model that needs different options. The AI engine would simply go quiet. If a model refuses the parameter, the plugin now drops it, remembers that model refuses it, and retries once. The only thing lost is the determinism `temperature: 0` bought, and these models are consistent enough without it; a silent engine was much the worse trade.
+* This is learned from the API's own answer rather than hard-coded against a list of model names, because a fixed list goes stale the day a new model ships and your install cannot be updated that same day. A brand-new model costs one rejected request, which bills nothing, and works from then on.
+* The Anthropic model list on the Providers screen was a generation out of date. It now offers Claude Sonnet 5, Claude Opus 5 and Claude Haiku 4.5, with Sonnet 4.6 kept for anyone who wants it. Note the default changed: an install that never picked a model explicitly was falling back to the first entry, which was Sonnet 4.6 and is now Sonnet 5. If you had pinned a model, on the key or in Settings, nothing changes.
+* Fixed a cost-reporting hole that mattered for the spend cap: Claude Opus had no pricing entry at all, so it fell through to the generic default and was costed at roughly a thirtieth of what it actually charges. Anyone running Opus with a monthly cap would have sailed straight past the limit while the plugin reported a fraction of the spend. Opus is now priced at $15 / $75 per million tokens.
+* Covered by 23 new unit tests, 211 in total, including that an auth failure, a rate limit and an unrelated 400 are never mistaken for a parameter problem.
 
 = 0.17.0 =
 * Bulk actions in the Suggestions inbox. Every row now has a checkbox, the header has a select-all, and a bulk bar above the table offers Approve, Reject, Move back to pending, and Apply to content. Reviewing a large scan used to mean one click per suggestion with a full page reload after each; a 300-suggestion queue was an afternoon. This is the same set of operations, in one pass.
