@@ -65,6 +65,10 @@ class Pricing {
 			'openai/gpt-4o'           => array( 'in' => 250.0, 'out' => 1000.0 ),
 			'anthropic/claude-haiku'  => array( 'in' => 80.0, 'out' => 400.0 ),
 			'anthropic/claude-sonnet' => array( 'in' => 300.0, 'out' => 1500.0 ),
+			// Opus was missing entirely, so it fell through to the generic
+			// default and was priced ~30x under what it actually costs. That is
+			// the one direction the spend cap must never be wrong in.
+			'anthropic/claude-opus'   => array( 'in' => 1500.0, 'out' => 7500.0 ),
 			'gemini/gemini-1.5-flash' => array( 'in' => 7.5, 'out' => 30.0 ),
 		);
 

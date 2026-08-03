@@ -93,8 +93,9 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <pre class="formula">shortlist   = the best matches from the free engine
               (how many is your setting, default 15, range 5-200)
-each entry  = the page title + the words that page uses most
-              (how many words is your setting, default 10, up to 30)
+each entry  = the page title + a short summary of that page
+              (how long is your setting, default 40 words, 25-200;
+               or a key-word list, or the title alone)
 page sent   = the first N words          (your setting, default 1,000)
 reply limit = short, about 600 words
 creativity  = turned off, so the same page always gives the same answer
@@ -112,7 +113,9 @@ relevance   = the model's own confidence, 0 to 1
 
 <p><strong>How long is that list?</strong> Your choice, on the Setup screen: 15 by default, anywhere from 5 to 200. Show too few and the right destination may simply not be on the list, and no amount of intelligence will find it. Show too many and you pay more for worse answers, because a page ranked fiftieth by shared wording is down there precisely because it has little in common with yours. Fifteen is already nearly twice the 8 suggestions a page can accept from one scan. Raise it if the AI keeps proposing nothing where you can see an obvious destination; lower it if what you reject is mostly loose, only-vaguely-related pairings. The list is filtered after it is drawn up, dropping the page itself, anything already linked and any pair you have judged, so the plugin always fetches more than it will show, in proportion to the number you chose.</p>
 
-<p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of pages, each one a title plus the words that page uses most, and it replies with a number:</p>
+<p><strong>How it actually picks the page and the wording.</strong> More constrained than "the AI chooses a link" suggests. The model is shown a numbered list of pages, each one a title plus a short summary of that page, and it replies with a number:</p>
+
+<p>Those summaries are <strong>extracted from your pages, not written by anything</strong>. The plugin scores each sentence against the page's own distinctive vocabulary and keeps the best two or three. No second AI call, nothing generated, nothing written into your content. Because wording your whole site repeats is set aside first, menus and standard introductions score zero and cannot end up in a summary.</p>
 
 <pre class="formula">SHOWN TO THE MODEL                    THE MODEL REPLIES
 
@@ -120,10 +123,14 @@ ARTICLE TITLE: Build a Content Calendar   {"n": 1,
 ARTICLE TEXT: ...your content marketing    "anchor": "content marketing strategy",
 strategy stays consistent...               "reason": "the article plans a strategy",
                                            "confidence": 0.86}
-POSSIBLE DESTINATIONS (title - words that page uses most):
-  1. Content Marketing Strategy: A Guide - audience, funnel, pillar
-  2. Social Media Scheduling Tools - buffer, queue, crosspost
-  3. Editorial Workflow for Small Teams - brief, reviewer, deadline</pre>
+POSSIBLE DESTINATIONS (title - what that page covers):
+  1. Content Marketing Strategy: A Guide - A content strategy sets
+     out who you are writing for and why. Pillar pages anchor
+     each theme and the calendar sets the cadence.
+  2. Social Media Scheduling Tools - Scheduling tools queue posts
+     across networks from one place.
+  3. Editorial Workflow for Small Teams - A brief travels with each
+     piece from commission to publication.</pre>
 
 <p>Notice what is missing: <strong>no web addresses anywhere</strong>. The model picks number 1. The plugin then looks up which page that is and takes its address from its own index. The model never handles a URL, so it cannot invent one.</p>
 

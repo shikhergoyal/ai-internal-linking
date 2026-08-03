@@ -35,6 +35,8 @@ class Settings {
 			'llm_max_words'        => 1000,   // words of each page sent to the chat model (cost lever)
 			'llm_candidates'       => 15,     // possible destinations shown to the model
 			'llm_candidate_words'  => 10,     // distinctive words sent per destination (0 = title only)
+			'llm_describe_mode'    => 'summary', // how each destination is described: title | keywords | summary
+			'llm_summary_words'    => 40,     // words of summary sent per destination
 			// AI provider configuration (Phase 1).
 			'chat_provider'             => 'none',
 			'chat_model'                => '',

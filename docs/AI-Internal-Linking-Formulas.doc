@@ -76,10 +76,11 @@ Sent to the model   a numbered list of what survives.
                     How many is your setting: 15 by default,
                     anywhere from 5 to 200.
 
-Each entry is   the page's title, followed by the words that page
-                uses most. How many words is your setting too:
-                10 by default, up to 30, or none at all if you
-                pick "Title only".
+Each entry is   the page's title, followed by a short summary of
+                what that page covers. How long is your setting:
+                40 words by default, from 25 up to 200. You can
+                switch this to a list of key words, or to the
+                title alone, on the Setup screen.
 
 Also sent   your page's title, and the opening part of your page
             (how much is your setting: 1,000 words by default,
@@ -164,12 +165,22 @@ Article title: Build a Content Calendar     Page number: 1
 Article text:  ...your content marketing    Wording:     content marketing strategy
 strategy stays consistent...                Reason:      the article plans a strategy
                                             Confidence:  0.86
-Possible destinations (title - words that page uses most):
-  1. Content Marketing Strategy: A Guide - audience, funnel, pillar, cadence
-  2. Social Media Scheduling Tools - buffer, queue, crosspost, analytics
-  3. Editorial Workflow for Small Teams - brief, reviewer, deadline, handoff</pre>
+Possible destinations (title - what that page covers):
+  1. Content Marketing Strategy: A Guide - A content strategy sets out
+     who you are writing for and why. Pillar pages anchor each theme and
+     the calendar sets the publishing cadence.
+  2. Social Media Scheduling Tools - Scheduling tools queue posts across
+     networks from one place. Most report back on engagement per network.
+  3. Editorial Workflow for Small Teams - A brief travels with each piece
+     from commission to publication, naming the reviewer and the deadline.</pre>
 
-<p><strong>The words after each title are what make this work.</strong> A title on its own is a thin description of a page. Two posts both called "Getting started" look identical to the model, and a title that says little about its subject makes that page effectively invisible. Attaching each page's own most-used words gives the model something real to judge. Those words come from the index built when you ran "Index / Re-index site", not from re-reading anything, and the words your whole site uses were already thrown away during indexing, so what is left is what actually tells one page from another.</p>
+<p><strong>The summary after each title is what makes this work.</strong> A title on its own is a thin description of a page. Two posts both called "Getting started" look identical to the model, and a title that says little about its subject makes that page effectively invisible.</p>
+
+<p>The summary is <strong>taken from the page, not written for it</strong>. Nothing is generated and no second AI request is made. The plugin scores every sentence on the page against that page's own distinctive vocabulary, which it already worked out while indexing, and keeps the two or three that represent it best.</p>
+
+<p>One consequence is worth knowing, because it explains why the summaries are usable at all: <strong>wording your whole site repeats can never appear in one</strong>. Words used across the site are set aside before scoring, so a sentence made of them scores zero however many times it appears. Navigation text, standard introductions and "in this article you will learn" blocks are ruled out automatically, not by a list of things to avoid.</p>
+
+<p>Sentences that say the same thing twice are dropped too, including when the page says it in different words. Pages often restate a point in a summary panel, and the restatement scores just as well as the original, so both would otherwise be chosen.</p>
 
 <p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and words, and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
 

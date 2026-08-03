@@ -20,6 +20,18 @@ class Tfidf {
 	const SOURCE_TERMS       = 40;
 
 	/**
+	 * A word on more than this share of pages cannot tell two of them apart, so
+	 * it is ignored. On a cooking site that removes "recipe" automatically.
+	 * Applied when scoring AND when describing a page to the model; those two
+	 * used to disagree, which meant the model was shown words the scorer threw
+	 * away.
+	 */
+	const DF_CEILING = 0.4;
+
+	/** How long the site-wide word list is cached. The index is static mid-scan. */
+	const COMMON_TERMS_TTL = 3600;
+
+	/**
 	 * Common English stopwords. Multilingual stopword handling is a later refinement.
 	 *
 	 * @return array<string,bool>
@@ -147,6 +159,50 @@ class Tfidf {
 	}
 
 	/**
+	 * Words used on so much of the site that they describe nothing. (cached)
+	 *
+	 * Computed once and cached, because it is needed for every page of a scan
+	 * and the index does not change while one is running.
+	 *
+	 * @return array<string,true> Term => true, for O(1) lookup.
+	 */
+	public static function site_wide_terms() {
+		$cached = get_transient( 'ailinking_site_wide_terms' );
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		global $wpdb;
+		$table = Tables::tfidf();
+		$n     = max( 1, self::total_docs() );
+		$cut   = (int) floor( $n * self::DF_CEILING );
+
+		$terms = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT term FROM {$table} GROUP BY term HAVING COUNT(*) > %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				$cut
+			)
+		);
+
+		$out = array();
+		foreach ( (array) $terms as $t ) {
+			$out[ (string) $t ] = true;
+		}
+
+		set_transient( 'ailinking_site_wide_terms', $out, self::COMMON_TERMS_TTL );
+		return $out;
+	}
+
+	/**
+	 * Forget the cached site-wide word list, after the index changes.
+	 *
+	 * @return void
+	 */
+	public static function flush_site_wide_terms() {
+		delete_transient( 'ailinking_site_wide_terms' );
+	}
+
+	/**
 	 * The most distinctive words for a set of pages.
 	 *
 	 * Used to tell the model what each possible destination is actually about,
@@ -154,10 +210,14 @@ class Tfidf {
 	 * round trip per 40 pages, not one per page, because this runs inside a scan
 	 * that is already doing a network round trip per post.
 	 *
-	 * Ordered by raw frequency, which is what the table is indexed for. Rarity
-	 * weighting would be better but needs a second pass over document
-	 * frequencies, and for a handful of descriptive words the difference does
-	 * not justify the extra query.
+	 * Ordered by raw frequency, but only after words the whole site uses have
+	 * been removed. That second part is not optional: the stored table keeps
+	 * every term, and the DF_CEILING that makes candidates() ignore site-wide
+	 * words is applied when scoring, not when saving. Reading the table raw
+	 * therefore hands the model exactly the words the free engine already judged
+	 * worthless — on one real 350-page site, "india" was in the top ten of 131
+	 * pages and "correct" of 100, so a tenth to a third of every description was
+	 * spent on words that distinguish nothing.
 	 *
 	 * @param int[] $post_ids Page ids.
 	 * @param int   $per_post Words to return for each.
@@ -172,8 +232,13 @@ class Tfidf {
 			return array();
 		}
 
-		$table = Tables::tfidf();
-		$out   = array();
+		$table  = Tables::tfidf();
+		$out    = array();
+		$common = self::site_wide_terms();
+
+		// Over-fetch, because the filter below removes rows. Without headroom a
+		// page whose commonest words are all site-wide would come back short.
+		$fetch = ( $per_post * 3 ) + 20;
 
 		// One bounded subquery per page, UNION ALL'd into a single round trip.
 		//
@@ -189,7 +254,7 @@ class Tfidf {
 			foreach ( $chunk as $id ) {
 				$parts[] = "(SELECT post_id, term FROM {$table} WHERE post_id = %d ORDER BY tf DESC LIMIT %d)";
 				$args[]  = $id;
-				$args[]  = $per_post;
+				$args[]  = $fetch;
 			}
 
 			$rows = $wpdb->get_results(
@@ -198,12 +263,16 @@ class Tfidf {
 			);
 
 			foreach ( (array) $rows as $r ) {
-				$pid = (int) $r['post_id'];
+				$pid  = (int) $r['post_id'];
+				$term = (string) $r['term'];
+				if ( isset( $common[ $term ] ) ) {
+					continue; // Used all over the site; says nothing about this page.
+				}
 				if ( ! isset( $out[ $pid ] ) ) {
 					$out[ $pid ] = array();
 				}
 				if ( count( $out[ $pid ] ) < $per_post ) {
-					$out[ $pid ][] = (string) $r['term'];
+					$out[ $pid ][] = $term;
 				}
 			}
 		}
@@ -260,7 +329,7 @@ class Tfidf {
 		$idf = array();
 		foreach ( $df_rows as $r ) {
 			$df = (int) $r['df'];
-			if ( $df < 1 || $df > $n * 0.4 ) {
+			if ( $df < 1 || $df > $n * self::DF_CEILING ) {
 				continue; // too rare to matter or too common to discriminate.
 			}
 			$idf[ $r['term'] ] = log( 1 + ( $n / $df ) );

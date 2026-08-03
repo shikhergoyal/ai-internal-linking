@@ -121,6 +121,10 @@ class Schema {
 		delete_transient( 'ailinking_lock_index' );
 		delete_transient( 'ailinking_lock_suggest' );
 		delete_transient( 'ailinking_lock_embed' );
+		// The site-wide word list is derived from the term table that was just
+		// emptied, so keeping it would describe pages using a vocabulary that no
+		// longer exists.
+		delete_transient( 'ailinking_site_wide_terms' );
 	}
 
 	/**
@@ -165,6 +169,7 @@ class Schema {
 			parsed_text longtext NULL,
 			content_hash char(32) NOT NULL DEFAULT '',
 			word_count int unsigned NOT NULL DEFAULT 0,
+			summary text NULL,
 			lang_code varchar(10) NOT NULL DEFAULT 'und',
 			lang_source varchar(10) NOT NULL DEFAULT 'none',
 			is_woo_product tinyint(1) NOT NULL DEFAULT 0,

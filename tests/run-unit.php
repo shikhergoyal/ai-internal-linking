@@ -44,6 +44,29 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 
 defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
 
+// In-memory transients, so cached lookups can be seeded by a test.
+$ailinking_transients = array();
+if ( ! function_exists( 'get_transient' ) ) {
+	function get_transient( $k ) { // phpcs:ignore
+		global $ailinking_transients;
+		return isset( $ailinking_transients[ $k ] ) ? $ailinking_transients[ $k ] : false;
+	}
+}
+if ( ! function_exists( 'set_transient' ) ) {
+	function set_transient( $k, $v, $ttl = 0 ) { // phpcs:ignore
+		global $ailinking_transients;
+		$ailinking_transients[ $k ] = $v;
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_transient' ) ) {
+	function delete_transient( $k ) { // phpcs:ignore
+		global $ailinking_transients;
+		unset( $ailinking_transients[ $k ] );
+		return true;
+	}
+}
+
 $plugin = __DIR__ . '/../ai-internal-linking/includes';
 require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
@@ -55,6 +78,10 @@ require_once $plugin . '/Suggestions/LlmSuggester.php';
 require_once __DIR__ . '/stubs/tables.php'; // Must precede Tfidf, which calls it.
 require_once $plugin . '/Suggestions/Tfidf.php';
 require_once $plugin . '/Admin/BulkActions.php';
+require_once $plugin . '/Suggestions/Summarizer.php';
+require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider implements it.
+require_once $plugin . '/Providers/AnthropicProvider.php';
+require_once $plugin . '/Providers/Registry.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -65,6 +92,9 @@ use AILinking\Security\Redactor;
 use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Admin\BulkActions;
+use AILinking\Suggestions\Summarizer;
+use AILinking\Providers\AnthropicProvider;
+use AILinking\Providers\Registry;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -347,6 +377,10 @@ class FakeWpdb { // phpcs:ignore
 	}
 }
 
+// Seed the site-wide word cache: these are words the whole site uses, which
+// must never be sent to the model as a description of any single page.
+$ailinking_transients['ailinking_site_wide_terms'] = array( 'india' => true, 'correct' => true );
+
 $wpdb       = new FakeWpdb();
 $wpdb->rows = array(
 	11 => array( 'alpha', 'beta', 'gamma', 'delta', 'epsilon' ),
@@ -366,8 +400,20 @@ eq(
 foreach ( array( 11, 12, 13 ) as $pid ) {
 	ok( ! empty( $terms[ $pid ] ), "page {$pid} is never silently empty" );
 }
-eq( substr_count( $wpdb->queries[0], 'LIMIT 3' ), 3, 'every page carries its own LIMIT, not one shared one' );
+eq( substr_count( $wpdb->queries[0], 'LIMIT 29' ), 3, 'every page carries its own LIMIT, not one shared one' );
+ok( false !== strpos( $wpdb->queries[0], 'LIMIT 29' ), 'more rows are fetched than shown, because site-wide words get filtered out' );
 ok( false === strpos( $wpdb->queries[0], 'IN (' ), 'no single-LIMIT IN() query, which cannot bound per page' );
+
+// The filter that the model's descriptions depend on.
+$wpdb->rows[21] = array( 'india', 'correct', 'monsoon', 'rainfall', 'delta' );
+$terms          = Tfidf::top_terms_for( array( 21 ), 3 );
+eq( implode( ',', $terms[21] ), 'monsoon,rainfall,delta', 'words the whole site uses are dropped, and real ones take their place' );
+ok( ! in_array( 'india', $terms[21], true ), 'REGRESSION: a site-wide word is never sent as a page description' );
+ok( ! in_array( 'correct', $terms[21], true ), 'REGRESSION: nor is boilerplate that appears on nearly every page' );
+
+$wpdb->rows[22] = array( 'india', 'correct' );
+$terms          = Tfidf::top_terms_for( array( 22 ), 3 );
+ok( empty( $terms[22] ), 'a page with nothing but site-wide words is described by nothing rather than by noise' );
 
 $wpdb->queries = array();
 $terms         = Tfidf::top_terms_for( array( 11, 11, 11 ), 2 );
@@ -450,6 +496,137 @@ eq( $sum['applied'] + $sum['failed'], 0, 'an empty result set summarises to noth
 
 ok( BulkActions::reason_label( 'suggest_only' ) !== 'suggest_only', 'known reasons get a readable label' );
 eq( BulkActions::reason_label( 'weird_new_code' ), 'weird_new_code', 'an unmapped reason falls back to the raw code rather than vanishing' );
+
+// ---------------------------------------------------------------------------
+// AnthropicProvider::is_temperature_error — recognising a model that refuses a
+// parameter, so the call can be retried without it instead of the AI engine
+// silently going dead the day someone selects a newer model.
+// ---------------------------------------------------------------------------
+
+$temp_err = array( 'error' => array( 'message' => '`temperature` is deprecated for this model.' ) );
+ok( AnthropicProvider::is_temperature_error( 400, $temp_err ), 'the real message seen from the API is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'temperature is not supported' ) ) ), 'not supported is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'Unsupported parameter: temperature' ) ) ), 'unsupported is recognised' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'message' => 'temperature: unexpected field' ) ), 'a top-level message is read too' );
+ok( AnthropicProvider::is_temperature_error( 400, null, '{"error":{"message":"temperature cannot be set here"}}' ), 'the raw body is used when JSON did not decode' );
+ok( AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'TEMPERATURE IS DEPRECATED' ) ) ), 'matching is case-insensitive' );
+
+ok( ! AnthropicProvider::is_temperature_error( 401, $temp_err ), 'an auth failure is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 429, $temp_err ), 'a rate limit is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 500, $temp_err ), 'a server error is never treated as a parameter problem' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'max_tokens is too large' ) ) ), 'an unrelated 400 is left alone' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'invalid request' ) ) ), 'a vague 400 does not trigger a retry' );
+ok( ! AnthropicProvider::is_temperature_error( 400, array( 'error' => array( 'message' => 'the temperature outside is 30 degrees' ) ) ), 'the word alone is not enough — it needs a refusal too' );
+ok( ! AnthropicProvider::is_temperature_error( 200, $temp_err ), 'a successful reply is never a parameter error' );
+
+// ---------------------------------------------------------------------------
+// Pricing — Anthropic rates. Opus had no entry at all and fell through to the
+// generic default, which under-priced it by roughly 30x and would have let the
+// monthly spend cap sail past its limit.
+// ---------------------------------------------------------------------------
+
+$opus_cents   = Pricing::cents_float( 'anthropic', 'claude-opus-5', 1000000, 0 );
+$sonnet_cents = Pricing::cents_float( 'anthropic', 'claude-sonnet-5', 1000000, 0 );
+$haiku_cents  = Pricing::cents_float( 'anthropic', 'claude-haiku-4-5-20251001', 1000000, 0 );
+$unknown      = Pricing::cents_float( 'anthropic', 'claude-something-unreleased', 1000000, 0 );
+
+eq( $opus_cents, 1500.0, 'opus input is priced at $15 per 1M' );
+eq( $sonnet_cents, 300.0, 'sonnet input is priced at $3 per 1M' );
+eq( $haiku_cents, 80.0, 'haiku input is priced at $0.80 per 1M' );
+ok( $opus_cents > $sonnet_cents, 'opus is priced above sonnet' );
+ok( $sonnet_cents > $haiku_cents, 'sonnet is priced above haiku' );
+ok( $opus_cents > $unknown, 'REGRESSION: opus must not fall through to the cheap generic default' );
+ok( Pricing::cents_float( 'anthropic', 'claude-opus-5', 0, 1000000 ) > Pricing::cents_float( 'anthropic', 'claude-sonnet-5', 0, 1000000 ), 'opus output also costs more than sonnet' );
+
+// The model list the Providers screen offers must be usable with the fix above.
+$models = ( new AnthropicProvider() )->default_models();
+ok( in_array( 'claude-sonnet-5', $models['chat'], true ), 'the current Sonnet is offered' );
+ok( in_array( 'claude-opus-5', $models['chat'], true ), 'the current Opus is offered' );
+eq( $models['chat'][0], 'claude-sonnet-5', 'the default pick is the current mid-tier model' );
+
+// ---------------------------------------------------------------------------
+// Registry::resolve_model_choice — the "pick from the list, or type your own"
+// pair behind both model fields. Empty is a real answer here: it means fall
+// back to the provider default, so it must not be confused with "unset".
+// ---------------------------------------------------------------------------
+
+eq( Registry::resolve_model_choice( 'claude-sonnet-5', '' ), 'claude-sonnet-5', 'a listed model passes through' );
+eq( Registry::resolve_model_choice( '', '' ), '', 'provider default stays empty' );
+eq( Registry::resolve_model_choice( '__custom', 'my-local-model' ), 'my-local-model', 'a typed id is used when Other is chosen' );
+eq( Registry::resolve_model_choice( '__custom', '  spaced-model  ' ), 'spaced-model', 'a typed id is trimmed' );
+eq( Registry::resolve_model_choice( '__custom', '' ), '', 'Other with nothing typed falls back to the provider default' );
+eq( Registry::resolve_model_choice( 'claude-sonnet-5', 'ignored' ), 'claude-sonnet-5', 'the custom box is ignored unless Other is chosen' );
+eq( Registry::resolve_model_choice( '  claude-opus-5  ', '' ), 'claude-opus-5', 'a listed value is trimmed too' );
+ok( '__custom' !== Registry::resolve_model_choice( '__custom', 'x' ), 'the sentinel is never stored as a model id' );
+
+// ---------------------------------------------------------------------------
+// Summarizer — extractive page summaries.
+//
+// The property that matters: boilerplate cannot win. Words a site repeats
+// everywhere are excluded from the weights before scoring, so a sentence made
+// of them scores zero however often it appears.
+// ---------------------------------------------------------------------------
+
+eq( Summarizer::clamp_words( 40 ), 40, 'a normal length passes through' );
+eq( Summarizer::clamp_words( 0 ), Summarizer::DEFAULT_WORDS, 'zero falls back to the default' );
+eq( Summarizer::clamp_words( 5 ), Summarizer::MIN_WORDS, 'below the floor is raised' );
+eq( Summarizer::clamp_words( 9999 ), Summarizer::MAX_WORDS, 'a runaway value is capped' );
+ok( in_array( Summarizer::DEFAULT_WORDS, Summarizer::PRESETS, true ), 'the default is selectable' );
+
+eq( count( Summarizer::sentences( 'One two. Three four! Five six?' ) ), 3, 'sentences split on terminal punctuation' );
+eq( count( Summarizer::sentences( '' ) ), 0, 'empty text yields no sentences' );
+eq(
+	count( Summarizer::sentences( 'Indian Railways has 68 divisions.A zone is headed by a manager.' ) ),
+	2,
+	'a full stop running into the next capital still splits (stripped block markup does this)'
+);
+
+eq( Summarizer::dedupe_key( 'The Sufi movement began early.' ), Summarizer::dedupe_key( 'the sufi movement began early' ), 'the dedupe key ignores case and punctuation' );
+ok( Summarizer::dedupe_key( 'Soil forms from parent rock.' ) !== Summarizer::dedupe_key( 'Salinity varies by ocean.' ), 'different sentences get different keys' );
+
+$boiler = 'Overview of this article. By the end you will be able to draft model answers for the questions below. '
+	. 'Ocean salinity averages 35 parts per thousand, meaning 35 grams of dissolved salt in every kilogram of seawater. '
+	. 'By the end you will be able to draft model answers for the questions below.';
+// "overview", "end", "able", "draft", "model", "answers", "questions" are the
+// words this imaginary site repeats everywhere, so they are not in the weights.
+$weights = array( 'salinity' => 12, 'ocean' => 9, 'dissolved' => 6, 'salt' => 6, 'seawater' => 5, 'grams' => 3 );
+$sum     = Summarizer::summarize( $boiler, $weights, 60 );
+ok( false !== strpos( $sum, 'salinity averages 35' ), 'the sentence built from the page own vocabulary is chosen' );
+ok( false === strpos( $sum, 'draft model answers' ), 'REGRESSION: repeated site boilerplate is never summarised' );
+
+// A page that restates the same block twice must not be summarised twice.
+$dupe = 'Indian Railways has 18 administrative zones and 68 divisions across the country. '
+	. 'Indian Railways has 18 administrative zones and 68 divisions across the country. '
+	. 'The newest zone is South Coast Railway with its headquarters at Visakhapatnam.';
+$w2   = array( 'railways' => 9, 'zones' => 8, 'divisions' => 6, 'zone' => 6, 'coast' => 4, 'visakhapatnam' => 3, 'headquarters' => 3 );
+$sum2 = Summarizer::summarize( $dupe, $w2, 80 );
+eq( substr_count( $sum2, 'has 18 administrative zones' ), 1, 'REGRESSION: a restated block appears once, not twice' );
+ok( false !== strpos( $sum2, 'South Coast Railway' ), 'the slot freed by dedupe is given to a different sentence' );
+
+// Paraphrase, not exact repetition: different strings, one fact. An exact-text
+// check misses this, which is why the overlap check exists.
+$para = 'South Coast Railway, at Visakhapatnam, is the newest railway zone in the country. '
+	. 'The South Coast Railway, with its headquarters at Visakhapatnam, is the newest zone. '
+	. 'Konkan Railway is run by a separate corporation and is not a zonal railway at all.';
+$w3   = array( 'railway' => 9, 'zone' => 7, 'visakhapatnam' => 5, 'newest' => 4, 'coast' => 4, 'south' => 4, 'headquarters' => 3, 'konkan' => 3, 'corporation' => 2, 'zonal' => 2 );
+$sum3 = Summarizer::summarize( $para, $w3, 80 );
+eq( substr_count( $sum3, 'Visakhapatnam' ), 1, 'REGRESSION: the same fact in different words is only stated once' );
+ok( false !== strpos( $sum3, 'Konkan' ), 'the freed slot goes to a genuinely different fact' );
+
+eq( Summarizer::overlap( array( 'a' => true, 'b' => true ), array( 'a' => true, 'b' => true ) ), 1.0, 'identical word sets overlap fully' );
+eq( Summarizer::overlap( array( 'a' => true ), array( 'b' => true ) ), 0.0, 'unrelated word sets do not overlap' );
+eq( Summarizer::overlap( array( 'a' => true, 'b' => true ), array( 'a' => true, 'b' => true, 'c' => true, 'd' => true ) ), 1.0, 'a sentence wholly contained in a longer one counts as a repeat' );
+eq( Summarizer::overlap( array(), array( 'a' => true ) ), 0.0, 'an empty set never counts as a repeat' );
+
+eq( Summarizer::summarize( '', $weights, 40 ), '', 'no text, no summary' );
+eq( Summarizer::summarize( $boiler, array(), 40 ), '', 'no distinctive words, no summary' );
+eq( Summarizer::summarize( 'Too short.', $weights, 40 ), '', 'a page of fragments yields nothing, so the caller can fall back' );
+
+$long = Summarizer::summarize( $boiler, $weights, 25 );
+ok( str_word_count( $long ) <= 30, 'the word budget is respected (allowing the trim marker)' );
+
+eq( Summarizer::trim_to_words( 'one two three four five', 3 ), 'one two three…', 'trimming marks that it was cut' );
+eq( Summarizer::trim_to_words( 'one two', 10 ), 'one two', 'text under the limit is untouched' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

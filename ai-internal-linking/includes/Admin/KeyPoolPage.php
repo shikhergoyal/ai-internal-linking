@@ -47,7 +47,10 @@ class KeyPoolPage {
 				'label'      => isset( $_POST['label'] ) ? sanitize_text_field( wp_unslash( $_POST['label'] ) ) : '',
 				'api_key'    => isset( $_POST['api_key'] ) ? trim( (string) wp_unslash( $_POST['api_key'] ) ) : '',
 				'base_url'   => isset( $_POST['base_url'] ) ? esc_url_raw( wp_unslash( $_POST['base_url'] ) ) : '',
-				'model'      => isset( $_POST['model'] ) ? sanitize_text_field( wp_unslash( $_POST['model'] ) ) : '',
+				'model'      => Registry::resolve_model_choice(
+					isset( $_POST['model'] ) ? sanitize_text_field( wp_unslash( $_POST['model'] ) ) : '',
+					isset( $_POST['model_custom'] ) ? sanitize_text_field( wp_unslash( $_POST['model_custom'] ) ) : ''
+				),
 				'capability' => self::clean_capability(),
 				'extra'      => $extra,
 				'priority'   => isset( $_POST['priority'] ) ? (int) $_POST['priority'] : 100,
@@ -261,7 +264,26 @@ class KeyPoolPage {
 					</tr>
 					<tr>
 						<th scope="row"><label for="model"><?php esc_html_e( 'Model', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="text" name="model" id="model" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. gpt-4o-mini / claude-sonnet-4-5', 'ai-internal-linking' ); ?>" /></td>
+						<td>
+							<?php
+							// Options are rebuilt in JS from the provider select above.
+							$model_map    = Registry::chat_models_map();
+							$first_prov   = key( $meta );
+							$first_models = isset( $model_map[ $first_prov ] ) ? $model_map[ $first_prov ] : array();
+							?>
+							<select name="model" id="model" class="ailinking-model-select" data-follows="provider" data-selected="">
+								<option value=""><?php esc_html_e( 'Provider default', 'ai-internal-linking' ); ?></option>
+								<?php foreach ( $first_models as $m ) : ?>
+									<option value="<?php echo esc_attr( $m ); ?>"><?php echo esc_html( $m ); ?></option>
+								<?php endforeach; ?>
+								<option value="__custom"><?php esc_html_e( 'Other model…', 'ai-internal-linking' ); ?></option>
+							</select>
+							<input type="text" name="model_custom" class="ailinking-model-custom regular-text"
+								placeholder="<?php esc_attr_e( 'exact model id', 'ai-internal-linking' ); ?>" style="display:none;" />
+							<p class="description">
+								<?php esc_html_e( 'Optional, and it overrides the model set under Settings for calls made with this key. Leave it on “Provider default” unless you specifically want this key pinned to one model.', 'ai-internal-linking' ); ?>
+							</p>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="base_url"><?php esc_html_e( 'Base URL', 'ai-internal-linking' ); ?></label></th>

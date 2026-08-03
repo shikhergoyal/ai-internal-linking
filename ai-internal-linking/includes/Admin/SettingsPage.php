@@ -66,7 +66,10 @@ class SettingsPage {
 				'keyword_suggestions'       => ! empty( $_POST['keyword_suggestions'] ),
 				'llm_suggestions'           => ! empty( $_POST['llm_suggestions'] ),
 				'chat_provider'             => $chat_provider,
-				'chat_model'                => isset( $_POST['chat_model'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model'] ) ) : '',
+				'chat_model'                => Registry::resolve_model_choice(
+					isset( $_POST['chat_model'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model'] ) ) : '',
+					isset( $_POST['chat_model_custom'] ) ? sanitize_text_field( wp_unslash( $_POST['chat_model_custom'] ) ) : ''
+				),
 				'rotation'                  => $rotation,
 				'monthly_cap_usd'           => $cap,
 			)
@@ -83,6 +86,39 @@ class SettingsPage {
 	 * @param string $plane   Capability plane ('chat').
 	 * @param string $current Currently selected id.
 	 */
+	/**
+	 * A model picker: the known ids for the chosen provider, plus "Other model…".
+	 *
+	 * The options are rebuilt in JS when the paired provider select changes, so
+	 * the list always belongs to the provider actually selected.
+	 *
+	 * @param string $name          Field name for the select ("<name>_custom" carries a typed id).
+	 * @param string $provider_name Field name of the provider select to follow.
+	 * @param string $provider      Currently selected provider id.
+	 * @param string $current       Currently stored model id.
+	 * @return void
+	 */
+	private function model_select( $name, $provider_name, $provider, $current ) {
+		$map    = Registry::chat_models_map();
+		$models = isset( $map[ $provider ] ) ? $map[ $provider ] : array();
+		$custom = '' !== $current && ! in_array( $current, $models, true );
+
+		echo '<select name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '"'
+			. ' class="ailinking-model-select" data-follows="' . esc_attr( $provider_name ) . '"'
+			. ' data-selected="' . esc_attr( $current ) . '">';
+		echo '<option value="">' . esc_html__( 'Provider default', 'ai-internal-linking' ) . '</option>';
+		foreach ( $models as $m ) {
+			echo '<option value="' . esc_attr( $m ) . '"' . selected( $m, $current, false ) . '>' . esc_html( $m ) . '</option>';
+		}
+		echo '<option value="__custom"' . selected( true, $custom, false ) . '>' . esc_html__( 'Other model…', 'ai-internal-linking' ) . '</option>';
+		echo '</select> ';
+
+		echo '<input type="text" class="ailinking-model-custom regular-text" name="' . esc_attr( $name ) . '_custom"'
+			. ' value="' . esc_attr( $custom ? $current : '' ) . '"'
+			. ' placeholder="' . esc_attr__( 'exact model id', 'ai-internal-linking' ) . '"'
+			. ' style="display:' . ( $custom ? 'inline-block' : 'none' ) . ';" />';
+	}
+
 	private function provider_select( $name, $plane, $current ) {
 		$providers = Registry::for_capability( $plane );
 		echo '<select name="' . esc_attr( $name ) . '" id="' . esc_attr( $name ) . '">';
@@ -152,8 +188,13 @@ class SettingsPage {
 					<tr>
 						<th scope="row"><label for="chat_provider"><?php esc_html_e( 'Chat provider', 'ai-internal-linking' ); ?></label></th>
 						<td>
-							<?php $this->provider_select( 'chat_provider', 'chat', (string) $settings['chat_provider'] ); ?>
-							<input type="text" name="chat_model" value="<?php echo esc_attr( (string) $settings['chat_model'] ); ?>" placeholder="<?php esc_attr_e( 'model id (optional)', 'ai-internal-linking' ); ?>" />
+							<?php
+							$this->provider_select( 'chat_provider', 'chat', (string) $settings['chat_provider'] );
+							$this->model_select( 'chat_model', 'chat_provider', (string) $settings['chat_provider'], (string) $settings['chat_model'] );
+							?>
+							<p class="description">
+								<?php esc_html_e( 'Leave the model blank to use the provider\'s current default. A model this plugin does not list still works — choose “Other model…” and type its id — but a typo there comes back as a plain error from the provider that looks like a rejected key, so prefer the list.', 'ai-internal-linking' ); ?>
+							</p>
 						</td>
 					</tr>
 					<tr>

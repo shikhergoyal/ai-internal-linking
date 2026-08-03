@@ -90,6 +90,47 @@ class Registry {
 	 *
 	 * @return array
 	 */
+	/**
+	 * Known chat model ids per provider, for the admin's model pickers.
+	 *
+	 * The model field used to be free text with no list and no validation, so a
+	 * typo produced a bare 400 from the provider — which reads like a broken key
+	 * rather than a bad model name. Offering the known ids removes the commonest
+	 * way to break the AI engine silently.
+	 *
+	 * @return array<string,string[]> provider id => chat model ids.
+	 */
+	public static function chat_models_map() {
+		$out = array();
+		foreach ( self::all() as $id => $p ) {
+			if ( ! $p->supports_chat() ) {
+				continue;
+			}
+			$models = $p->default_models();
+			$out[ $id ] = isset( $models['chat'] ) ? array_values( (array) $models['chat'] ) : array();
+		}
+		return $out;
+	}
+
+	/**
+	 * Resolve a submitted "pick from the list, or type your own" pair. (pure)
+	 *
+	 * Shared by both forms that carry a model field, so the two cannot disagree
+	 * about what an empty choice means: empty is a real answer here, telling the
+	 * plugin to fall back to the provider's own default.
+	 *
+	 * @param string $picked Value chosen in the select ('' , '__custom' or a model id).
+	 * @param string $custom Value typed in the custom box.
+	 * @return string
+	 */
+	public static function resolve_model_choice( $picked, $custom ) {
+		$picked = trim( (string) $picked );
+		if ( '__custom' === $picked ) {
+			return trim( (string) $custom );
+		}
+		return $picked;
+	}
+
 	public static function meta() {
 		$out = array();
 		foreach ( self::all() as $id => $p ) {

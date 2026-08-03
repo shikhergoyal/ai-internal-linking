@@ -216,15 +216,32 @@ class LlmSuggester {
 		$excerpt = self::truncate_words( $text, self::max_words() );
 
 		// A title alone is a thin description of a page: two posts both called
-		// "Getting started" look identical to the model. Sending each possible
-		// destination's own most-used words gives it something to judge.
-		$per_page = self::candidate_words();
-		$terms    = array();
-		if ( $per_page > 0 ) {
-			$ids = array();
-			foreach ( $candidates as $c ) {
-				$ids[] = (int) $c['post_id'];
+		// "Getting started" look identical to the model. What each destination
+		// carries alongside its title is the single biggest lever on pick quality.
+		$mode = self::describe_mode();
+		$ids  = array();
+		foreach ( $candidates as $c ) {
+			$ids[] = (int) $c['post_id'];
+		}
+
+		$summaries = array();
+		$terms     = array();
+		$per_page  = self::candidate_words();
+
+		if ( 'summary' === $mode ) {
+			$summaries = SummaryStore::for_posts( $ids, self::summary_words() );
+			// Pages too short to summarise still deserve a description, so they
+			// fall back to keywords rather than dropping to a bare title.
+			$without = array();
+			foreach ( $ids as $id ) {
+				if ( empty( $summaries[ $id ] ) ) {
+					$without[] = $id;
+				}
 			}
+			if ( $without && $per_page > 0 ) {
+				$terms = Tfidf::top_terms_for( $without, $per_page );
+			}
+		} elseif ( 'keywords' === $mode && $per_page > 0 ) {
 			$terms = Tfidf::top_terms_for( $ids, $per_page );
 		}
 
@@ -233,16 +250,22 @@ class LlmSuggester {
 		foreach ( $candidates as $c ) {
 			$line = $i . '. ' . trim( (string) $c['title'] );
 			$tid  = (int) $c['post_id'];
-			if ( ! empty( $terms[ $tid ] ) ) {
+			if ( ! empty( $summaries[ $tid ] ) ) {
+				$line .= ' - ' . $summaries[ $tid ];
+			} elseif ( ! empty( $terms[ $tid ] ) ) {
 				$line .= ' - ' . implode( ', ', $terms[ $tid ] );
 			}
 			$lines[] = $line;
 			$i++;
 		}
 
-		$heading = $per_page > 0
-			? "CANDIDATE PAGES (title - words that page uses most):\n"
-			: "CANDIDATE PAGES:\n";
+		if ( 'summary' === $mode ) {
+			$heading = "CANDIDATE PAGES (title - what that page covers):\n";
+		} elseif ( 'keywords' === $mode && $per_page > 0 ) {
+			$heading = "CANDIDATE PAGES (title - words that page uses most):\n";
+		} else {
+			$heading = "CANDIDATE PAGES:\n";
+		}
 
 		return "ARTICLE TITLE: " . trim( (string) $title ) . "\n\n"
 			. "ARTICLE TEXT:\n" . $excerpt . "\n\n"
@@ -393,6 +416,52 @@ class LlmSuggester {
 	 */
 	public static function clamp_candidate_words( $n ) {
 		return max( 0, min( self::MAX_CANDIDATE_WORDS, (int) $n ) );
+	}
+
+	/** Ways a possible destination can be described to the model. */
+	const DESCRIBE_MODES = array( 'title', 'keywords', 'summary' );
+
+	/**
+	 * How each destination is described. (pure given the stored setting)
+	 *
+	 * @return string One of DESCRIBE_MODES.
+	 */
+	public static function describe_mode() {
+		$mode = (string) Settings::get( 'llm_describe_mode', 'summary' );
+		/**
+		 * Filter how destinations are described to the model.
+		 *
+		 * @param string $mode title|keywords|summary.
+		 */
+		$mode = (string) apply_filters( 'ailinking_llm_describe_mode', $mode );
+		return self::clamp_describe_mode( $mode );
+	}
+
+	/**
+	 * Force a describe mode into the supported set. (pure)
+	 *
+	 * @param string $mode Requested mode.
+	 * @return string
+	 */
+	public static function clamp_describe_mode( $mode ) {
+		$mode = strtolower( trim( (string) $mode ) );
+		return in_array( $mode, self::DESCRIBE_MODES, true ) ? $mode : 'summary';
+	}
+
+	/**
+	 * Words of summary sent per destination.
+	 *
+	 * @return int
+	 */
+	public static function summary_words() {
+		$n = (int) Settings::get( 'llm_summary_words', Summarizer::DEFAULT_WORDS );
+		/**
+		 * Filter the words of summary sent per destination.
+		 *
+		 * @param int $n Words.
+		 */
+		$n = (int) apply_filters( 'ailinking_llm_summary_words', $n );
+		return Summarizer::clamp_words( $n );
 	}
 
 	/**
