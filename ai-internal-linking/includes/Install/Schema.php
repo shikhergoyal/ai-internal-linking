@@ -14,6 +14,7 @@
 namespace AILinking\Install;
 
 use AILinking\Support\Tables;
+use AILinking\Suggestions\Naturalness;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -72,8 +73,47 @@ class Schema {
 			update_option( self::UPGRADE_NOTICE_OPTION, self::missing_columns(), false );
 		}
 
+		self::rescore_suggestions();
+
 		delete_option( self::UPGRADE_TRIES_OPTION );
 		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+	}
+
+	/**
+	 * Recompute naturalness and confidence on suggestions already stored.
+	 *
+	 * Both are derived from the anchor text and the relevance score, and both of
+	 * those are stored, so this is exact rather than an estimate and it touches
+	 * no content. Without it a reviewer would be looking at two different scales
+	 * side by side until the next full scan: rows scored before 0.21.0 carry a
+	 * naturalness that was largely a restatement of relevance.
+	 *
+	 * Idempotent — running it again produces the same numbers.
+	 *
+	 * @return void
+	 */
+	private static function rescore_suggestions() {
+		global $wpdb;
+		$table = Tables::suggestions();
+		if ( ! self::table_exists( $table ) ) {
+			return;
+		}
+
+		$rows = $wpdb->get_results( "SELECT id, anchor_text, relevance_score FROM {$table}", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL
+		foreach ( (array) $rows as $r ) {
+			$relevance   = (float) $r['relevance_score'];
+			$naturalness = Naturalness::score( (string) $r['anchor_text'] );
+			$wpdb->update(
+				$table,
+				array(
+					'naturalness_score' => $naturalness,
+					'confidence_score'  => Naturalness::confidence( $relevance, $naturalness ),
+				),
+				array( 'id' => (int) $r['id'] ),
+				array( '%f', '%f' ),
+				array( '%d' )
+			);
+		}
 	}
 
 	/**

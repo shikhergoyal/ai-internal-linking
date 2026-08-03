@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.20.2
+Stable tag: 0.21.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,15 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.21.0 =
+* The confidence figure on every suggestion now means something. It is meant to blend two independent judgements — is this link worth making, and does this wording read well — weighted 60/40. It did not. Naturalness started from "0.45 + relevance x 0.30", so it was largely a restatement of relevance rather than an opinion about the anchor, and relevance was therefore counted twice: 0.6 directly and another 0.12 through naturalness. The real weighting was 0.72/0.28, and the second number contributed almost nothing.
+* Measured on 170 real suggestions before changing anything: naturalness minus 0.30 x relevance came out at exactly 0.700 on 161 of them, so the anchor-shape part took three distinct values across the whole set, and confidence correlated with relevance at 0.99 — it was telling a reviewer nothing that relevance had not already said. After the change that correlation is 0.88, and the pile-up in the top band fell from 24% of suggestions to 12%.
+* Naturalness now judges the anchor and nothing else: how many words it is, and how long it is. Anchors that are genuinely alike now score alike, which is the honest outcome — every anchor the free engine builds is a two-to-four word phrase from a page title, so they should score the same, and ranking among them falls to relevance where it belongs.
+* Two things in that scoring were wrong for any site not written in English. Length was measured in bytes, so a three-character Devanagari or Arabic anchor measured nine and escaped the too-short penalty, sometimes collecting the good-length bonus instead. And a single-word anchor was denied the phrase bonus, which permanently marked down every suggestion on a Chinese, Japanese or Thai site, where words are not separated by spaces. Length is now counted in characters, and a one-word anchor is treated neutrally rather than punished.
+* Suggestions already stored are rescored during the upgrade, so the inbox does not show two different scales side by side while you wait for the next scan. Both numbers are recomputed from the anchor text and relevance already on the row, so nothing is estimated and no content is touched.
+* The relevance weighting is now overridable with the ailinking_relevance_weight filter, and the anchor score with ailinking_naturalness.
+* Covered by 10 new unit tests, 346 in total, including that naturalness no longer moves when relevance changes.
 
 = 0.20.2 =
 * Fixed a way that applying a link could damage a page. When deciding where an anchor may be placed, the plugin split your content into tags and text by ending each tag at the first ">". A ">" written inside a quoted attribute — "<img alt=\"a > b\">" — therefore ended the tag early, and everything after it was treated as ordinary body text. If the anchor phrase happened to sit there, the link was spliced inside the attribute, breaking the tag.

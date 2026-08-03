@@ -204,12 +204,50 @@ eq( KeywordSuggester::relevance( true, 999, 10 ), 0.98, 'cap holds when opportun
 // Naturalness — anchor shape scoring and the composite.
 // ---------------------------------------------------------------------------
 
-eq( Naturalness::score( 'two words', 0.5 ), 0.85, 'multi-word anchor of good length' );
-ok( Naturalness::score( 'abc', 0.5 ) < Naturalness::score( 'two words', 0.5 ), 'very short anchors score worse' );
-ok( Naturalness::score( str_repeat( 'a', 80 ), 0.5 ) < Naturalness::score( 'two words', 0.5 ), 'over-long anchors score worse' );
-ok( Naturalness::score( 'anything', 1.0 ) <= 1.0, 'naturalness never exceeds 1' );
-ok( Naturalness::score( 'a', 0.0 ) >= 0.0, 'naturalness never goes below 0' );
+eq( Naturalness::score( 'content marketing strategy' ), 0.90, 'a descriptive phrase of good length scores near the top' );
+ok( Naturalness::score( 'abc' ) < Naturalness::score( 'two words here' ), 'very short anchors score worse' );
+ok( Naturalness::score( str_repeat( 'a', 80 ) ) < Naturalness::score( 'two words here' ), 'over-long anchors score worse' );
+ok( Naturalness::score( 'anything at all here' ) <= 1.0, 'naturalness never exceeds 1' );
+ok( Naturalness::score( 'a' ) >= 0.0, 'naturalness never goes below 0' );
+eq( Naturalness::score( '' ), 0.0, 'an empty anchor scores zero' );
 eq( Naturalness::confidence( 0.5, 0.85 ), 0.64, 'confidence = 0.6*relevance + 0.4*naturalness' );
+
+// The defect this replaced: naturalness was 0.45 + 0.30*relevance + a bonus, so
+// it restated relevance instead of judging the anchor. Measured on 170 live
+// suggestions, naturalness - 0.30*relevance was 0.700 on 161 of them.
+eq(
+	Naturalness::score( 'content marketing strategy', 0.1 ),
+	Naturalness::score( 'content marketing strategy', 0.9 ),
+	'REGRESSION: naturalness does not move with relevance'
+);
+ok(
+	Naturalness::score( 'content marketing strategy' ) > Naturalness::score( 'a full clause of at least six words' ),
+	'a phrase beats a clause'
+);
+ok(
+	Naturalness::score( 'two words here' ) > Naturalness::score( 'x' ),
+	'a real phrase beats a single tiny word'
+);
+
+// Length is counted in characters, not bytes. Three Devanagari characters are
+// nine bytes; the old byte count let them escape the too-short penalty and even
+// collect the good-length bonus, so the check meant nothing off the Latin
+// alphabet.
+$deva = json_decode( '"कृषि"' ); // 4 characters, 12 bytes
+ok( strlen( $deva ) > 8, 'the test string really is longer in bytes than in characters' );
+ok(
+	Naturalness::score( $deva ) < Naturalness::score( 'content marketing strategy' ),
+	'REGRESSION: a short non-Latin anchor is judged on characters, not bytes'
+);
+
+// Scripts without spaces must not be penalised for having no spaces.
+$cjk = json_decode( '"内部リンク戦略設計"' ); // 9 chars, no spaces
+ok( Naturalness::score( $cjk ) >= Naturalness::BASE, 'a space-less script is not marked down for having one word' );
+
+// The composite is now genuinely 60/40 and the weight is filterable.
+eq( Naturalness::confidence( 1.0, 0.0 ), 0.6, 'relevance alone contributes 0.6' );
+eq( Naturalness::confidence( 0.0, 1.0 ), 0.4, 'naturalness alone contributes 0.4' );
+eq( Naturalness::confidence( 2.0, -1.0 ), 0.6, 'out-of-range inputs are clamped before weighting' );
 
 // ---------------------------------------------------------------------------
 // Pricing — the rounding contract that the cost fix depends on.
