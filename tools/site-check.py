@@ -29,13 +29,18 @@ import deploy  # noqa: E402  same folder, shared config + connection handling
 
 EXPECTED_TABLES = [
     "index", "link_graph", "suggestions", "ledger", "tfidf", "jobs",
-    "provider_keys", "spend_log", "keywords", "keyword_map",
+    "provider_keys", "spend_log", "keywords",
 ]
 # Tables that must NOT exist any more, and the version that retired each.
+# Schema::install() drops these, so a healthy site reports them absent. Keep
+# this in step with the $retired list in Install/Schema.php: a table left in
+# EXPECTED_TABLES after it is dropped reports PROBLEM on every healthy site,
+# which trains you to ignore the one line that is supposed to mean something.
 RETIRED_TABLES = {
     "embeddings": "0.14.0",
     "clusters": "0.11.0",
     "cluster_members": "0.11.0",
+    "keyword_map": "0.20.0",
 }
 
 
