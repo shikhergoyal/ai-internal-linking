@@ -81,7 +81,7 @@ class Schema {
 	 *
 	 * @return string[]
 	 */
-	private static function missing_columns() {
+	public static function missing_columns() {
 		global $wpdb;
 		$table = Tables::index();
 		if ( ! self::table_exists( $table ) ) {
@@ -166,7 +166,7 @@ class Schema {
 	 *
 	 * @return string[]
 	 */
-	private static function index_columns() {
+	public static function index_columns() {
 		global $wpdb;
 		$table = Tables::index();
 		$out   = array();
@@ -183,7 +183,7 @@ class Schema {
 				if ( '' === $line || 0 === stripos( $line, 'CREATE TABLE' ) || 0 === strpos( $line, ')' ) ) {
 					continue;
 				}
-				if ( preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX)/i', $line ) ) {
+				if ( preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX)\b/i', $line ) ) {
 					continue;
 				}
 				if ( preg_match( '/^`?([a-z0-9_]+)`?\s+/i', $line, $m ) ) {

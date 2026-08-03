@@ -18,4 +18,29 @@ class Tables {
 	public static function tfidf() {
 		return 'wp_ailinking_tfidf';
 	}
+
+	/**
+	 * @return string
+	 */
+	public static function index() {
+		return 'wp_ailinking_index';
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function keywords() {
+		return 'wp_ailinking_keywords';
+	}
+
+	/**
+	 * Any other table name Schema::statements() asks for.
+	 *
+	 * @param string $name Method name.
+	 * @param array  $args Unused.
+	 * @return string
+	 */
+	public static function __callStatic( $name, $args ) {
+		return 'wp_ailinking_' . $name;
+	}
 }
