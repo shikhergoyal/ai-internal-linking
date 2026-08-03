@@ -72,6 +72,7 @@ def draw_text_block(title, desc, cx, cy, maxw, ink=INK, sub=GREY):
 
 
 AI_PUR = (124, 58, 167)
+SHOW_NO_AI = False   # badge only the steps a model touches; leave the rest bare
 
 
 def badge(x_right, y_edge, text, kind):
@@ -91,9 +92,10 @@ def badge(x_right, y_edge, text, kind):
 def node(y, title, desc, pal, shape="rect", bdg=None):
     """Draw a spine node. Returns (top, bottom, right_edge)."""
     dark, light = pal
-    # Every step is marked, so "unmarked" can never be mistaken for "unknown".
-    if bdg is None and shape != "oval":
-        bdg = ("NO AI", "no")
+    # Only AI is badged: a mark means a model was involved, and an unmarked
+    # step means it was not. The "no" badges stay in the data but are not drawn.
+    if bdg and bdg[1] != "ai" and not SHOW_NO_AI:
+        bdg = None
     if shape == "diamond":
         # Text sits in a band around the middle; work out the height needed so
         # the widest line still fits inside the sloping sides.
@@ -172,21 +174,16 @@ d.text((BAND, 62), "Every number below is the shipped default. Nothing is writte
 
 # Callout: where AI is, and is not, used.
 cy0 = 96
-CH = 150
+CH = 102
 d.rounded_rectangle([BAND, cy0, SKX1, cy0 + CH], radius=8, fill=(247, 243, 252), outline=AI_PUR, width=2)
 d.rectangle([BAND, cy0, BAND + 6, cy0 + CH], fill=AI_PUR)
-d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  EVERY STEP BELOW IS MARKED, SO NOTHING IS LEFT TO ASSUMPTION",
-       font=f_lbl, fill=AI_PUR)
+d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  ONLY THE PURPLE MARKS BELOW", font=f_lbl, fill=AI_PUR)
 for i, ln in enumerate([
-    "A model is contacted from ONE place in this pipeline: the AI Suggestion engine, one request per source page. There is a second model call in the plugin, the",
-    "Test connection button on the AI Keys screen, which sends a 5-token ping and never touches your content. Nothing else here contacts a model, ever.",
-    "",
-    "That single pipeline reply is not small, though. It decides the three things that matter most, marked AI 1, 2 and 3 below: which page to link to, which phrase",
-    "to use as the anchor, and the relevance figure on that row. Everything else, including the shortlist and the destination summaries the model is shown, is",
-    "ordinary code. The AI engine is also OFF until you switch it on, and it is skipped for any page whose link budget the GSC engine already filled.",
+    "One request per source page, from the AI Suggestion engine. That single reply decides the three things marked AI below: which page to link to, which",
+    "phrase becomes the anchor, and the relevance figure on that row. Every unmarked step is ordinary code with no model involved. The engine ships",
+    "switched off, and is skipped for any page whose link budget the GSC engine already filled.",
 ]):
-    if ln:
-        d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
+    d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
 badge(SKX1 - 18, cy0 + 14, "AI", "ai")
 d.text((SKX0, cy0 + CH + 22), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
 
@@ -279,8 +276,7 @@ steps = [
      ("Never even suggested", "checked before storing, so the queue holds nothing unusable"), None),
     ("Already linked, or already judged?", "one link per destination per page, and a pair you approved or rejected is never offered again", "diamond",
      ("Skipped", "the link already exists, or your earlier decision stands"), None),
-    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation", "rect", None,
-     ("NO AI  —  the model never chooses the position", "no")),
+    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation. The model never chooses the position", "rect", None, None),
 ]
 for title, desc, shape, sk, bd in steps:
     arrow(prev, prev + 34, S5)

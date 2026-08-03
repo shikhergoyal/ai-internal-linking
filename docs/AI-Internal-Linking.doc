@@ -72,8 +72,8 @@ expected to be linked sometimes is not.</p>
 
 <p>The image <code>backend-process-flowchart.png</code> beside this document shows all six stages as a single
 diagram: every decision, every branch where a suggestion is thrown away and why, every default limit and the
-screen that changes it, and the things this plugin deliberately does not do. Each step is also marked to show
-whether AI is involved. A model is contacted from one place in this pipeline, the AI Suggestion engine, one
+screen that changes it, and the things this plugin deliberately does not do. The steps where a model is involved
+are marked, and an unmarked step uses none. A model is contacted from one place in this pipeline, the AI Suggestion engine, one
 request per source page; the only other model call in the plugin is the Test connection button on the AI Keys
 screen, which pings the provider and never sees your content. That single pipeline reply decides three things:
 the destination, the anchor phrase, and the relevance figure on that row. Every other step, including the
