@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.19.0
+Stable tag: 0.19.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.19.1 =
+* Fixed: a summary could be built from the wrong sentences. Summaries were selected at the maximum length and then cut back to the length you asked for, which looks equivalent and is not — the chosen sentences are put back into reading order before the cut, so trimming the tail could throw away the best sentence and keep a weaker one that merely appeared earlier on the page. On one page that meant leading with a quiz prompt instead of the definition. They are now built at the length actually in use, and stored summaries are cleared when you change the length or the description mode, so they can never be left over from a different setting.
+* Fixed a database upgrade that could record itself as done without having run. The new version number was stamped whether or not the tables really changed, so if the migration ran against a half-updated copy of the plugin — which happens when files are uploaded one at a time, since the main file carrying the new version number can land before the schema file — the column was never added and never retried, and every query touching it failed quietly ever after. This actually happened on one deploy. The version is now recorded only once the tables carry every column the release declares; otherwise the next request tries again.
 
 = 0.19.0 =
 * Each possible destination is now described to the AI by a short summary of the page, instead of a list of key words. A word list is a poor description: it wastes room on near-duplicates such as "zone" and "zones", it strips out the relationships between ideas, and the unusual terms that actually distinguish a page often sit just below the cut. A summary carries all of that in the page's own sentences, and reads as English rather than as a bag of words.

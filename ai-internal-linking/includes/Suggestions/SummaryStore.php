@@ -55,9 +55,7 @@ class SummaryStore {
 			$pid = (int) $r['post_id'];
 			$sum = trim( (string) $r['summary'] );
 			if ( '' !== $sum ) {
-				// Stored at some other length; shorten in place rather than
-				// rebuilding, so lowering the setting costs nothing.
-				$out[ $pid ] = Summarizer::trim_to_words( $sum, $max_words );
+				$out[ $pid ] = $sum;
 				continue;
 			}
 			$missing[ $pid ] = (string) $r['parsed_text'];
@@ -76,15 +74,19 @@ class SummaryStore {
 				}
 			}
 
-			// Build at the maximum, store that, and serve a trimmed copy. Raising
-			// the setting later then costs nothing either.
-			$full = Summarizer::summarize( $text, $weights, Summarizer::MAX_WORDS );
-			if ( '' === $full ) {
+			// Built at the length actually wanted, not at the maximum and then
+			// trimmed. Trimming a longer summary looks equivalent and is not:
+			// selection happens first and the survivors are put back into
+			// reading order, so cutting the tail can discard the best sentence
+			// and keep a weaker one that merely appeared earlier on the page.
+			// Changing the length setting clears these, so they never go stale.
+			$summary = Summarizer::summarize( $text, $weights, $max_words );
+			if ( '' === $summary ) {
 				continue; // too short, or nothing distinctive: caller falls back
 			}
 
-			$wpdb->update( $table, array( 'summary' => $full ), array( 'post_id' => $pid ), array( '%s' ), array( '%d' ) );
-			$out[ $pid ] = Summarizer::trim_to_words( $full, $max_words );
+			$wpdb->update( $table, array( 'summary' => $summary ), array( 'post_id' => $pid ), array( '%s' ), array( '%d' ) );
+			$out[ $pid ] = $summary;
 		}
 
 		return $out;
