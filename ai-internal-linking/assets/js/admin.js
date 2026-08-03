@@ -58,6 +58,30 @@
 	}
 
 	/**
+	 * Refresh the dashboard Status card from a progress response.
+	 *
+	 * The card is rendered server-side, so without this it shows whatever was
+	 * true when the page loaded and only catches up on a reload, which reads
+	 * as the scan having done nothing.
+	 *
+	 * @param {Object} stats {indexed, pending} from the server, or null.
+	 */
+	function setStats( stats ) {
+		if ( ! stats ) {
+			return;
+		}
+		[ [ 'ailinking-stat-indexed', 'indexed' ], [ 'ailinking-stat-pending', 'pending' ] ].forEach( function ( pair ) {
+			var el = document.getElementById( pair[ 0 ] );
+			if ( ! el || typeof stats[ pair[ 1 ] ] !== 'number' ) {
+				return;
+			}
+			// Grouped the way the server prints it, so a reload does not appear
+			// to change the number that was already on screen.
+			el.textContent = stats[ pair[ 1 ] ].toLocaleString();
+		} );
+	}
+
+	/**
 	 * Show tokens + estimated cost burned by the current run. Stays hidden
 	 * until a provider call actually happens, so key-free runs (the TF-IDF
 	 * default) show no AI clutter.
@@ -115,6 +139,7 @@
 				var doneLabel = problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done;
 				setBar( box, d.percent, d.done ? doneLabel : label );
 				setUsage( box, d.usage );
+				setStats( d.stats );
 				return !! d.done;
 			} ).catch( function () {
 				setBar( box, 100, cfg.i18n.error );
@@ -201,6 +226,7 @@
 					var d = res.data;
 					var problem = d.last_error || '';
 					setUsage( box, d.usage );
+					setStats( d.stats );
 					if ( 'paused' === d.status ) {
 						setBar( box, d.percent, pausedLabel( d ) );
 						looping = false;
@@ -259,6 +285,7 @@
 						var d = ( res && res.data ) ? res.data : {};
 						setBar( box, d.percent || 0, pausedLabel( d ) );
 						setUsage( box, d.usage );
+						setStats( d.stats );
 						ui( 'paused' );
 					} ).catch( function () {
 						pauseB.disabled = false;
@@ -270,8 +297,9 @@
 				stopB.addEventListener( 'click', function ( e ) {
 					e.preventDefault();
 					looping = false;
-					post( 'ailinking_scan_control', { do: 'stop' } ).then( function () {
+					post( 'ailinking_scan_control', { do: 'stop' } ).then( function ( res ) {
 						setBar( box, 100, cfg.i18n.done );
+						setStats( ( res && res.data ) ? res.data.stats : null );
 						ui( 'idle' );
 					} );
 				} );

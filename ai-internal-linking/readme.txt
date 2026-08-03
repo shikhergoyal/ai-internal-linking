@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.24.0
+Stable tag: 0.24.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.24.1 =
+* Fixed: the Status card on Setup & Dashboard stayed frozen while a scan ran. "Pages indexed" and "suggestions awaiting review" were rendered once when the page loaded and nothing ever updated them, so starting, resuming or stopping a scan appeared to do nothing until you reloaded the page. Both figures now refresh with every progress tick, and when a scan is paused or stopped.
+* Both figures now come from one place, so the number the page prints and the number a running scan reports can no longer disagree.
 
 = 0.24.0 =
 * The document now answers a question it never did: where in the page the link actually goes. A phrase usually appears more than once, and nothing said which occurrence gets linked. It is the first one that is allowed, reading top to bottom, and only that one — however many times the phrase appears, one suggestion produces one link. The block editor follows the same rule block by block. The sentence quoted in your review screen is the one around that occurrence, so you can judge the placement before approving, and the one case where the link lands somewhere else is spelled out.
