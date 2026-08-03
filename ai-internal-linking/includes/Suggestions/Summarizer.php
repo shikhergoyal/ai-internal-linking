@@ -288,11 +288,63 @@ class Summarizer {
 		$out = array();
 		foreach ( $parts as $p ) {
 			$p = trim( $p );
-			if ( '' !== $p ) {
-				$out[] = $p;
+			if ( '' === $p ) {
+				continue;
 			}
+			// A full stop after an initial is not the end of a sentence. Without
+			// this, "headed by Sardar Patel, with V. P. Menon as secretary" is cut
+			// to "...with V." and the summary ends mid-name.
+			if ( $out && self::ends_mid_sentence( $out[ count( $out ) - 1 ] ) ) {
+				$out[ count( $out ) - 1 ] .= ' ' . $p;
+				continue;
+			}
+			$out[] = $p;
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether a full stop here is punctuation inside a sentence, not its end. (pure)
+	 *
+	 * The single-letter case is the structural one and holds wherever initials
+	 * are written that way. The abbreviation list after it is English, a
+	 * secondary hint only, and replaceable through a filter — a list of words
+	 * can never cover a language it was not written for.
+	 *
+	 * @param string $part Sentence candidate.
+	 * @return bool
+	 */
+	public static function ends_mid_sentence( $part ) {
+		$p = rtrim( (string) $part );
+		if ( '.' !== substr( $p, -1 ) ) {
+			return false;
+		}
+
+		$body  = substr( $p, 0, -1 );
+		$words = preg_split( '/\s+/u', trim( $body ) );
+		if ( ! is_array( $words ) || empty( $words ) ) {
+			return false;
+		}
+		$last = (string) $words[ count( $words ) - 1 ];
+
+		// An initial: one letter standing alone, as in "V." of "V. P. Menon".
+		if ( preg_match( '/^\p{L}$/u', $last ) ) {
+			return true;
+		}
+
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $last, 'UTF-8' ) : strtolower( $last );
+
+		/**
+		 * Filter abbreviations after which a full stop does not end a sentence.
+		 *
+		 * @param string[] $abbreviations Lowercase, without the full stop.
+		 */
+		$abbreviations = (array) apply_filters(
+			'ailinking_sentence_abbreviations',
+			array( 'mr', 'mrs', 'ms', 'dr', 'prof', 'st', 'jr', 'sr', 'vs', 'etc', 'eg', 'ie', 'fig', 'no', 'vol', 'pp', 'approx', 'inc', 'ltd', 'co' )
+		);
+
+		return in_array( $lower, $abbreviations, true );
 	}
 
 	/**

@@ -658,6 +658,21 @@ ok( Summarizer::is_question( 'Welche der folgenden Aussagen ist richtig?' ), 'a 
 ok( Summarizer::is_question( 'A' . chr( 0xEF ) . chr( 0xBC ) . chr( 0x9F ) ), 'a full-width question mark is recognised' );
 ok( Summarizer::is_question( 'kayf' . chr( 0xD8 ) . chr( 0x9F ) ), 'an Arabic question mark is recognised' );
 
+// A full stop after an initial does not end a sentence. This is structural:
+// initials are written the same way in most languages that use them.
+ok( Summarizer::ends_mid_sentence( 'headed by Sardar Patel, with V.' ), 'an initial does not end a sentence' );
+ok( Summarizer::ends_mid_sentence( 'a paper by J.' ), 'a single letter is treated as an initial' );
+ok( ! Summarizer::ends_mid_sentence( 'The department was headed by Patel.' ), 'an ordinary word does end a sentence' );
+ok( ! Summarizer::ends_mid_sentence( 'no trailing stop here' ), 'text with no full stop is not mid-sentence' );
+ok( Summarizer::ends_mid_sentence( 'according to Dr.' ), 'a listed abbreviation does not end a sentence' );
+ok( ! Summarizer::ends_mid_sentence( '' ), 'empty text is not mid-sentence' );
+
+$initials = Summarizer::sentences( 'The States Department was headed by Sardar Vallabhbhai Patel, with V. P. Menon as its secretary. Integration followed quickly.' );
+eq( count( $initials ), 2, 'initials do not split one sentence into several' );
+ok( false !== strpos( $initials[0], 'V. P. Menon as its secretary' ), 'REGRESSION: a name with initials survives whole' );
+
+eq( count( Summarizer::sentences( 'He arrived first. She followed later.' ) ), 2, 'ordinary sentences still split' );
+
 ok( Summarizer::is_caption( 'Weather effects: stable air, fog, frost and trapped smog.' ), 'a short label before a colon marks a caption' );
 ok( Summarizer::is_caption( 'Conclusion: the inversion is a stable reversal.' ), 'a one-word label is a caption' );
 ok( ! Summarizer::is_caption( 'Soil formation begins with weathering of the parent rock.' ), 'prose without a colon is not a caption' );
