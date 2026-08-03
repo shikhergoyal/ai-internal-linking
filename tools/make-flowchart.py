@@ -71,9 +71,29 @@ def draw_text_block(title, desc, cx, cy, maxw, ink=INK, sub=GREY):
         centre(ln, f_d, cx, y + 28 + i * 17, sub)
 
 
-def node(y, title, desc, pal, shape="rect"):
+AI_PUR = (124, 58, 167)
+
+
+def badge(x_right, y_edge, text, kind):
+    """Ribbon straddling a node's top border. kind: 'ai' or 'no'."""
+    h, w = 21, tw(text, f_lbl) + 20
+    x0 = x_right - w
+    if kind == "ai":
+        d.rounded_rectangle([x0, y_edge - h / 2, x_right, y_edge + h / 2],
+                            radius=h / 2, fill=AI_PUR, outline=AI_PUR, width=1)
+        centre(text, f_lbl, (x0 + x_right) / 2, y_edge, WHITE)
+    else:
+        d.rounded_rectangle([x0, y_edge - h / 2, x_right, y_edge + h / 2],
+                            radius=h / 2, fill=WHITE, outline=(158, 166, 174), width=1)
+        centre(text, f_lbl, (x0 + x_right) / 2, y_edge, (118, 126, 134))
+
+
+def node(y, title, desc, pal, shape="rect", bdg=None):
     """Draw a spine node. Returns (top, bottom, right_edge)."""
     dark, light = pal
+    # Every step is marked, so "unmarked" can never be mistaken for "unknown".
+    if bdg is None and shape != "oval":
+        bdg = ("NO AI", "no")
     if shape == "diamond":
         # Text sits in a band around the middle; work out the height needed so
         # the widest line still fits inside the sloping sides.
@@ -85,6 +105,8 @@ def node(y, title, desc, pal, shape="rect"):
         d.polygon([(CX, y), (x1, mid), (CX, y + h), (x0, mid)], fill=light)
         d.line([(CX, y), (x1, mid), (CX, y + h), (x0, mid), (CX, y)], fill=dark, width=2)
         draw_text_block(title, desc, CX, mid, 520)
+        if bdg:
+            badge(CX + 355, y - 9, bdg[0], bdg[1])
         return y, y + h, x1
     if shape == "oval":
         h = 74
@@ -104,10 +126,14 @@ def node(y, title, desc, pal, shape="rect"):
         d.line([(RIGHT, y + ry), (RIGHT, y + h - ry)], fill=dark, width=2)
         d.ellipse([LEFT, y, RIGHT, y + ry * 2], fill=light, outline=dark, width=2)
         draw_text_block(title, desc, CX, y + h / 2 + 2, RIGHT - LEFT - 40)
+        if bdg:
+            badge(RIGHT - 14, y + ry, bdg[0], bdg[1])
         return y, y + h, RIGHT
     h = body + 26
     d.rounded_rectangle([LEFT, y, RIGHT, y + h], radius=6, fill=light, outline=dark, width=2)
     draw_text_block(title, desc, CX, y + h / 2, RIGHT - LEFT - 40)
+    if bdg:
+        badge(RIGHT - 14, y, bdg[0], bdg[1])
     return y, y + h, RIGHT
 
 
@@ -143,9 +169,28 @@ d.text((BAND, 24), "Internal Linking Plugin \u2014 what the backend actually doe
        font=f_h1, fill=(20, 40, 70))
 d.text((BAND, 62), "Every number below is the shipped default. Nothing is written to your site without your approval.",
        font=f_sub, fill=GREY)
-d.text((SKX0, 66), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
 
-y = 108
+# Callout: where AI is, and is not, used.
+cy0 = 96
+CH = 150
+d.rounded_rectangle([BAND, cy0, SKX1, cy0 + CH], radius=8, fill=(247, 243, 252), outline=AI_PUR, width=2)
+d.rectangle([BAND, cy0, BAND + 6, cy0 + CH], fill=AI_PUR)
+d.text((BAND + 22, cy0 + 14), "WHERE AI IS USED  —  EVERY STEP BELOW IS MARKED, SO NOTHING IS LEFT TO ASSUMPTION",
+       font=f_lbl, fill=AI_PUR)
+for i, ln in enumerate([
+    "A model is contacted from ONE place in this pipeline: the AI Suggestion engine, one request per source page. There is a second model call in the plugin, the",
+    "Test connection button on the AI Keys screen, which sends a 5-token ping and never touches your content. Nothing else here contacts a model, ever.",
+    "",
+    "That single pipeline reply is not small, though. It decides the three things that matter most, marked AI 1, 2 and 3 below: which page to link to, which phrase",
+    "to use as the anchor, and the relevance figure on that row. Everything else, including the shortlist and the destination summaries the model is shown, is",
+    "ordinary code. The AI engine is also OFF until you switch it on, and it is skipped for any page whose link budget the GSC engine already filled.",
+]):
+    if ln:
+        d.text((BAND + 22, cy0 + 38 + i * 18), ln, font=f_note, fill=(70, 60, 90))
+badge(SKX1 - 18, cy0 + 14, "AI", "ai")
+d.text((SKX0, cy0 + CH + 22), "THROWN AWAY HERE, AND WHY", font=f_lbl, fill=SKIP[0])
+
+y = cy0 + CH + 22
 _, prev, _ = node(y, "INDEX / RE-INDEX SITE", "you press the button; nothing runs on a timer", NEUT, "oval")
 
 # ---------------- 1  INDEXING ----------------
@@ -184,14 +229,18 @@ stage(s_top, prev, 2, "SOURCE PAGE", S2)
 s_top = prev + 30
 steps = [
     ("Could this page be a destination?", "not itself, published, right content type, not excluded, not a Woo system page, same language, and at least 2 words in common", "diamond",
-     ("Never considered", "one of seven absolute rules")),
-    ("Compare distinctive vocabulary", "rare shared words count most, and a word appearing on over 40% of your pages counts for nothing", "rect", None),
-    ("Term index", "up to 300 words per page, with how often each appears", "db", None),
-    ("Keep the closest N", "15 by default, adjustable from 5 to 200. This shortlist is built BEFORE any engine chooses", "rect", None),
+     ("Never considered", "one of seven absolute rules"), None),
+    ("Compare distinctive vocabulary", "rare shared words count most, and a word appearing on over 40% of your pages counts for nothing", "rect", None,
+     ("NO AI  —  arithmetic only", "no")),
+    ("Term index", "up to 300 words per page, with how often each appears", "db", None, None),
+    ("Keep the closest N", "15 by default, adjustable from 5 to 200. This shortlist is built BEFORE any engine chooses, so the model never sees your whole site", "rect", None,
+     ("NO AI", "no")),
+    ("Describe each destination", "whole sentences copied out of that page, scored by its own distinctive words. Nothing here is written by a model", "rect", None,
+     ("NO AI  —  extracted, not generated", "no")),
 ]
-for title, desc, shape, sk in steps:
+for title, desc, shape, sk, bd in steps:
     arrow(prev, prev + 34, S3)
-    t, b, xr = node(prev + 34, title, desc, S3, shape)
+    t, b, xr = node(prev + 34, title, desc, S3, shape, bd)
     if sk:
         skip((t + b) / 2, xr, sk[0], sk[1])
     prev = b
@@ -202,16 +251,20 @@ s_top = prev + 30
 arrow(prev, prev + 34, S4)
 t, prev, _ = node(prev + 34, "Three engines, always in this order",
                   "each one proposes links until the page's budget is used up, so a later engine only sees what is left", S4)
-for title, desc in [
-    ("1.  GSC keyword", "Google decides: your page mentions a phrase another page already ranks for. That phrase becomes the anchor. Stops at 3 identical anchors aimed at one page"),
-    ("2.  AI Suggestion", "the model receives your page plus the shortlist, each destination shown as a title and a ~40 word summary taken from that page's own sentences. It answers with a NUMBER, never an address"),
-    ("3.  Related Content", "no AI and no key needed: the highest shared vocabulary wins, and the anchor is drawn from that page's title"),
+for title, desc, bd in [
+    ("1.  GSC keyword", "Google decides: your page mentions a phrase another page already ranks for. That phrase becomes the anchor. Stops at 3 identical anchors aimed at one page",
+     ("NO AI  —  Google data + exact matching", "no")),
+    ("2.  AI Suggestion", "OFF until you switch it on, and skipped entirely if the engine above already filled this page's budget. When it does run: one request, temperature 0, carrying your page text plus the numbered shortlist. It answers with a NUMBER, an anchor phrase and its own confidence. The reason it gives is read and discarded",
+     ("AI  —  the only call in this pipeline", "ai")),
+    ("3.  Related Content", "no key needed: the highest shared vocabulary wins, and the anchor is drawn from that page's title",
+     ("NO AI  —  arithmetic only", "no")),
 ]:
     arrow(prev, prev + 26, S4)
-    t, prev, _ = node(prev + 26, title, desc, S4)
+    t, prev, _ = node(prev + 26, title, desc, S4, "rect", bd)
 arrow(prev, prev + 34, S4)
 t, b, xr = node(prev + 34, "Is the AI's number one it was shown?",
-                "it may only pick from the shortlist, and the plugin looks the address up itself", S4, "diamond")
+                "it may only pick from the shortlist, and the plugin looks the address up itself", S4, "diamond",
+                ("AI OUTPUT 1 of 3: the destination", "ai"))
 skip((t + b) / 2, xr, "Thrown away", "a number outside the list means nothing, so it cannot invent a page")
 prev = b
 stage(s_top, prev, 4, "DESTINATION", S4)
@@ -220,16 +273,18 @@ stage(s_top, prev, 4, "DESTINATION", S4)
 s_top = prev + 30
 steps = [
     ("Does the phrase appear in the page?", "whole words, ignoring capitals. Exact match only, with no partial words and no synonyms", "diamond",
-     ("Discarded", "this single rule is what stops invented anchors")),
+     ("Discarded", "this single rule is what stops invented anchors"),
+     ("AI OUTPUT 2 of 3: the anchor, checked here", "ai")),
     ("Can it legally be placed?", "not in a heading, not inside an existing link, not in code, and not inside a tag's attributes", "diamond",
-     ("Never even suggested", "checked before storing, so the queue holds nothing unusable")),
+     ("Never even suggested", "checked before storing, so the queue holds nothing unusable"), None),
     ("Already linked, or already judged?", "one link per destination per page, and a pair you approved or rejected is never offered again", "diamond",
-     ("Skipped", "the link already exists, or your earlier decision stands")),
-    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation", "rect", None),
+     ("Skipped", "the link already exists, or your earlier decision stands"), None),
+    ("Take the FIRST allowed occurrence", "top to bottom, one link per suggestion however often the phrase appears, saved in YOUR capitalisation", "rect", None,
+     ("NO AI  —  the model never chooses the position", "no")),
 ]
-for title, desc, shape, sk in steps:
+for title, desc, shape, sk, bd in steps:
     arrow(prev, prev + 34, S5)
-    t, b, xr = node(prev + 34, title, desc, S5, shape)
+    t, b, xr = node(prev + 34, title, desc, S5, shape, bd)
     if sk:
         skip((t + b) / 2, xr, sk[0], sk[1])
     prev = b
@@ -237,24 +292,26 @@ stage(s_top, prev, 5, "ANCHOR", S5)
 
 # ---------------- 6  SCORE, REVIEW, PLACE ----------------
 s_top = prev + 30
-for title, desc in [
-    ("Score it", "0.60 x relevance + 0.40 x naturalness. Naturalness judges the phrase by itself: 2 to 4 words and 8 to 60 characters score best"),
-    ("Apply the per page cap", "at most 8 new suggestions from one page in a single scan, however many the engines found"),
-    ("Show it to you", "source, destination, anchor, the sentence around it, the score, and which engine proposed it"),
+for title, desc, bd in [
+    ("Score it", "0.60 x relevance + 0.40 x naturalness. On an AI row the relevance IS the model's own confidence figure; the other two engines compute it. Naturalness is never AI: 2 to 4 words and 8 to 60 characters score best",
+     ("AI OUTPUT 3 of 3: the relevance figure", "ai")),
+    ("Apply the per page cap", "at most 8 new suggestions from one page in a single scan, however many the engines found", ("NO AI", "no")),
+    ("Show it to you", "source, destination, anchor, the sentence around it, the score, and which engine proposed it", None),
 ]:
     arrow(prev, prev + 30, S6)
-    t, prev, _ = node(prev + 30, title, desc, S6)
+    t, prev, _ = node(prev + 30, title, desc, S6, "rect", bd)
 arrow(prev, prev + 34, S6)
 t, b, xr = node(prev + 34, "You approve it?", "nothing is ever inserted without this", S6, "diamond")
 skip((t + b) / 2, xr, "Rejected and remembered", "the pair is never offered again on a later scan")
 prev = b
-for title, desc in [
-    ("Save a revision and an undo record", "both are written BEFORE the post is touched, so every insertion has two ways back"),
-    ("Splice the link in", "a byte-exact insertion. If anything but the new link would change, the write is refused"),
-    ("Re-index the page", "the new link is counted at once, so the next scan sees it and the link budget updates"),
+for title, desc, bd in [
+    ("Save a revision and an undo record", "both are written BEFORE the post is touched, so every insertion has two ways back", None),
+    ("Splice the link in", "a byte-exact insertion. If anything but the new link would change, the write is refused",
+     ("NO AI  —  no model ever writes to your site", "no")),
+    ("Re-index the page", "the new link is counted at once, so the next scan sees it and the link budget updates", None),
 ]:
     arrow(prev, prev + 30, S6)
-    t, prev, _ = node(prev + 30, title, desc, S6)
+    t, prev, _ = node(prev + 30, title, desc, S6, "rect", bd)
 reindex_y = prev - 40
 arrow(prev, prev + 34, S6)
 t, b, _ = node(prev + 34, "INTERNAL LINK LIVE", "undo restores your original content at any time", S6, "oval")
@@ -298,6 +355,11 @@ tbl_bottom = fy + 46 + len(limits) * 24
 ny = tbl_bottom + 26
 d.text((BAND, ny), "NOT IN THIS PLUGIN, AND DELIBERATELY SO", font=f_lbl, fill=(150, 55, 55))
 notes = [
+    "The AI engine ships switched OFF. Leave it off, or supply no key, and the plugin still works: the GSC keyword and Related Content engines need no model and cost nothing.",
+    "The AI engine runs second of three, so it is skipped for any page whose link budget the GSC keyword engine has already filled. On those pages no model is contacted at all.",
+    "If the model fails, times out or answers with something unusable, the scan does not stop. That page simply falls through to the Related Content engine.",
+    "No model ever writes to your site, and no model is ever shown your whole site. It sees one page and a shortlist of at most 200 titles and summaries.",
+    "The only other model call in the plugin is the Test connection button on the AI Keys screen: a 5-token ping that never sees your content and never creates a suggestion.",
     "No sitemap and no HTTP crawl. It reads your database, so caching, staging and password protection cannot affect it, and drafts can be indexed.",
     "No synonym, stem or partial matching. An anchor must appear in your text word for word, or no suggestion is made at all.",
     "No page-type priority and no orphan boost when ranking. Internal PageRank IS measured, but it is only reported in Link Health.",
