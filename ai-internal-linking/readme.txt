@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.19.1
+Stable tag: 0.19.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.19.2 =
+* Fixed: on pages built around questions, the summary described the question instead of the page. Exam and quiz scaffolding — "Consider the following statements", "With reference to…", "Assertion (A):" — contains the page's real subject words, so it scored well and was chosen. A page on the Non-Cooperation Movement was being described to the AI as "UPSC Prelims 1998 GS Paper I. Consider the following statement and reason. Assertion (A): Gandhi stopped the Non-cooperation Movement in 1922."
+* The more serious half of the same fault: the sentences immediately after such a stem are the multiple-choice options, and in a multiple-choice question some options are deliberately FALSE. One live page was described with "The earth loses energy to space mainly as short-wave radiation" — the exact misconception that page exists to correct. Nothing about the sentence itself gives it away; it reads as an ordinary statement. Only its position after the stem does, so that is what is now used to spot it.
+* Both are penalised rather than banned. A page that is genuinely all questions, an FAQ or a quiz, still gets a summary, because a question describes a page better than nothing does. They simply lose to any plain statement on the same page. The phrase list is overridable with the ailinking_question_markers filter, for sites whose questions are worded differently.
+* Covered by 14 new unit tests, 264 in total, including that a deliberately false quiz option is never asserted as a description and that an all-questions page is still described.
 
 = 0.19.1 =
 * Fixed: a summary could be built from the wrong sentences. Summaries were selected at the maximum length and then cut back to the length you asked for, which looks equivalent and is not — the chosen sentences are put back into reading order before the cut, so trimming the tail could throw away the best sentence and keep a weaker one that merely appeared earlier on the page. On one page that meant leading with a quiz prompt instead of the definition. They are now built at the length actually in use, and stored summaries are cleared when you change the length or the description mode, so they can never be left over from a different setting.

@@ -60,6 +60,108 @@ class Summarizer {
 	const OVERLAP_LIMIT = 0.7;
 
 	/**
+	 * Score multiplier for a sentence that asks rather than tells.
+	 *
+	 * A penalty, not a ban. On a page that is genuinely all questions — an FAQ,
+	 * a quiz — banning them would leave nothing to summarise with, and a
+	 * question is still a better description than no description. Weighted this
+	 * low, a question is only ever used when the page offers nothing else.
+	 */
+	const QUESTION_PENALTY = 0.15;
+
+	/**
+	 * Score multiplier for the sentences immediately after a question stem.
+	 *
+	 * "Consider the following statements:" is followed by the options, and in a
+	 * multiple-choice question some of those options are deliberately FALSE. One
+	 * such line was picked as a page description on a live site, leaving the
+	 * summary asserting the very thing the page exists to correct. They read as
+	 * ordinary declarative sentences, so nothing about the sentence itself gives
+	 * them away — only their position after the stem does.
+	 */
+	const OPTION_PENALTY = 0.3;
+
+	/** How many sentences after a stem are treated as its options. */
+	const OPTION_REACH = 3;
+
+	/**
+	 * Phrases that mark a sentence as part of a question rather than a
+	 * description of the page. Lowercase, matched as substrings.
+	 *
+	 * @return string[]
+	 */
+	public static function question_markers() {
+		$markers = array(
+			'consider the following',
+			'which of the following',
+			'which one of the following',
+			'select the correct',
+			'choose the correct',
+			'with reference to',
+			'assertion (a)',
+			'reason (r)',
+			'how many of the above',
+			'the correct answer is',
+			'statement 1',
+			'statement i:',
+			'codes:',
+			'match list',
+			'given below',
+			'answer:',
+			'explanation:',
+		);
+		/**
+		 * Filter the phrases that mark a sentence as question scaffolding.
+		 *
+		 * @param string[] $markers Lowercase substrings.
+		 */
+		return (array) apply_filters( 'ailinking_question_markers', $markers );
+	}
+
+	/**
+	 * Whether a sentence asks rather than tells. (pure)
+	 *
+	 * @param string $sentence Sentence.
+	 * @return bool
+	 */
+	public static function is_question( $sentence ) {
+		$s = trim( (string) $sentence );
+		if ( '' === $s ) {
+			return false;
+		}
+		if ( false !== strpos( $s, '?' ) ) {
+			return true;
+		}
+
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $s, 'UTF-8' ) : strtolower( $s );
+		foreach ( self::question_markers() as $marker ) {
+			if ( false !== strpos( $lower, $marker ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether a sentence introduces a list of options. (pure)
+	 *
+	 * @param string $sentence Sentence.
+	 * @return bool
+	 */
+	public static function is_option_stem( $sentence ) {
+		$s = rtrim( trim( (string) $sentence ) );
+		if ( '' === $s ) {
+			return false;
+		}
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $s, 'UTF-8' ) : strtolower( $s );
+
+		// A stem either trails into its options with a colon, or announces them.
+		return ':' === substr( $s, -1 )
+			|| false !== strpos( $lower, 'the following' )
+			|| false !== strpos( $lower, 'given below' );
+	}
+
+	/**
 	 * Clamp a summary length into the supported range. (pure)
 	 *
 	 * @param int $words Requested length.
@@ -145,8 +247,18 @@ class Summarizer {
 			return '';
 		}
 
+		// Sentences following a question stem are its options, and in a
+		// multiple-choice question some are deliberately false.
+		$option_until = -1;
+
 		$scored = array();
 		foreach ( $sentences as $i => $sentence ) {
+			$is_question = self::is_question( $sentence );
+			$is_option   = ( $i <= $option_until );
+			if ( $is_question && self::is_option_stem( $sentence ) ) {
+				$option_until = $i + self::OPTION_REACH;
+			}
+
 			$words = preg_split( '/\s+/u', $sentence );
 			$len   = is_array( $words ) ? count( $words ) : 0;
 			if ( $len < self::MIN_SENTENCE_WORDS || $len > self::MAX_SENTENCE_WORDS ) {
@@ -165,6 +277,15 @@ class Summarizer {
 			}
 			if ( $score <= 0 ) {
 				continue; // Nothing distinctive in it. Boilerplate lands here.
+			}
+
+			// Penalised, not removed: a page that is nothing but questions still
+			// deserves a description, and these only win when nothing else is
+			// available.
+			if ( $is_question ) {
+				$score *= self::QUESTION_PENALTY;
+			} elseif ( $is_option ) {
+				$score *= self::OPTION_PENALTY;
 			}
 
 			$scored[] = array(

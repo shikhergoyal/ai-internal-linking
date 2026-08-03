@@ -625,6 +625,39 @@ eq( Summarizer::summarize( 'Too short.', $weights, 40 ), '', 'a page of fragment
 $long = Summarizer::summarize( $boiler, $weights, 25 );
 ok( str_word_count( $long ) <= 30, 'the word budget is respected (allowing the trim marker)' );
 
+// Question scaffolding must not become a page description. The dangerous case
+// is not the question itself but the options after it: in a multiple-choice
+// item some are deliberately FALSE, and they read as ordinary statements.
+ok( Summarizer::is_question( 'Which of the following is correct?' ), 'a question mark marks a question' );
+ok( Summarizer::is_question( 'Consider the following statements about soil.' ), 'a consider-the-following stem is a question' );
+ok( Summarizer::is_question( 'With reference to the earth heat budget, consider these.' ), 'with-reference-to is question framing' );
+ok( Summarizer::is_question( 'Assertion (A): Gandhi stopped the movement.' ), 'assertion-reason framing is a question' );
+ok( Summarizer::is_question( 'CONSIDER THE FOLLOWING STATEMENTS' ), 'marker matching is case-insensitive' );
+ok( ! Summarizer::is_question( 'Soil formation begins with the weathering of parent rock.' ), 'a plain statement is not a question' );
+ok( ! Summarizer::is_question( '' ), 'empty text is not a question' );
+
+ok( Summarizer::is_option_stem( 'Consider the following statements:' ), 'a colon-ended stem introduces options' );
+ok( Summarizer::is_option_stem( 'Which of the following is true' ), 'the-following announces options' );
+ok( ! Summarizer::is_option_stem( 'Insolation is incoming solar radiation.' ), 'a plain statement introduces nothing' );
+
+// End to end: the false option must lose to the true statement further down.
+$quiz = 'With reference to the earth heat budget, consider the following statements: '
+	. 'The earth loses energy to space mainly as short-wave radiation. '
+	. 'About 30 per cent of incoming solar radiation is reflected back to space. '
+	. 'Insolation is the incoming solar short-wave radiation received by the earth surface. '
+	. 'The absorbed energy is returned to space as long-wave radiation so that incoming and outgoing balance.';
+$qw = array( 'radiation' => 14, 'insolation' => 9, 'earth' => 9, 'solar' => 8, 'energy' => 7, 'space' => 7, 'incoming' => 6, 'outgoing' => 4, 'absorbed' => 4, 'balance' => 3, 'reflected' => 3, 'cent' => 2 );
+$qs = Summarizer::summarize( $quiz, $qw, 60 );
+ok( false === strpos( $qs, 'consider the following' ), 'the question stem is not used as a description' );
+ok( false === strpos( $qs, 'mainly as short-wave radiation' ), 'REGRESSION: a deliberately false quiz option is never asserted as a description' );
+ok( false !== strpos( $qs, 'long-wave radiation' ), 'the correct statement further down is chosen instead' );
+
+// A page that is nothing but questions still gets described, rather than nothing.
+$faq = 'What is soil genesis and why does it matter for agriculture? '
+	. 'How do climate and relief interact during soil formation over time?';
+$fs  = Summarizer::summarize( $faq, array( 'soil' => 8, 'genesis' => 5, 'climate' => 4, 'relief' => 3, 'formation' => 3, 'agriculture' => 2 ), 60 );
+ok( '' !== $fs, 'an all-questions page is still summarised, because a question beats no description' );
+
 eq( Summarizer::trim_to_words( 'one two three four five', 3 ), 'one two three…', 'trimming marks that it was cut' );
 eq( Summarizer::trim_to_words( 'one two', 10 ), 'one two', 'text under the limit is untouched' );
 
