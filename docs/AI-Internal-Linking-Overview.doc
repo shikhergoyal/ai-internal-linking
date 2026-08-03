@@ -244,16 +244,26 @@ position     7</pre>
 
 <h3>The two scores on every suggestion</h3>
 
-<pre class="formula">naturalness = 0.45
-            + 0.30 * relevance
-            + 0.15   if the wording is more than one word
-            + 0.10   if it is 8 to 60 characters long
-            - 0.20   if it is shorter than 5 characters
-            - 0.15   if it is longer than 70 characters
+<p>Every suggestion carries two numbers answering different questions. They are worked out independently, so the blend at the end means what it says.</p>
+
+<p><strong>Relevance &mdash; should these two pages be connected at all?</strong> Each engine has different evidence, so each decides differently. GSC keyword starts every match at 0.50 and rises with the traffic the phrase could realistically gain, because a phrase people actually search for is the strongest evidence there is. AI Suggestion uses the model&rsquo;s own confidence in its pick. Related Content uses the share of this page&rsquo;s distinctive vocabulary that the other page also uses.</p>
+
+<p><strong>The three are not comparable with one another.</strong> A 0.85 from the model is an opinion; a 0.85 from word comparison would mean two pages share most of their unusual wording, which almost never happens, and that engine normally scores between 0.08 and 0.50. Compare each engine against others of its own kind &mdash; the review screen labels the source of every suggestion for exactly this reason.</p>
+
+<p><strong>Naturalness &mdash; does this wording read well as a link?</strong> This looks only at the phrase that would become clickable, and knows nothing about relevance.</p>
+
+<pre class="formula">naturalness = 0.55
+            + 0.20   if the wording is 2 to 4 words
+            - 0.15   if it is 5 words or more
+            + 0.15   if it is 8 to 60 characters long
+            - 0.30   if it is shorter than 5 characters
+            - 0.25   if it is longer than 70 characters
 
 confidence  = 0.60 * relevance + 0.40 * naturalness</pre>
 
-<p><strong>In plain words:</strong> relevance asks "should these two pages be connected at all", naturalness asks "does this exact wording read well here". The number shown in the review inbox blends the two, with relevance carrying most of the weight.</p>
+<p>A single word is neither rewarded nor punished, because Chinese, Japanese and Thai do not separate words with spaces and every phrase in those languages would otherwise be treated as one word. Length is counted in characters rather than bytes for the same reason.</p>
+
+<p><strong>What the percentage in the inbox is.</strong> The two blended, 60/40. Well-formed wording tends to score alike, so most of the difference between suggestions comes from relevance. That is intended: acceptable wording is a condition to be met, while whether the pages belong together is the actual judgement.</p>
 
 <h3>The Related Content engine (runs last)</h3>
 
@@ -317,13 +327,13 @@ relevance = overlap / this page's own total weight
 2. That 3 word phrase is found in your page, so it can be the wording.
 3. Say the vocabulary overlap scored     relevance   = 0.42
 
-4. naturalness = 0.45 + (0.30 x 0.42)              = 0.576
-               + 0.15  more than one word          = 0.726
-               + 0.10  26 characters, within range = 0.826
+4. naturalness = 0.55  starting point
+               + 0.20  3 words, so 2 to 4            = 0.75
+               + 0.15  26 characters, within range   = 0.90
 
-5. confidence  = (0.60 x 0.42) + (0.40 x 0.826)    = 0.58</pre>
+5. confidence  = (0.60 x 0.42) + (0.40 x 0.90)      = 0.61</pre>
 
-<p>It reaches the review inbox showing 0.42 relevance, 0.83 naturalness and 0.58 overall, with the surrounding sentence quoted so you can judge the placement before approving anything.</p>
+<p>It reaches the review inbox showing 0.42 relevance, 0.90 naturalness and 0.61 overall, with the surrounding sentence quoted so you can judge the placement before approving anything.</p>
 
 <h2>What it will never do</h2>
 

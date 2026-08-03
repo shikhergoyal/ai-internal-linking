@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.21.0
+Stable tag: 0.21.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,13 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.21.1 =
+* The Settings screen now explains what relevance actually is. It said only "discard candidate links below this relevance score (0-1)", which does not say what relevance measures, how it is decided, or why one link scores higher than another. Each field now opens with a short bold heading, in the same style as the Setup screen.
+* It also corrects what that setting does. The wording implied it filtered every suggestion; it only ever applied to the Related Content engine. AI and Search Console suggestions are judged on entirely different evidence and were never affected by it, which is now stated plainly.
+* Added the thing all three screens were missing: relevance is worked out differently by each engine, so the numbers are not comparable with each other. Search Console starts every match at 0.50 because a phrase people genuinely search for is stronger evidence than any word overlap. The AI reports its own confidence. Related Content measures the share of a page's distinctive vocabulary that the other page also uses, and normally lands between 0.08 and 0.50 — so a 0.85 from the AI and a 0.85 from word comparison mean entirely different things. Both documents now carry this as a table, and the review screen already labels the source of every suggestion.
+* Both documents were still describing the old naturalness formula, including the line "add 0.30 x relevance" that 0.21.0 removed, and the worked example still arrived at the old total. Both are corrected, and the example now works through to 0.61.
+* The flowchart gains the relevance floor and the wording length, says what the score in the review screen is made of, and corrects one row that described the per-page suggestion limit as fixed when it is a setting.
 
 = 0.21.0 =
 * The confidence figure on every suggestion now means something. It is meant to blend two independent judgements — is this link worth making, and does this wording read well — weighted 60/40. It did not. Naturalness started from "0.45 + relevance x 0.30", so it was largely a restatement of relevance rather than an opinion about the anchor, and relevance was therefore counted twice: 0.6 directly and another 0.12 through naturalness. The real weighting was 0.72/0.28, and the second number contributed almost nothing.
