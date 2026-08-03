@@ -652,6 +652,33 @@ ok( false === strpos( $qs, 'consider the following' ), 'the question stem is not
 ok( false === strpos( $qs, 'mainly as short-wave radiation' ), 'REGRESSION: a deliberately false quiz option is never asserted as a description' );
 ok( false !== strpos( $qs, 'long-wave radiation' ), 'the correct statement further down is chosen instead' );
 
+// Structural signals. These are what let this work on a site whose language and
+// page format the English phrase list above knows nothing about.
+ok( Summarizer::is_question( 'Welche der folgenden Aussagen ist richtig?' ), 'a question in another language is caught by its question mark' );
+ok( Summarizer::is_question( 'A' . chr( 0xEF ) . chr( 0xBC ) . chr( 0x9F ) ), 'a full-width question mark is recognised' );
+ok( Summarizer::is_question( 'kayf' . chr( 0xD8 ) . chr( 0x9F ) ), 'an Arabic question mark is recognised' );
+
+ok( Summarizer::is_caption( 'Weather effects: stable air, fog, frost and trapped smog.' ), 'a short label before a colon marks a caption' );
+ok( Summarizer::is_caption( 'Conclusion: the inversion is a stable reversal.' ), 'a one-word label is a caption' );
+ok( ! Summarizer::is_caption( 'Soil formation begins with weathering of the parent rock.' ), 'prose without a colon is not a caption' );
+ok( ! Summarizer::is_caption( 'The five factors of soil formation are these, in order: climate and relief.' ), 'a colon late in a sentence is not a caption' );
+
+$site = array( 'previous' => true, 'year' => true, 'questions' => true, 'answers' => true, 'exam' => true, 'model' => true, 'draft' => true );
+eq( Summarizer::furniture_ratio( array( 'previous', 'year', 'questions', 'exam' ), $site ), 1.0, 'a sentence of nothing but site-wide words scores 1' );
+eq( Summarizer::furniture_ratio( array( 'salinity', 'ocean', 'evaporation' ), $site ), 0.0, 'a sentence of page-specific words scores 0' );
+eq( Summarizer::furniture_ratio( array( 'exam', 'salinity' ), $site ), 0.5, 'a half-and-half sentence scores 0.5' );
+eq( Summarizer::furniture_ratio( array(), $site ), 0.0, 'an empty sentence scores 0' );
+eq( Summarizer::furniture_ratio( array( 'anything' ), array() ), 0.0, 'with no site-wide list nothing counts as furniture' );
+
+// End to end: a caption and a furniture sentence both lose to plain prose.
+$mixed = 'Previous Year Questions exam answers draft model questions for the exam. '
+	. 'Weather effects: stable air, fog, frost and trapped smog over the valley. '
+	. 'The absorbed energy is returned to space as long-wave radiation so incoming and outgoing balance.';
+$mw = array( 'energy' => 9, 'radiation' => 8, 'space' => 6, 'absorbed' => 5, 'incoming' => 4, 'outgoing' => 4, 'balance' => 3, 'weather' => 3, 'air' => 3, 'fog' => 2, 'frost' => 2, 'valley' => 2, 'exam' => 5, 'questions' => 5 );
+$ms = Summarizer::summarize( $mixed, $mw, 30, $site );
+ok( false !== strpos( $ms, 'long-wave radiation' ), 'plain prose is chosen over a caption and over furniture' );
+ok( false === strpos( $ms, 'Previous Year Questions' ), 'REGRESSION: a sentence made of site-wide wording is not a description' );
+
 // A page that is nothing but questions still gets described, rather than nothing.
 $faq = 'What is soil genesis and why does it matter for agriculture? '
 	. 'How do climate and relief interact during soil formation over time?';
