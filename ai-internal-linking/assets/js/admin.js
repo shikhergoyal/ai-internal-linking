@@ -312,6 +312,59 @@
 			} ).catch( reEnable( btn ) );
 		} );
 
+		// --- Model pickers -------------------------------------------------
+		// Each model select follows a provider select named in data-follows, and
+		// rebuilds its options from that provider's known models. Typing an id by
+		// hand is still possible via "Other model…", because a provider can ship
+		// a new model long before this plugin knows its name.
+		Array.prototype.slice.call( document.querySelectorAll( '.ailinking-model-select' ) )
+			.forEach( function ( sel ) {
+				var provider = document.getElementById( sel.getAttribute( 'data-follows' ) );
+				var custom = sel.parentNode.querySelector( '.ailinking-model-custom' );
+				if ( ! provider || ! custom ) {
+					return;
+				}
+
+				function showCustom( on ) {
+					custom.style.display = on ? 'inline-block' : 'none';
+					if ( on ) {
+						custom.focus();
+					}
+				}
+
+				function repopulate( keepValue ) {
+					var models = ( cfg.models || {} )[ provider.value ] || [];
+					var wanted = keepValue ? ( sel.value === '__custom' ? '__custom' : sel.value ) : '';
+					var lastCustom = sel.querySelector( 'option[value="__custom"]' );
+					var label = lastCustom ? lastCustom.textContent : 'Other model…';
+					var blank = sel.querySelector( 'option[value=""]' );
+					var blankLabel = blank ? blank.textContent : 'Provider default';
+
+					sel.innerHTML = '';
+					sel.appendChild( new Option( blankLabel, '' ) );
+					models.forEach( function ( m ) {
+						sel.appendChild( new Option( m, m ) );
+					} );
+					sel.appendChild( new Option( label, '__custom' ) );
+
+					// A model stored before this plugin knew about it must not be
+					// silently dropped just because it is missing from the list.
+					if ( wanted && '__custom' !== wanted && models.indexOf( wanted ) === -1 ) {
+						custom.value = wanted;
+						wanted = '__custom';
+					}
+					sel.value = wanted || '';
+					showCustom( '__custom' === sel.value );
+				}
+
+				provider.addEventListener( 'change', function () {
+					repopulate( false );
+				} );
+				sel.addEventListener( 'change', function () {
+					showCustom( '__custom' === sel.value );
+				} );
+			} );
+
 		// --- Bulk selection and actions -----------------------------------
 		// Chunked on purpose: applying writes to a post per row, so one request
 		// carrying 500 of them would run past the PHP time limit and leave the

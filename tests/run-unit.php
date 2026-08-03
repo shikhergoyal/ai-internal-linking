@@ -57,6 +57,7 @@ require_once $plugin . '/Suggestions/Tfidf.php';
 require_once $plugin . '/Admin/BulkActions.php';
 require_once $plugin . '/Providers/ProviderInterface.php'; // AnthropicProvider implements it.
 require_once $plugin . '/Providers/AnthropicProvider.php';
+require_once $plugin . '/Providers/Registry.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -68,6 +69,7 @@ use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Admin\BulkActions;
 use AILinking\Providers\AnthropicProvider;
+use AILinking\Providers\Registry;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -500,6 +502,21 @@ $models = ( new AnthropicProvider() )->default_models();
 ok( in_array( 'claude-sonnet-5', $models['chat'], true ), 'the current Sonnet is offered' );
 ok( in_array( 'claude-opus-5', $models['chat'], true ), 'the current Opus is offered' );
 eq( $models['chat'][0], 'claude-sonnet-5', 'the default pick is the current mid-tier model' );
+
+// ---------------------------------------------------------------------------
+// Registry::resolve_model_choice — the "pick from the list, or type your own"
+// pair behind both model fields. Empty is a real answer here: it means fall
+// back to the provider default, so it must not be confused with "unset".
+// ---------------------------------------------------------------------------
+
+eq( Registry::resolve_model_choice( 'claude-sonnet-5', '' ), 'claude-sonnet-5', 'a listed model passes through' );
+eq( Registry::resolve_model_choice( '', '' ), '', 'provider default stays empty' );
+eq( Registry::resolve_model_choice( '__custom', 'my-local-model' ), 'my-local-model', 'a typed id is used when Other is chosen' );
+eq( Registry::resolve_model_choice( '__custom', '  spaced-model  ' ), 'spaced-model', 'a typed id is trimmed' );
+eq( Registry::resolve_model_choice( '__custom', '' ), '', 'Other with nothing typed falls back to the provider default' );
+eq( Registry::resolve_model_choice( 'claude-sonnet-5', 'ignored' ), 'claude-sonnet-5', 'the custom box is ignored unless Other is chosen' );
+eq( Registry::resolve_model_choice( '  claude-opus-5  ', '' ), 'claude-opus-5', 'a listed value is trimmed too' );
+ok( '__custom' !== Registry::resolve_model_choice( '__custom', 'x' ), 'the sentinel is never stored as a model id' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

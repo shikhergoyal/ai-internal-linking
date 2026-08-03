@@ -8,6 +8,7 @@
 namespace AILinking\Admin;
 
 use AILinking\Security\Capabilities;
+use AILinking\Providers\Registry;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -146,6 +147,9 @@ class Admin {
 			array(
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'ailinking_ajax' ),
+				// Known chat models per provider, so the model pickers can rebuild
+				// their options when the provider selection changes.
+				'models'  => Registry::chat_models_map(),
 				'i18n'    => array(
 					'indexing'      => __( 'Indexing…', 'ai-internal-linking' ),
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
