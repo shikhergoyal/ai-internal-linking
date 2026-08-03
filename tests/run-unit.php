@@ -54,6 +54,7 @@ require_once $plugin . '/Security/Redactor.php';
 require_once $plugin . '/Suggestions/LlmSuggester.php';
 require_once __DIR__ . '/stubs/tables.php'; // Must precede Tfidf, which calls it.
 require_once $plugin . '/Suggestions/Tfidf.php';
+require_once $plugin . '/Admin/BulkActions.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -63,6 +64,7 @@ use AILinking\Providers\UsageStats;
 use AILinking\Security\Redactor;
 use AILinking\Suggestions\LlmSuggester;
 use AILinking\Suggestions\Tfidf;
+use AILinking\Admin\BulkActions;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -394,6 +396,60 @@ eq( count( $wpdb->queries ), 5, 'the largest allowed shortlist takes five statem
 $wpdb->queries = array();
 $terms         = Tfidf::top_terms_for( array( 11 ), 0 );
 eq( count( $terms[11] ), 1, 'a zero word count still returns something rather than a broken query' );
+
+// ---------------------------------------------------------------------------
+// BulkActions — the inbox's bulk approve / reject / apply.
+//
+// Bulk apply writes to real posts, so the interesting assertions here are the
+// refusals: what the endpoint must not accept, and what it must never touch.
+// ---------------------------------------------------------------------------
+
+eq( BulkActions::sanitize_ids( array( 3, 1, 2 ) ), array( 3, 1, 2 ), 'submitted order is preserved' );
+eq( BulkActions::sanitize_ids( array( '5', '5', 5 ) ), array( 5 ), 'duplicates are collapsed, so no row is applied twice' );
+eq( BulkActions::sanitize_ids( array( 0, -2, 'abc', 7 ) ), array( 7 ), 'junk and non-positive ids are dropped' );
+eq( BulkActions::sanitize_ids( array() ), array(), 'an empty selection stays empty' );
+eq( BulkActions::sanitize_ids( 'not-an-array' ), array(), 'a scalar that is not an id yields nothing' );
+eq( BulkActions::sanitize_ids( '42' ), array( 42 ), 'a lone scalar id is accepted' );
+eq( count( BulkActions::sanitize_ids( range( 1, 500 ) ) ), BulkActions::MAX_PER_REQUEST, 'an oversized request is truncated, not rejected outright' );
+eq( BulkActions::sanitize_ids( array( 4, 4, 9, 0, 9, 11 ) ), array( 4, 9, 11 ), 'dedupe and filtering compose' );
+
+ok( BulkActions::is_allowed( 'approved' ), 'approve is accepted' );
+ok( BulkActions::is_allowed( 'rejected' ), 'reject is accepted' );
+ok( BulkActions::is_allowed( 'pending' ), 'move back to pending is accepted' );
+ok( BulkActions::is_allowed( 'apply' ), 'apply is accepted' );
+ok( ! BulkActions::is_allowed( 'applied' ), 'a row cannot be marked applied without actually applying it' );
+ok( ! BulkActions::is_allowed( 'applying' ), 'the internal claim status is not settable from outside' );
+ok( ! BulkActions::is_allowed( 'delete' ), 'unknown operations are refused' );
+ok( ! BulkActions::is_allowed( '' ), 'an empty operation is refused' );
+
+ok( BulkActions::is_status_op( 'approved' ), 'approve is a status change' );
+ok( ! BulkActions::is_status_op( 'apply' ), 'apply is not a status change — it writes to content' );
+
+ok( ! in_array( 'applied', BulkActions::OVERWRITABLE, true ), 'a live applied link is never overwritten by a bulk status change' );
+ok( ! in_array( 'applying', BulkActions::OVERWRITABLE, true ), 'a row mid-apply is never overwritten' );
+eq( count( BulkActions::OVERWRITABLE ), 3, 'exactly pending, approved and rejected may be overwritten' );
+
+$sum = BulkActions::summarize(
+	array(
+		array( 'ok' => true ),
+		array( 'ok' => true ),
+		array( 'ok' => false, 'reason' => 'suggest_only' ),
+		array( 'ok' => false, 'reason' => 'suggest_only' ),
+		array( 'ok' => false, 'reason' => 'modified_since' ),
+	)
+);
+eq( $sum['applied'], 2, 'successes are counted' );
+eq( $sum['failed'], 3, 'failures are counted' );
+eq( $sum['reasons']['suggest_only'], 2, 'reasons are tallied' );
+eq( key( $sum['reasons'] ), 'suggest_only', 'the commonest reason is reported first' );
+
+$sum = BulkActions::summarize( array( array( 'ok' => false ) ) );
+eq( $sum['reasons']['unknown'], 1, 'a failure with no reason is still explained as unknown' );
+$sum = BulkActions::summarize( array() );
+eq( $sum['applied'] + $sum['failed'], 0, 'an empty result set summarises to nothing' );
+
+ok( BulkActions::reason_label( 'suggest_only' ) !== 'suggest_only', 'known reasons get a readable label' );
+eq( BulkActions::reason_label( 'weird_new_code' ), 'weird_new_code', 'an unmapped reason falls back to the raw code rather than vanishing' );
 
 // ---------------------------------------------------------------------------
 // UsageStats::summary_html — the ticker markup.

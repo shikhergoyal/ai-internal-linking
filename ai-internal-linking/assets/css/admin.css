@@ -237,3 +237,40 @@
 	font-size: 14px;
 	font-variant-numeric: tabular-nums;
 }
+
+/* Suggestions inbox: bulk selection bar. */
+.ailinking-bulkbar {
+	margin: 8px 0 12px;
+	padding: 10px 12px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-left: 4px solid #2271b1;
+}
+
+.ailinking-bulkbar select,
+.ailinking-bulkbar .button {
+	vertical-align: middle;
+}
+
+.ailinking-bulk-count {
+	margin-left: 10px;
+	color: #50575e;
+	font-variant-numeric: tabular-nums;
+}
+
+.ailinking-bulk-status {
+	margin-left: 10px;
+	font-weight: 600;
+	color: #2271b1;
+	font-variant-numeric: tabular-nums;
+}
+
+.ailinking-bulkbar .description {
+	margin: 8px 0 0;
+}
+
+.ailinking-inbox .check-column {
+	width: 2.2em;
+	padding: 8px 0 8px 3px;
+	vertical-align: top;
+}

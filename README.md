@@ -2,7 +2,7 @@
 
 A universal WordPress plugin for AI-assisted internal linking. It indexes your whole site, then proposes contextual internal links that follow SEO and AI-search best practices. Every suggestion is reviewed by a human and gated, so nothing is ever inserted into your content automatically.
 
-**Current version: 0.15.1** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
+**Current version: 0.17.0** | Requires WordPress 6.2+ | Requires PHP 7.4+ | License: GPL-2.0-or-later
 
 ## Install
 
@@ -21,7 +21,7 @@ The admin is a single page with six tabs:
 | Tab | Purpose |
 | --- | --- |
 | Setup & Dashboard | Scope selection, indexing, suggestion scans (with pause, resume and stop), how much of each page the AI reads, reset |
-| Suggestions | Review inbox: approve, reject, apply, undo, filtered by status and source |
+| Suggestions | Review inbox: approve, reject, apply, undo — one row at a time or in bulk — filtered by status and source |
 | Link Health | Orphans, dead ends, broken links, internal PageRank, anchor diversity, click depth |
 | Connect GSC | Google Search Console fetch via a service account, plus generic keyword CSV import |
 | AI Keys | Encrypted multi-key pool, per provider, with token usage, spend caps and health status |

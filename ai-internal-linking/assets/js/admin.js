@@ -20,7 +20,16 @@
 		body.append( 'action', action );
 		body.append( 'nonce', cfg.nonce );
 		Object.keys( params || {} ).forEach( function ( k ) {
-			body.append( k, params[ k ] );
+			var v = params[ k ];
+			if ( Array.isArray( v ) ) {
+				// PHP reads repeated name[] pairs as an array; a joined string
+				// would arrive as one value and every id would be lost but the first.
+				v.forEach( function ( item ) {
+					body.append( k + '[]', item );
+				} );
+				return;
+			}
+			body.append( k, v );
 		} );
 
 		return fetch( cfg.ajaxUrl, {
@@ -302,6 +311,150 @@
 				}
 			} ).catch( reEnable( btn ) );
 		} );
+
+		// --- Bulk selection and actions -----------------------------------
+		// Chunked on purpose: applying writes to a post per row, so one request
+		// carrying 500 of them would run past the PHP time limit and leave the
+		// user with no idea how far it got. 25 at a time keeps each request
+		// short and lets the count climb while it works.
+		var BULK_CHUNK = 25;
+
+		var cbAll    = document.getElementById( 'ailinking-cb-all' );
+		var bulkOp   = document.getElementById( 'ailinking-bulk-op' );
+		var bulkGo   = document.getElementById( 'ailinking-bulk-go' );
+		var bulkNum  = document.getElementById( 'ailinking-bulk-count' );
+		var bulkStat = document.getElementById( 'ailinking-bulk-status' );
+
+		function boxes() {
+			return Array.prototype.slice.call( document.querySelectorAll( '.ailinking-cb' ) );
+		}
+
+		function chosen() {
+			return boxes().filter( function ( b ) {
+				return b.checked;
+			} );
+		}
+
+		function refreshBulk() {
+			if ( ! bulkNum ) {
+				return;
+			}
+			var n = chosen().length;
+			bulkNum.textContent = n
+				? ( cfg.i18n.nSelected || '%s selected' ).replace( '%s', n )
+				: ( cfg.i18n.noneSelected || 'Nothing selected' );
+			if ( bulkGo ) {
+				bulkGo.disabled = ! n || ! bulkOp || ! bulkOp.value;
+			}
+			if ( cbAll ) {
+				var all = boxes();
+				cbAll.checked = all.length > 0 && n === all.length;
+			}
+		}
+
+		if ( cbAll ) {
+			cbAll.addEventListener( 'change', function () {
+				boxes().forEach( function ( b ) {
+					b.checked = cbAll.checked;
+				} );
+				refreshBulk();
+			} );
+		}
+		boxes().forEach( function ( b ) {
+			b.addEventListener( 'change', refreshBulk );
+		} );
+		if ( bulkOp ) {
+			bulkOp.addEventListener( 'change', refreshBulk );
+		}
+
+		if ( bulkGo ) {
+			bulkGo.addEventListener( 'click', function () {
+				var op = bulkOp ? bulkOp.value : '';
+				var picked = chosen();
+				if ( ! op || ! picked.length ) {
+					return;
+				}
+
+				var ids = picked.map( function ( b ) {
+					return b.value;
+				} );
+
+				// Say up front how many cannot be written to, rather than
+				// reporting it as a failure afterwards.
+				if ( 'apply' === op ) {
+					var manual = picked.filter( function ( b ) {
+						return 'auto' !== b.getAttribute( 'data-safety' );
+					} ).length;
+					var msg = ( cfg.i18n.confirmBulkApply || 'Apply %s links to your content?' )
+						.replace( '%s', ids.length );
+					if ( manual ) {
+						msg += '\n\n' + ( cfg.i18n.bulkManualNote || '%s are page-builder pages and will be skipped.' )
+							.replace( '%s', manual );
+					}
+					if ( ! window.confirm( msg ) ) {
+						return;
+					}
+				}
+
+				bulkGo.disabled = true;
+				if ( bulkOp ) {
+					bulkOp.disabled = true;
+				}
+
+				var done = 0;
+				var changed = 0;
+				var failed = 0;
+				var reasons = [];
+
+				function step() {
+					if ( ! ids.length ) {
+						var summary = ( cfg.i18n.bulkDone || '%1$s of %2$s done' )
+							.replace( '%1$s', changed )
+							.replace( '%2$s', done );
+						if ( failed ) {
+							summary += ' — ' + ( cfg.i18n.bulkSkipped || '%s skipped' ).replace( '%s', failed );
+						}
+						if ( reasons.length ) {
+							window.alert( summary + '\n\n' + reasons.join( '\n' ) );
+						}
+						bulkStat.textContent = summary;
+						window.location.reload();
+						return;
+					}
+
+					var chunk = ids.splice( 0, BULK_CHUNK );
+					done += chunk.length;
+					bulkStat.textContent = ( cfg.i18n.bulkWorking || 'Working… %s' ).replace( '%s', done );
+
+					post( 'ailinking_bulk', { op: op, ids: chunk } ).then( function ( res ) {
+						if ( ! res || ! res.success ) {
+							bulkStat.textContent = cfg.i18n.error;
+							bulkGo.disabled = false;
+							if ( bulkOp ) {
+								bulkOp.disabled = false;
+							}
+							return;
+						}
+						changed += res.data.changed || 0;
+						failed += res.data.failed || 0;
+						( res.data.reasons || [] ).forEach( function ( r ) {
+							if ( reasons.indexOf( r ) === -1 ) {
+								reasons.push( r );
+							}
+						} );
+						step();
+					} ).catch( function () {
+						bulkStat.textContent = cfg.i18n.error;
+						bulkGo.disabled = false;
+						if ( bulkOp ) {
+							bulkOp.disabled = false;
+						}
+					} );
+				}
+				step();
+			} );
+		}
+		refreshBulk();
 
 		// Undo an applied insertion.
 		bindAll( '.ailinking-undo', function ( btn ) {
