@@ -11,6 +11,7 @@ namespace AILinking\Admin;
 use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Support\Settings;
+use AILinking\Support\Stats;
 use AILinking\Indexer\Indexer;
 use AILinking\Suggestions\SuggestionEngine;
 use AILinking\Content\Editor;
@@ -426,6 +427,10 @@ class Ajax {
 			'status'     => isset( $progress['status'] ) ? (string) $progress['status'] : '',
 			'last_error' => isset( $progress['last_error'] ) ? (string) $progress['last_error'] : '',
 			'usage'      => $this->run_usage( $progress ),
+			// The dashboard Status card is server-rendered, so without this it
+			// would sit frozen at whatever was true on page load while a scan
+			// changed both figures underneath it.
+			'stats'      => Stats::live(),
 		);
 	}
 

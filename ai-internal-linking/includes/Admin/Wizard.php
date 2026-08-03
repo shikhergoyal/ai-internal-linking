@@ -10,7 +10,7 @@ namespace AILinking\Admin;
 
 use AILinking\Security\Capabilities;
 use AILinking\Support\Settings;
-use AILinking\Support\Tables;
+use AILinking\Support\Stats;
 use AILinking\Install\Schema;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
@@ -126,8 +126,10 @@ class Wizard {
 		$crawl    = Settings::crawl_post_types();
 		$targets  = Settings::target_post_types();
 
-		$indexed = $this->count_rows( Tables::index(), "is_excluded = 0" );
-		$pending = $this->count_rows( Tables::suggestions(), "status = 'pending'" );
+		// Same source the scan responses use, so the card cannot disagree with
+		// itself once a running scan starts refreshing it.
+		$indexed = Stats::indexed_pages();
+		$pending = Stats::pending_suggestions();
 
 		$idx_prog = ProgressStore::get( 'index' );
 		?>
@@ -171,8 +173,8 @@ class Wizard {
 
 				<div class="ailinking-card">
 					<h2><?php esc_html_e( 'Status', 'ai-internal-linking' ); ?></h2>
-					<p class="ailinking-stat"><span class="ailinking-num"><?php echo esc_html( number_format_i18n( $indexed ) ); ?></span> <?php esc_html_e( 'pages indexed', 'ai-internal-linking' ); ?></p>
-					<p class="ailinking-stat"><span class="ailinking-num"><?php echo esc_html( number_format_i18n( $pending ) ); ?></span> <?php esc_html_e( 'suggestions awaiting review', 'ai-internal-linking' ); ?></p>
+					<p class="ailinking-stat"><span class="ailinking-num" id="ailinking-stat-indexed"><?php echo esc_html( number_format_i18n( $indexed ) ); ?></span> <?php esc_html_e( 'pages indexed', 'ai-internal-linking' ); ?></p>
+					<p class="ailinking-stat"><span class="ailinking-num" id="ailinking-stat-pending"><?php echo esc_html( number_format_i18n( $pending ) ); ?></span> <?php esc_html_e( 'suggestions awaiting review', 'ai-internal-linking' ); ?></p>
 
 					<?php if ( ! empty( $idx_prog['last_error'] ) ) : ?>
 						<div class="notice notice-error inline"><p>
@@ -486,15 +488,4 @@ class Wizard {
 		<?php
 	}
 
-	/**
-	 * Count rows matching a trusted WHERE clause.
-	 *
-	 * @param string $table Table name.
-	 * @param string $where Trusted WHERE clause (no user input).
-	 * @return int
-	 */
-	private function count_rows( $table, $where ) {
-		global $wpdb;
-		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE {$where}" ); // phpcs:ignore WordPress.DB.PreparedSQL
-	}
 }
