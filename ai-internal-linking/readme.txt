@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.23.1
+Stable tag: 0.23.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.23.2 =
+* The document is shorter. It now covers how a link is decided and stops there: what the plugin does, the words it uses, the six stages, the three engines, the two scores, the limits and a worked example. Applying and undoing, the list of things it will never do, the tour of the admin screens, costs and requirements have been removed from it — all of that is on this page, under Description, and none of it is about how a destination or an anchor is chosen.
+* The prose was tightened throughout as well: repeated explanation cut, examples trimmed to the part that carries the point, and the glossary condensed. About 18% shorter overall, with no fact removed from the sections that remain.
 
 = 0.23.1 =
 * Says "anchor text" where it means anchor text. The documentation and the flowchart called it "the wording", which was chosen to avoid jargon and was the wrong call: this is an internal-linking plugin, anchor text is the ordinary term in that world, and the screens were already using it. Roughly thirty places now agree with each other and with the admin.
