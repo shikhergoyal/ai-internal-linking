@@ -75,24 +75,43 @@ class BulkActions {
 	 * @return int[]
 	 */
 	public static function sanitize_ids( $raw ) {
+		return self::sanitize( $raw )['ids'];
+	}
+
+	/**
+	 * Clean a submitted list, and say how many were discarded. (pure)
+	 *
+	 * The caller needs the count: silently processing 50 of 60 and reporting
+	 * success on 50 reads as "all done" when a sixth of the selection was never
+	 * touched.
+	 *
+	 * @param mixed $raw Submitted ids.
+	 * @return array{ids:int[],dropped:int}
+	 */
+	public static function sanitize( $raw ) {
 		if ( ! is_array( $raw ) ) {
 			$raw = ( '' === $raw || null === $raw ) ? array() : array( $raw );
 		}
 
-		$out  = array();
-		$seen = array();
+		$out     = array();
+		$seen    = array();
+		$dropped = 0;
 		foreach ( $raw as $value ) {
 			$id = (int) $value;
 			if ( $id <= 0 || isset( $seen[ $id ] ) ) {
 				continue;
 			}
+			if ( count( $out ) >= self::MAX_PER_REQUEST ) {
+				$dropped++;
+				continue;
+			}
 			$seen[ $id ] = true;
 			$out[]       = $id;
-			if ( count( $out ) >= self::MAX_PER_REQUEST ) {
-				break;
-			}
 		}
-		return $out;
+		return array(
+			'ids'     => $out,
+			'dropped' => $dropped,
+		);
 	}
 
 	/**

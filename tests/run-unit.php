@@ -457,6 +457,15 @@ eq( BulkActions::sanitize_ids( array() ), array(), 'an empty selection stays emp
 eq( BulkActions::sanitize_ids( 'not-an-array' ), array(), 'a scalar that is not an id yields nothing' );
 eq( BulkActions::sanitize_ids( '42' ), array( 42 ), 'a lone scalar id is accepted' );
 eq( count( BulkActions::sanitize_ids( range( 1, 500 ) ) ), BulkActions::MAX_PER_REQUEST, 'an oversized request is truncated, not rejected outright' );
+
+// Truncation must be reported. Processing 50 of 60 and calling it success reads
+// as "all done" when a sixth of the selection was never touched.
+$big = BulkActions::sanitize( range( 1, 60 ) );
+eq( count( $big['ids'] ), BulkActions::MAX_PER_REQUEST, 'the cap still applies' );
+eq( $big['dropped'], 10, 'REGRESSION: the caller is told how many were discarded' );
+$small = BulkActions::sanitize( array( 1, 2, 3 ) );
+eq( $small['dropped'], 0, 'nothing dropped when the request fits' );
+eq( BulkActions::sanitize( array( 5, 5, 5 ) )['dropped'], 0, 'duplicates are not counted as dropped, they were never distinct' );
 eq( BulkActions::sanitize_ids( array( 4, 4, 9, 0, 9, 11 ) ), array( 4, 9, 11 ), 'dedupe and filtering compose' );
 
 ok( BulkActions::is_allowed( 'approved' ), 'approve is accepted' );

@@ -59,9 +59,6 @@ class Wizard {
 		$targets = isset( $_POST['target_post_types'] ) ? (array) wp_unslash( $_POST['target_post_types'] ) : array();
 		$targets = array_values( array_intersect( array_map( 'sanitize_key', $targets ), $valid_types ) );
 
-		$density = isset( $_POST['max_links_per_1000'] ) ? (int) $_POST['max_links_per_1000'] : 5;
-		$density = max( 1, min( 20, $density ) );
-
 		// A preset, or "custom" plus a free number. Clamped either way, since
 		// this multiplies into the token bill on every post of every scan.
 		$preset = isset( $_POST['llm_words_preset'] ) ? sanitize_key( wp_unslash( $_POST['llm_words_preset'] ) ) : '';
@@ -105,7 +102,6 @@ class Wizard {
 			array(
 				'crawl_post_types'    => $crawl,
 				'target_post_types'   => $targets,
-				'max_links_per_1000'  => $density,
 				'llm_max_words'       => $ai_words,
 				'llm_candidates'      => $ai_candidates,
 				'llm_candidate_words' => $ai_cand_words,
@@ -241,8 +237,19 @@ class Wizard {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="ailinking-density"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></label></th>
-						<td><input type="number" min="1" max="20" id="ailinking-density" name="max_links_per_1000" value="<?php echo esc_attr( (int) $settings['max_links_per_1000'] ); ?>" /></td>
+						<th scope="row"><?php esc_html_e( 'Max internal links per 1,000 words', 'ai-internal-linking' ); ?></th>
+						<td>
+							<strong><?php echo esc_html( number_format_i18n( (int) $settings['max_links_per_1000'] ) ); ?></strong>
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: link to the Settings tab */
+									esc_html__( 'Shown here for reference. Change it on the %s tab, which is where it is stored — editing it in two places is how a stale form ends up overwriting your choice.', 'ai-internal-linking' ),
+									'<a href="' . esc_url( admin_url( 'admin.php?page=ailinking&tab=settings' ) ) . '">' . esc_html__( 'Settings', 'ai-internal-linking' ) . '</a>'
+								);
+								?>
+							</p>
+						</td>
 					</tr>
 					<tr class="ailinking-subhead">
 						<th colspan="2">
@@ -356,7 +363,7 @@ class Wizard {
 						<td>
 							<?php
 							$ai_cw   = LlmSuggester::clamp_candidate_words( isset( $settings['llm_candidate_words'] ) ? $settings['llm_candidate_words'] : LlmSuggester::DEFAULT_CANDIDATE_WORDS );
-							$ai_mode = LlmSuggester::clamp_describe_mode( isset( $settings['llm_describe_mode'] ) ? $settings['llm_describe_mode'] : 'summary' );
+							$ai_mode = LlmSuggester::describe_mode();
 							$ai_sw   = Summarizer::clamp_words( isset( $settings['llm_summary_words'] ) ? $settings['llm_summary_words'] : Summarizer::DEFAULT_WORDS );
 							?>
 							<select id="ailinking-ai-describe" name="llm_describe_mode">
@@ -365,7 +372,8 @@ class Wizard {
 								<option value="title" <?php selected( 'title', $ai_mode ); ?>><?php esc_html_e( 'Title only', 'ai-internal-linking' ); ?></option>
 							</select>
 							<span class="ailinking-describe-len" data-mode="summary" style="display:<?php echo 'summary' === $ai_mode ? 'inline' : 'none'; ?>;">
-								<select id="ailinking-ai-summary-words" name="llm_summary_words">
+								<label class="screen-reader-text" for="ailinking-ai-summary-words"><?php esc_html_e( 'Length of each summary', 'ai-internal-linking' ); ?></label>
+									<select id="ailinking-ai-summary-words" name="llm_summary_words">
 									<?php foreach ( Summarizer::PRESETS as $preset ) : ?>
 										<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_sw ); ?>>
 											<?php
@@ -381,7 +389,8 @@ class Wizard {
 								</select>
 							</span>
 							<span class="ailinking-describe-len" data-mode="keywords" style="display:<?php echo 'keywords' === $ai_mode ? 'inline' : 'none'; ?>;">
-								<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
+								<label class="screen-reader-text" for="ailinking-ai-candidate-words"><?php esc_html_e( 'Key words per destination page', 'ai-internal-linking' ); ?></label>
+									<select id="ailinking-ai-candidate-words" name="llm_candidate_words">
 									<?php foreach ( LlmSuggester::CANDIDATE_WORD_PRESETS as $preset ) : ?>
 										<?php if ( 0 === $preset ) { continue; } ?>
 										<option value="<?php echo esc_attr( (string) $preset ); ?>" <?php selected( $preset === $ai_cw ); ?>>

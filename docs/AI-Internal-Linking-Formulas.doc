@@ -24,7 +24,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 
 <h1>AI Internal Linking</h1>
-<p class="sub">How it decides which page should link to which, and using which words. Written to be readable without any technical background. Version 0.15.1.</p>
+<p class="sub">How it decides which page should link to which, and using which words. Written to be readable without any technical background. Version 0.20.0.</p>
 
 <h2>First, the six words this document needs</h2>
 
@@ -57,9 +57,9 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 
 <div class="key"><strong>The rule that governs all three:</strong> the plugin can only link words that are already written on your page. It never writes a new sentence, never rephrases you, and never adds a link without you approving it.</div>
 
-<h2>Engine 1 of 3: AI Suggestion</h2>
+<h2>The AI Suggestion engine</h2>
 
-<p class="sub">Optional. Needs an API key, which is yours and stays yours.</p>
+<p class="sub">Optional. Needs an API key, which is yours and stays yours. Runs second of the three, after GSC keyword.</p>
 
 <h3>What the model is given</h3>
 
@@ -147,7 +147,7 @@ vocabulary that the other page also covers.</pre>
 
 <h3>How long is the shortlist?</h3>
 
-<p>You decide. The setting is on the Setup &amp; Dashboard screen, it starts at 15, and it accepts anything from 5 to 200. Fifteen is a starting point, not a law, so it is worth knowing what pulls in each direction.</p>
+<p>You decide. The setting is <strong>"Potential Destination Pages shown to AI"</strong> on the Setup &amp; Dashboard screen, it starts at 15, and it accepts anything from 5 to 200. Fifteen is a starting point, not a law, so it is worth knowing what pulls in each direction.</p>
 
 <p><strong>Why not fewer.</strong> The model can only choose from what it is shown. If the right destination is not on the list, no amount of intelligence will find it, and a short list makes that more likely on a large site. Fifteen is also comfortably more than can be used: a page accepts at most 8 new suggestions from one scan, so the model is already offered nearly twice what it could possibly need.</p>
 
@@ -174,6 +174,8 @@ Possible destinations (title - what that page covers):
   3. Editorial Workflow for Small Teams - A brief travels with each piece
      from commission to publication, naming the reviewer and the deadline.</pre>
 
+<p>Which of the three a destination gets is <strong>"How each destination page is described"</strong> on the Setup &amp; Dashboard screen: a short summary (the default), a list of key words, or the title alone. How much of your own page is read is <strong>"Words per page sent to the AI"</strong> on the same screen.</p>
+
 <p><strong>The summary after each title is what makes this work.</strong> A title on its own is a thin description of a page. Two posts both called "Getting started" look identical to the model, and a title that says little about its subject makes that page effectively invisible.</p>
 
 <p>The summary is <strong>taken from the page, not written for it</strong>. Nothing is generated and no second AI request is made. The plugin scores every sentence on the page against that page's own distinctive vocabulary, which it already worked out while indexing, and keeps the two or three that represent it best.</p>
@@ -182,7 +184,7 @@ Possible destinations (title - what that page covers):
 
 <p>Sentences that say the same thing twice are dropped too, including when the page says it in different words. Pages often restate a point in a summary panel, and the restatement scores just as well as the original, so both would otherwise be chosen.</p>
 
-<p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and words, and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
+<p><strong>Notice what is missing: there are no web addresses anywhere.</strong> The model is shown titles and summaries, and replies with a number. The plugin then looks up which page number 1 is and takes the address from its own records. The model never handles a web address, so it cannot invent one.</p>
 
 <h3>What the plugin does with that reply</h3>
 
@@ -222,9 +224,9 @@ Relevance     0.86</pre>
 A 300 page site is therefore around 900,000 tokens per full scan.
 Doubling the words setting roughly doubles that.</pre>
 
-<h2>Engine 2 of 3: GSC keyword</h2>
+<h2>The GSC keyword engine</h2>
 
-<p class="sub">Free. Needs Google Search Console connected.</p>
+<p class="sub">Free. Needs Google Search Console connected. Runs first of the three.</p>
 
 <div class="key"><strong>Neither half of this link is chosen by the plugin.</strong> Google chooses the destination, because Search Console already knows which of your pages answers a given search. The people searching choose the wording, because it is the phrase they typed. The plugin's only job is to notice where one of your pages says that phrase without linking.</div>
 
@@ -309,15 +311,15 @@ Overall       0.60 x relevance   +   0.40 x naturalness</pre>
 
 <p><strong>What each one is for.</strong> Relevance asks whether these two pages belong together. Naturalness asks whether this particular wording reads well where it sits. A link is worth making only when both are true, so the review screen shows the blend. In practice relevance carries most of the weight.</p>
 
-<h2>Engine 3 of 3: Related Content</h2>
+<h2>The Related Content engine</h2>
 
-<p class="sub">Free, always available, no key, no internet connection.</p>
+<p class="sub">Free, always available, no key, no internet connection. Runs last, and fills whatever the other two leave.</p>
 
 <p>This is the engine that runs on every page no matter what. It also builds the shortlist the AI reads, so it is working even when the AI is switched on.</p>
 
 <h3>Step 1: work out which words actually mean something</h3>
 
-<p>Each page is reduced to the 300 words it uses most, with filler words like "the" and "with" removed. Then every word is scored on how rare it is across your whole site.</p>
+<p>Each page is reduced to the words it uses most, with filler words like "the" and "with" removed: up to 300 for a page being considered as a destination, and the top 40 for the page currently being read. Then every word is scored on how rare it is across your whole site.</p>
 
 <pre class="formula">A word's importance depends on how few of your pages use it.
 
@@ -407,7 +409,7 @@ At least 2 meaningful words must be shared, or the pair is ignored.</pre>
 </table>
 
 <div class="footer">
-AI Internal Linking, version 0.15.1. Every number in this document is taken from the plugin itself and checked against it. The companion document "AI Internal Linking, Overview" covers what the plugin does, how it reads your site, and how applying and undoing links works.<br />
+AI Internal Linking, version 0.20.0. Every number in this document is taken from the plugin itself and checked against it. The companion document "AI Internal Linking, Overview" covers what the plugin does, how it reads your site, and how applying and undoing links works.<br />
 Made by Shikher Goyal.
 </div>
 

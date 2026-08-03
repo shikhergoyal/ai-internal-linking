@@ -131,6 +131,19 @@ class Registry {
 		return $picked;
 	}
 
+	/**
+	 * Which providers need a base URL, for the key form's conditional fields.
+	 *
+	 * @return array<string,bool> provider id => needs a base URL.
+	 */
+	public static function base_url_map() {
+		$out = array();
+		foreach ( self::all() as $id => $p ) {
+			$out[ $id ] = (bool) $p->needs_base_url();
+		}
+		return $out;
+	}
+
 	public static function meta() {
 		$out = array();
 		foreach ( self::all() as $id => $p ) {

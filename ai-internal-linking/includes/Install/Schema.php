@@ -21,6 +21,15 @@ class Schema {
 
 	const DB_VERSION_OPTION = 'ailinking_db_version';
 
+	/** Counts failed upgrade attempts, so a blocked ALTER cannot loop for ever. */
+	const UPGRADE_TRIES_OPTION = 'ailinking_upgrade_tries';
+
+	/** Records which columns are missing when an upgrade gives up. */
+	const UPGRADE_NOTICE_OPTION = 'ailinking_upgrade_incomplete';
+
+	/** Attempts before recording the version anyway and reporting the problem. */
+	const MAX_UPGRADE_TRIES = 3;
+
 	/**
 	 * Create or upgrade all tables, then stamp the DB version.
 	 */
@@ -29,6 +38,10 @@ class Schema {
 
 		global $wpdb;
 		$charset_collate = $wpdb->get_charset_collate();
+
+		// Must precede dbDelta: it is about to add a unique key to the keywords
+		// table, and MySQL refuses that outright if duplicates are already there.
+		self::prepare_keywords_for_unique_key();
 
 		foreach ( self::statements( $charset_collate ) as $sql ) {
 			dbDelta( $sql );
@@ -45,10 +58,78 @@ class Schema {
 		// query against it failing quietly. Leaving the version alone means the
 		// next request simply tries again.
 		if ( ! self::schema_matches() ) {
+			// Do not retry for ever. If the host refuses the ALTER — no
+			// permission, a locked table — leaving the version unstamped means
+			// dbDelta runs again on every single admin request, which is a
+			// permanently slow admin and a worse problem than the missing
+			// column. After a few attempts, record the version anyway and leave
+			// a note saying what is missing.
+			$tries = (int) get_option( self::UPGRADE_TRIES_OPTION, 0 ) + 1;
+			if ( $tries < self::MAX_UPGRADE_TRIES ) {
+				update_option( self::UPGRADE_TRIES_OPTION, $tries, false );
+				return;
+			}
+			update_option( self::UPGRADE_NOTICE_OPTION, self::missing_columns(), false );
+		}
+
+		delete_option( self::UPGRADE_TRIES_OPTION );
+		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+	}
+
+	/**
+	 * Columns this version declares that the index table does not have.
+	 *
+	 * @return string[]
+	 */
+	private static function missing_columns() {
+		global $wpdb;
+		$table = Tables::index();
+		if ( ! self::table_exists( $table ) ) {
+			return array( '(the index table itself)' );
+		}
+		$have = array();
+		foreach ( (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}" ) as $c ) { // phpcs:ignore WordPress.DB.PreparedSQL
+			$have[ strtolower( (string) $c ) ] = true;
+		}
+		$missing = array();
+		foreach ( self::index_columns() as $column ) {
+			if ( ! isset( $have[ $column ] ) ) {
+				$missing[] = $column;
+			}
+		}
+		return $missing;
+	}
+
+	/**
+	 * Make the keywords table fit to carry a unique key.
+	 *
+	 * Two things block it. Rows imported before 0.20.0 can have a NULL post_id,
+	 * and MySQL treats NULLs as distinct, so unmapped phrases would go on
+	 * duplicating even with the key in place. And any duplicate already stored
+	 * makes the ALTER fail outright. One real site had 107 duplicated groups,
+	 * several repeated eight times, each one eating a slot of the 500-phrase
+	 * pool the engine actually considers.
+	 *
+	 * @return void
+	 */
+	private static function prepare_keywords_for_unique_key() {
+		global $wpdb;
+		$table = Tables::keywords();
+		if ( ! self::table_exists( $table ) ) {
 			return;
 		}
 
-		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+		$wpdb->query( "UPDATE {$table} SET post_id = 0 WHERE post_id IS NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		// Keep the earliest row of each group; it carries the original import date.
+		$wpdb->query(
+			"DELETE a FROM {$table} a
+			 INNER JOIN {$table} b
+			 WHERE a.id > b.id
+			   AND a.keyword_norm = b.keyword_norm
+			   AND a.post_id = b.post_id
+			   AND a.source = b.source" // phpcs:ignore WordPress.DB.PreparedSQL
+		);
 	}
 
 	/**
@@ -121,13 +202,15 @@ class Schema {
 	 * - clusters / cluster_members: retired in 0.11.0, which only dropped them
 	 *   on uninstall, so every site upgraded in place still carries them.
 	 * - embeddings: retired in 0.14.0 with the semantic re-ranker.
+	 * - keyword_map: created since the first release and never read by anything.
+	 *   The keyword engine joins the keywords table to the index directly.
 	 *
 	 * DROP IF EXISTS is idempotent, so listing a table that is already gone
 	 * costs nothing and keeps the record of what was retired.
 	 */
 	private static function drop_retired_tables() {
 		global $wpdb;
-		$retired = array( 'embeddings', 'clusters', 'cluster_members' );
+		$retired = array( 'embeddings', 'clusters', 'cluster_members', 'keyword_map' );
 		foreach ( $retired as $name ) {
 			$table = $wpdb->prefix . 'ailinking_' . $name;
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL
@@ -229,7 +312,6 @@ class Schema {
 		$provider_keys = Tables::provider_keys();
 		$spend_log     = Tables::spend_log();
 		$keywords      = Tables::keywords();
-		$keyword_map   = Tables::keyword_map();
 
 		$statements = array();
 
@@ -410,7 +492,7 @@ class Schema {
 			keyword_norm varchar(191) NOT NULL DEFAULT '',
 			source varchar(12) NOT NULL DEFAULT 'csv',
 			page_url varchar(2048) NOT NULL DEFAULT '',
-			post_id bigint(20) unsigned NULL DEFAULT NULL,
+			post_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			clicks int unsigned NOT NULL DEFAULT 0,
 			impressions int unsigned NOT NULL DEFAULT 0,
 			position decimal(6,2) NOT NULL DEFAULT 0,
@@ -424,21 +506,10 @@ class Schema {
 			KEY striking (is_striking,opportunity_score),
 			KEY post_id (post_id),
 			KEY keyword_norm (keyword_norm),
-			KEY source (source)
+			KEY source (source),
+			UNIQUE KEY kw_page_source (keyword_norm,post_id,source)
 		) {$charset_collate};";
 
-		$statements[] = "CREATE TABLE {$keyword_map} (
-			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			keyword_id bigint(20) unsigned NOT NULL DEFAULT 0,
-			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
-			target_url varchar(2048) NOT NULL DEFAULT '',
-			map_type varchar(12) NOT NULL DEFAULT 'auto',
-			confidence float NOT NULL DEFAULT 0,
-			created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY  (id),
-			UNIQUE KEY kw_target (keyword_id,target_post_id),
-			KEY target_post_id (target_post_id)
-		) {$charset_collate};";
 
 		return $statements;
 	}

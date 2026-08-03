@@ -68,6 +68,6 @@ class Tables {
 	 * @return string[]
 	 */
 	public static function all_keys() {
-		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords', 'keyword_map' );
+		return array( 'index', 'link_graph', 'suggestions', 'ledger', 'tfidf', 'jobs', 'provider_keys', 'spend_log', 'keywords' );
 	}
 }

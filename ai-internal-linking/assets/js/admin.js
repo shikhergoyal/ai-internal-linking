@@ -365,6 +365,32 @@
 				} );
 			} );
 
+		// Hide key-form fields that the chosen provider has no use for. The hint
+		// text said "only for Custom / Local / Azure", which is fine to read and
+		// still leaves two irrelevant boxes on screen for everyone else.
+		( function () {
+			var provider = document.getElementById( 'provider' );
+			var rows = Array.prototype.slice.call( document.querySelectorAll( '.ailinking-provider-only' ) );
+			if ( ! provider || ! rows.length ) {
+				return;
+			}
+			function sync() {
+				var needsBase = ( cfg.needsBase || {} )[ provider.value ];
+				rows.forEach( function ( th ) {
+					var row = th.closest ? th.closest( 'tr' ) : th.parentNode;
+					if ( ! row ) {
+						return;
+					}
+					var needs = th.getAttribute( 'data-needs' );
+					// Azure is the only provider with an api-version.
+					var show = ( 'api_version' === needs ) ? ( 'azure' === provider.value ) : !! needsBase;
+					row.style.display = show ? '' : 'none';
+				} );
+			}
+			provider.addEventListener( 'change', sync );
+			sync();
+		} )();
+
 		// --- Bulk selection and actions -----------------------------------
 		// Chunked on purpose: applying writes to a post per row, so one request
 		// carrying 500 of them would run past the PHP time limit and leave the

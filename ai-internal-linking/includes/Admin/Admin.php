@@ -150,6 +150,9 @@ class Admin {
 				// Known chat models per provider, so the model pickers can rebuild
 				// their options when the provider selection changes.
 				'models'  => Registry::chat_models_map(),
+				// Which providers actually need a base URL, so the key form can hide
+				// fields that do not apply instead of explaining them away in a hint.
+				'needsBase' => Registry::base_url_map(),
 				'i18n'    => array(
 					'indexing'      => __( 'Indexing…', 'ai-internal-linking' ),
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),

@@ -286,11 +286,11 @@ class KeyPoolPage {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="base_url"><?php esc_html_e( 'Base URL', 'ai-internal-linking' ); ?></label></th>
+						<th scope="row" class="ailinking-provider-only" data-needs="base_url"><label for="base_url"><?php esc_html_e( 'Base URL', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="url" name="base_url" id="base_url" class="regular-text" placeholder="<?php esc_attr_e( 'only for Custom / Local / Azure', 'ai-internal-linking' ); ?>" /></td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="api_version"><?php esc_html_e( 'Azure api-version', 'ai-internal-linking' ); ?></label></th>
+						<th scope="row" class="ailinking-provider-only" data-needs="api_version"><label for="api_version"><?php esc_html_e( 'Azure api-version', 'ai-internal-linking' ); ?></label></th>
 						<td><input type="text" name="api_version" id="api_version" placeholder="2024-02-15-preview" /></td>
 					</tr>
 					<tr>
