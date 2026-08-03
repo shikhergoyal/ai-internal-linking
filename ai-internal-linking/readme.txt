@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.21.1
+Stable tag: 0.21.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.21.2 =
+* Corrected a wrong pointer added in 0.21.1: the formulas document said "Minimum relevance" lives on the Setup screen. It is on the Settings screen. Every other screen reference in both documents was checked against the code and is correct.
+* The overview document now also explains the relevance floor and that it governs the Related Content engine alone, so the two documents say the same thing about it.
 
 = 0.21.1 =
 * The Settings screen now explains what relevance actually is. It said only "discard candidate links below this relevance score (0-1)", which does not say what relevance measures, how it is decided, or why one link scores higher than another. Each field now opens with a short bold heading, in the same style as the Setup screen.

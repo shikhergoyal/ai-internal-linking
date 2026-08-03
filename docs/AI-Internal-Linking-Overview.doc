@@ -250,6 +250,8 @@ position     7</pre>
 
 <p><strong>The three are not comparable with one another.</strong> A 0.85 from the model is an opinion; a 0.85 from word comparison would mean two pages share most of their unusual wording, which almost never happens, and that engine normally scores between 0.08 and 0.50. Compare each engine against others of its own kind &mdash; the review screen labels the source of every suggestion for exactly this reason.</p>
 
+<p><strong>There is a floor, and it applies to one engine.</strong> "Minimum relevance" on the Settings screen discards Related Content pairs below it &mdash; below that, two pages share so little wording that the overlap is chance. It does not touch AI or Search Console suggestions, which are judged on different evidence entirely. The default is deliberately low, because a stricter test runs afterwards regardless: the wording has to be found in your page, and that rejects far more pairs than the score ever does.</p>
+
 <p><strong>Naturalness &mdash; does this wording read well as a link?</strong> This looks only at the phrase that would become clickable, and knows nothing about relevance.</p>
 
 <pre class="formula">naturalness = 0.55
