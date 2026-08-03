@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.23.2
+Stable tag: 0.24.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,11 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.24.0 =
+* The document now answers a question it never did: where in the page the link actually goes. A phrase usually appears more than once, and nothing said which occurrence gets linked. It is the first one that is allowed, reading top to bottom, and only that one — however many times the phrase appears, one suggestion produces one link. The block editor follows the same rule block by block. The sentence quoted in your review screen is the one around that occurrence, so you can judge the placement before approving, and the one case where the link lands somewhere else is spelled out.
+* Where the anchor text comes from is now stated per engine rather than left to be pieced together: the search phrase people typed, a phrase the model quotes back from your page, or the destination's own title cut into word groups. None of the three invents a phrase — two take one that already exists elsewhere on your site, one quotes your own sentence back.
+* Two tables covering the same ground were merged into one, so the destination, the anchor and the order each engine works in are visible together.
 
 = 0.23.2 =
 * The document is shorter. It now covers how a link is decided and stops there: what the plugin does, the words it uses, the six stages, the three engines, the two scores, the limits and a worked example. Applying and undoing, the list of things it will never do, the tour of the admin screens, costs and requirements have been removed from it — all of that is on this page, under Description, and none of it is about how a destination or an anchor is chosen.

@@ -24,7 +24,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #f4f6f9; pad
 <body>
 <h1>AI Internal Linking</h1>
 <p class="sub">What it does, how it does it, and why it picks one page and one phrase rather than another.
-Written to be read without any technical background. Version 0.23.2.</p>
+Written to be read without any technical background. Version 0.24.0.</p>
 
 <h2>1. What this plugin does</h2>
 
@@ -371,17 +371,23 @@ rarity scores come from your own site each time you scan. The identical method p
 cooking site and case-law links on a legal one.</p>
 <h2>8. Stage 5: settling the anchor text</h2>
 
-<p>Each engine arrives at the anchor text differently, but one rule closes every path.</p>
+<p>Each engine arrives at the anchor text from a different direction, and each takes it from somewhere you can
+point at:</p>
 
 <table>
-<tr><th>Engine</th><th>Chooses the destination</th><th>Chooses the anchor text</th><th>In what order</th></tr>
-<tr><td>GSC keyword</td><td>Google</td><td>The people searching</td><td>The destination arrives attached to the
-phrase</td></tr>
-<tr><td>AI Suggestion</td><td>The model, by picking a number from a shortlist someone else built</td><td>The
-model quotes a phrase; your page supplies the exact text</td><td>Both at once</td></tr>
-<tr><td>Related Content</td><td>Word comparison</td><td>The destination page's own title</td><td>Destination
-first, anchor text worked out afterwards</td></tr>
+<tr><th>Engine</th><th>Chooses the destination</th><th>Where the anchor comes from</th><th>Order</th></tr>
+<tr><td><strong>GSC keyword</strong></td><td>Google, from Search Console</td><td>The search phrase people
+typed</td><td>The destination arrives attached to the phrase</td></tr>
+<tr><td><strong>AI Suggestion</strong></td><td>The model, picking a number from a shortlist someone else
+built</td><td>A phrase the model quotes back from your page &mdash; quoting, not composing</td><td>Both at
+once</td></tr>
+<tr><td><strong>Related Content</strong></td><td>Word comparison</td><td>The destination page's own title, cut
+at punctuation and broken into word groups from 4 down to 2, longest tried first</td><td>Destination first,
+anchor worked out afterwards</td></tr>
 </table>
+
+<p>None of the three invents a phrase. Two take one that already exists elsewhere on your site (a search query,
+a page title) and one quotes your own sentence back. Each is then held to the same test.</p>
 
 <div class="key"><strong>The rule that closes every path:</strong> the anchor text must already exist on your page,
 matched as whole words, ignoring capitals. If it is not there, no suggestion is made. That check happens after
@@ -391,6 +397,24 @@ the engine has had its say, which is why it catches anything a model invents.</d
 reported the phrase, what gets saved is the anchor text exactly as your article writes it. The model wrote "content
 marketing strategy" in lower case; your page says "Content Marketing Strategy", so that is what is stored and
 that is what gets linked.</p>
+
+<h3>Which occurrence gets the link, and where</h3>
+
+<p>A phrase usually appears more than once. <strong>The link goes on the first occurrence that is allowed,
+reading the page top to bottom, and only that one.</strong> However many times the phrase appears, one
+suggestion produces one link.</p>
+
+<p>First, for two reasons. A term is usually introduced the first time it appears, which is where a reader most
+wants to follow it. And linking every occurrence is what over-optimised pages look like.</p>
+
+<p>In the block editor the same rule runs block by block: the first text block holding an allowed occurrence
+gets the link, and nothing else in the page is touched. In the classic editor it is the first allowed
+occurrence in the content itself.</p>
+
+<p>The sentence quoted in your review screen is the one surrounding the first occurrence found in the page's
+text, so you can judge the placement before approving. That is almost always exactly where the link lands. It
+can differ in one case: if that first occurrence turns out to sit somewhere a link is not allowed &mdash;
+inside an existing link, for instance &mdash; the link moves to the next allowed occurrence instead.</p>
 
 <h3>Where a link may never be placed</h3>
 
@@ -501,7 +525,7 @@ Complete Guide".</p>
 <p>It reaches your review screen showing 0.42 relevance, 0.90 naturalness and 0.61 overall, with the
 surrounding sentence quoted so you can judge the placement before approving anything.</p>
 <div class="footer">
-AI Internal Linking, version 0.23.2. Every number in this document is taken from the plugin itself and checked
+AI Internal Linking, version 0.24.0. Every number in this document is taken from the plugin itself and checked
 against it. The diagram <code>ai-selection-flowchart.png</code> beside this file shows the same process as a flowchart.
 Applying links, the guarantees, the admin screens and costs are covered in the plugin's own readme.<br />
 Made by Shikher Goyal.
