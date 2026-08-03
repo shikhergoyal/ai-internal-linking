@@ -315,7 +315,7 @@ Worth           how many people saw it  x  possible gain  x  realistic</pre>
 
 <div class="note"><strong>The three numbers are not comparable with each other.</strong> A 0.85 from the AI is the model&rsquo;s opinion. A 0.85 from Related Content would mean two pages share most of their distinctive wording, which almost never happens &mdash; that engine scores between 0.08 and 0.50 in normal use. Judge each engine against others of its own kind, which is why the review screen labels the source of every suggestion.</div>
 
-<p><strong>Why the floor is set where it is.</strong> The Setup screen has a minimum relevance, and it applies to the Related Content engine only. Below it, two pages share so little wording that the overlap is chance. The default is deliberately low, because a much stricter test runs afterwards regardless: the wording has to be found in your page, and that rejects far more pairs than the score ever does.</p>
+<p><strong>Why the floor is set where it is.</strong> The Settings screen has a "Minimum relevance", and it applies to the Related Content engine only. Below it, two pages share so little wording that the overlap is chance. The default is deliberately low, because a much stricter test runs afterwards regardless: the wording has to be found in your page, and that rejects far more pairs than the score ever does.</p>
 
 <h3>Naturalness: does this wording read well as a link?</h3>
 
