@@ -156,6 +156,19 @@ class Admin {
 					'suggestOnly'   => __( 'This page is managed by a builder — add the link manually using the anchor/context shown.', 'ai-internal-linking' ),
 					'cantPlace'     => __( 'Could not place this link automatically (the anchor wasn’t found uniquely). Try editing the anchor or apply manually.', 'ai-internal-linking' ),
 					'done'          => __( 'Done', 'ai-internal-linking' ),
+					/* translators: %s: number of selected rows */
+					'nSelected'     => __( '%s selected', 'ai-internal-linking' ),
+					'noneSelected'  => __( 'Nothing selected', 'ai-internal-linking' ),
+					/* translators: %s: number of links */
+					'confirmBulkApply' => __( 'Apply %s links to your content? Each one saves a revision and an undo record first.', 'ai-internal-linking' ),
+					/* translators: %s: number of page-builder rows */
+					'bulkManualNote' => __( '%s of them are on page-builder pages and will be skipped — those must be added manually.', 'ai-internal-linking' ),
+					/* translators: %s: number processed so far */
+					'bulkWorking'   => __( 'Working… %s processed', 'ai-internal-linking' ),
+					/* translators: 1: number changed, 2: number attempted */
+					'bulkDone'      => __( '%1$s of %2$s done', 'ai-internal-linking' ),
+					/* translators: %s: number skipped */
+					'bulkSkipped'   => __( '%s skipped', 'ai-internal-linking' ),
 					/* translators: 1: tokens per page, 2: money for a whole scan, 3: page count */
 					'estimate'      => __( 'About %1$s tokens per page — roughly %2$s for one full scan of %3$s pages.', 'ai-internal-linking' ),
 					/* translators: %s: tokens per page */

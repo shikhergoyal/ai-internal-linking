@@ -35,6 +35,7 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_run_index', array( $this, 'run_index' ) );
 		add_action( 'wp_ajax_ailinking_run_suggest', array( $this, 'run_suggest' ) );
 		add_action( 'wp_ajax_ailinking_set_status', array( $this, 'set_status' ) );
+		add_action( 'wp_ajax_ailinking_bulk', array( $this, 'bulk' ) );
 		add_action( 'wp_ajax_ailinking_apply', array( $this, 'apply' ) );
 		add_action( 'wp_ajax_ailinking_undo', array( $this, 'undo' ) );
 		add_action( 'wp_ajax_ailinking_run_audits', array( $this, 'run_audits' ) );
@@ -233,6 +234,80 @@ class Ajax {
 		}
 
 		wp_send_json_success( array( 'id' => $id, 'status' => $status ) );
+	}
+
+	/**
+	 * Approve, reject, restore or apply many suggestions in one request.
+	 *
+	 * The browser sends the selection in chunks, so this handles one chunk and
+	 * reports what happened to it. Applying is deliberately done one row at a
+	 * time through the same Editor::apply() used by the single-row button: every
+	 * write keeps its revision, its ledger entry for Undo and its visible-text
+	 * integrity check. Bulk here means fewer clicks, not a faster path with
+	 * fewer safeguards.
+	 */
+	public function bulk() {
+		$this->guard();
+		global $wpdb;
+
+		$op  = isset( $_POST['op'] ) ? sanitize_key( wp_unslash( $_POST['op'] ) ) : '';
+		$ids = BulkActions::sanitize_ids( isset( $_POST['ids'] ) ? wp_unslash( $_POST['ids'] ) : array() ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+
+		if ( empty( $ids ) || ! BulkActions::is_allowed( $op ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid request.', 'ai-internal-linking' ) ), 400 );
+		}
+
+		if ( 'apply' === $op ) {
+			$results = array();
+			foreach ( $ids as $id ) {
+				$results[] = Editor::apply( $id );
+			}
+			$summary = BulkActions::summarize( $results );
+
+			$labels = array();
+			foreach ( $summary['reasons'] as $reason => $count ) {
+				$labels[] = sprintf( '%d × %s', (int) $count, BulkActions::reason_label( $reason ) );
+			}
+
+			wp_send_json_success(
+				array(
+					'op'       => $op,
+					'requested'=> count( $ids ),
+					'changed'  => $summary['applied'],
+					'failed'   => $summary['failed'],
+					'reasons'  => $labels,
+				)
+			);
+		}
+
+		// Status change. The IN () list is built from integers this class
+		// produced, and the status filter is what stops a bulk click from
+		// touching a link that is already live in your content.
+		$table   = Tables::suggestions();
+		$id_ph   = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$stat_ph = implode( ',', array_fill( 0, count( BulkActions::OVERWRITABLE ), '%s' ) );
+		$args    = array_merge( array( $op ), $ids, BulkActions::OVERWRITABLE );
+
+		$changed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET status = %s WHERE id IN ({$id_ph}) AND status IN ({$stat_ph})", // phpcs:ignore WordPress.DB.PreparedSQL
+				$args
+			)
+		);
+
+		if ( false === $changed ) {
+			wp_send_json_error( array( 'message' => __( 'Could not update.', 'ai-internal-linking' ) ), 500 );
+		}
+
+		wp_send_json_success(
+			array(
+				'op'        => $op,
+				'requested' => count( $ids ),
+				'changed'   => (int) $changed,
+				'failed'    => max( 0, count( $ids ) - (int) $changed ),
+				'reasons'   => array(),
+			)
+		);
 	}
 
 	/**

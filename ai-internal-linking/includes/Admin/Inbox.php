@@ -1,8 +1,8 @@
 <?php
 /**
- * Suggestion inbox: review queue. Approve / reject (status only in this build).
- * Applying approved links to content arrives in Phase 0b; this build never
- * mutates content.
+ * Suggestion inbox: the review queue. Approve, reject, apply and undo, one row
+ * at a time or in bulk. Nothing here writes to content until it is applied, and
+ * every apply saves a revision plus a ledger entry so it can be undone.
  *
  * @package AILinking
  */
@@ -197,9 +197,29 @@ class Inbox {
 			</ul>
 			<div style="clear:both;"></div>
 
+			<div class="ailinking-bulkbar" id="ailinking-bulkbar">
+				<label class="screen-reader-text" for="ailinking-bulk-op"><?php esc_html_e( 'Bulk action', 'ai-internal-linking' ); ?></label>
+				<select id="ailinking-bulk-op">
+					<option value=""><?php esc_html_e( 'Bulk actions', 'ai-internal-linking' ); ?></option>
+					<option value="approved"><?php esc_html_e( 'Approve', 'ai-internal-linking' ); ?></option>
+					<option value="rejected"><?php esc_html_e( 'Reject', 'ai-internal-linking' ); ?></option>
+					<option value="pending"><?php esc_html_e( 'Move back to pending', 'ai-internal-linking' ); ?></option>
+					<option value="apply"><?php esc_html_e( 'Apply to content', 'ai-internal-linking' ); ?></option>
+				</select>
+				<button type="button" class="button" id="ailinking-bulk-go" disabled><?php esc_html_e( 'Go', 'ai-internal-linking' ); ?></button>
+				<span class="ailinking-bulk-count" id="ailinking-bulk-count"><?php esc_html_e( 'Nothing selected', 'ai-internal-linking' ); ?></span>
+				<span class="ailinking-bulk-status" id="ailinking-bulk-status"></span>
+				<p class="description">
+					<?php esc_html_e( 'Applying writes the link into your content. Each one still saves a revision and an undo record first, and pages owned by a page builder are skipped rather than rewritten — you will be told how many.', 'ai-internal-linking' ); ?>
+				</p>
+			</div>
+
 			<table class="wp-list-table widefat fixed striped ailinking-inbox">
 				<thead>
 					<tr>
+						<td class="manage-column column-cb check-column">
+							<input type="checkbox" id="ailinking-cb-all" title="<?php esc_attr_e( 'Select every suggestion on this page', 'ai-internal-linking' ); ?>" />
+						</td>
 						<th class="col-score" title="<?php esc_attr_e( 'Overall score blending relevance and naturalness', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'Relevance', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'From (source page)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'To (target page)', 'ai-internal-linking' ); ?></th>
@@ -209,7 +229,7 @@ class Inbox {
 				</thead>
 				<tbody>
 					<?php if ( empty( $rows ) ) : ?>
-						<tr><td colspan="5"><?php esc_html_e( 'No suggestions in this view. Run a scan to generate some.', 'ai-internal-linking' ); ?></td></tr>
+						<tr><td colspan="6"><?php esc_html_e( 'No suggestions in this view. Run a scan to generate some.', 'ai-internal-linking' ); ?></td></tr>
 					<?php else : ?>
 						<?php foreach ( $rows as $row ) : ?>
 							<?php
@@ -220,8 +240,16 @@ class Inbox {
 							$tgt_title = $target_id ? get_the_title( $target_id ) : $row['target_url'];
 							$tgt_link  = $target_id ? get_permalink( $target_id ) : $row['target_url'];
 							$conf      = (int) round( (float) $row['confidence_score'] * 100 );
+							// Once per row: the checkbox and the action buttons both need it.
+							$safety    = BuilderDetector::write_safety( BuilderDetector::detect( $source_id ) );
 							?>
 							<tr data-id="<?php echo esc_attr( $row['id'] ); ?>">
+								<th scope="row" class="check-column">
+									<input type="checkbox" class="ailinking-cb"
+										value="<?php echo esc_attr( $row['id'] ); ?>"
+										data-status="<?php echo esc_attr( $row['status'] ); ?>"
+										data-safety="<?php echo esc_attr( $safety ); ?>" />
+								</th>
 								<td class="col-score"><span class="ailinking-conf"><?php echo esc_html( $conf ); ?>%</span></td>
 								<td>
 									<?php if ( $edit_link ) : ?>
@@ -259,10 +287,7 @@ class Inbox {
 									</div>
 								</td>
 								<td class="col-actions">
-									<?php
-									$safety = BuilderDetector::write_safety( BuilderDetector::detect( $source_id ) );
-									if ( 'pending' === $row['status'] ) :
-										?>
+									<?php if ( 'pending' === $row['status'] ) : ?>
 										<button class="button button-small ailinking-act" data-status="approved"><?php esc_html_e( 'Approve', 'ai-internal-linking' ); ?></button>
 										<button class="button button-small ailinking-act" data-status="rejected"><?php esc_html_e( 'Reject', 'ai-internal-linking' ); ?></button>
 										<?php if ( 'auto' !== $safety ) : ?>
@@ -292,7 +317,7 @@ class Inbox {
 			</table>
 
 			<?php if ( 'approved' === $status && $total > 0 ) : ?>
-				<p class="description"><?php esc_html_e( 'Approved suggestions are queued. Applying them to your content (with backup + one-click undo) lands in the next phase.', 'ai-internal-linking' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Approved suggestions are queued and ready. Use Apply on a row, or select several and choose “Apply to content” above — each insertion saves a revision and an undo record first.', 'ai-internal-linking' ); ?></p>
 			<?php endif; ?>
 
 			<?php

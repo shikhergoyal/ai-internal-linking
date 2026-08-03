@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.16.0
+Stable tag: 0.17.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -22,7 +22,7 @@ It is fully functional with **zero AI keys and zero external calls**, using a lo
 * Indexes your content into custom tables in the background (keyset-cursor batching; WP-Cron with an in-browser fallback).
 * Generates contextual link suggestions with relevance, naturalness, and confidence scores, wrap-first, meaning only where a natural anchor already exists in the text.
 * Never suggests cross-language links, respects link-density limits, and skips pages you already link to.
-* Presents everything in a review inbox: approve, reject, apply, undo.
+* Presents everything in a review inbox: approve, reject, apply, undo — one at a time, or in bulk with checkboxes and a select-all.
 
 **Three suggestion engines**
 
@@ -54,7 +54,7 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 
 **Coming next**
 
-* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, bulk approve and apply in the inbox, and Elementor auto-apply.
+* Inbound suggestions ("which posts should link TO this page") with an orphan fix-it flow, an editor sidebar, and Elementor auto-apply.
 
 == Installation ==
 
@@ -64,6 +64,14 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.17.0 =
+* Bulk actions in the Suggestions inbox. Every row now has a checkbox, the header has a select-all, and a bulk bar above the table offers Approve, Reject, Move back to pending, and Apply to content. Reviewing a large scan used to mean one click per suggestion with a full page reload after each; a 300-suggestion queue was an afternoon. This is the same set of operations, in one pass.
+* Bulk apply writes links for real, and takes no shortcuts to do it. Each row goes through exactly the same code as the single-row Apply button: the suggestion is atomically claimed so two applies cannot collide, a WordPress revision and an independent undo ledger entry are written before the post is touched, the page is re-checked for edits made since the scan, and the result passes a visible-text integrity check or nothing is saved. Bulk here means fewer clicks, not fewer safeguards.
+* Because applying is partial by nature, the result is reported honestly rather than as a single number. Page-builder pages are skipped rather than rewritten, a page edited since the scan is refused, and a row someone else already applied is passed over. You are told how many succeeded, how many were skipped, and the reason for each kind of skip in plain words. The confirmation box also warns you up front how many of your selection sit on page-builder pages.
+* A bulk status change can never touch a link that is already live in your content. Only pending, approved and rejected rows are eligible; applied rows are excluded at the database level, because flipping one back to pending would leave the row disagreeing with your content and orphan the ledger entry that powers Undo. Removing an applied link remains Undo's job.
+* Large selections are processed in chunks of 25, so a long run cannot hit the PHP time limit half way through with no report of how far it got, and the count climbs while it works. The server independently caps any single request at 50 ids.
+* Covered by 29 new unit tests, 188 in total.
 
 = 0.16.0 =
 * The AI engine now tells the model what each possible destination is about, not just what it is called. Until this release the model chose a destination from its title alone, which is a thin thing to judge a page by: two posts both called "Getting started" were indistinguishable to it, and a page whose title says little about its subject was effectively invisible. Each entry on the shortlist now carries that page's own most-used words alongside its title, so an entry reads "12. Getting started — onboarding, checkout, refund, subscription" instead of "12. Getting started". This was the single biggest limit on suggestion quality, and at the default of 10 words it costs about 200 extra tokens per page to fix.
