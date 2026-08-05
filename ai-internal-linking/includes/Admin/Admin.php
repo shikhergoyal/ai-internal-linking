@@ -170,6 +170,8 @@ class Admin {
 					'confirmBulkApply' => __( 'Apply %s links to your content? Each one saves a revision and an undo record first.', 'ai-internal-linking' ),
 					/* translators: %s: number of page-builder rows */
 					'bulkManualNote' => __( '%s of them are on page-builder pages and will be skipped — those must be added manually.', 'ai-internal-linking' ),
+					'bulkManualUnknown' => __( 'Any page-builder pages in this set are skipped rather than rewritten, and counted in the result.', 'ai-internal-linking' ),
+					'bulkCollecting' => __( 'Collecting the full list…', 'ai-internal-linking' ),
 					/* translators: %s: number processed so far */
 					'bulkWorking'   => __( 'Working… %s processed', 'ai-internal-linking' ),
 					/* translators: 1: number changed, 2: number attempted */

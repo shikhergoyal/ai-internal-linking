@@ -22,6 +22,62 @@ class Inbox {
 	const PER_PAGE = 30;
 
 	/**
+	 * Source filter key => the engine values it covers. (pure)
+	 *
+	 * Shared by the list query and by the "select everything matching" endpoint
+	 * so the set the user is told about is the same set that gets acted on. When
+	 * these lived only inside render(), any second reader had to restate them and
+	 * could drift out of step with the counts on screen.
+	 *
+	 * @return array<string,string[]>
+	 */
+	public static function engine_map() {
+		return array(
+			'ai'      => array( 'llm' ),
+			'gsc'     => array( 'keyword' ),
+			'content' => array( 'tfidf' ),
+		);
+	}
+
+	/**
+	 * Every suggestion id matching a status + source filter, ignoring paging.
+	 *
+	 * Backs "Select all N matching this filter": the browser needs the real ids
+	 * because the checkboxes only exist for the current page. Ordered exactly
+	 * like the on-screen list so the work happens in the order the user sees.
+	 *
+	 * Read-only. Nothing is written here; the ids go back through the same
+	 * bulk endpoint, in the same chunks, as a hand-made selection.
+	 *
+	 * @param string $status Status filter.
+	 * @param string $engine Source filter key, or 'all'.
+	 * @return int[]
+	 */
+	public static function matching_ids( $status, $engine = 'all' ) {
+		global $wpdb;
+		$table = Tables::suggestions();
+
+		$map           = self::engine_map();
+		$engine_where  = '';
+		$engine_params = array();
+		if ( isset( $map[ $engine ] ) ) {
+			$engs          = $map[ $engine ];
+			$ph            = implode( ',', array_fill( 0, count( $engs ), '%s' ) );
+			$engine_where  = " AND engine IN ($ph)";
+			$engine_params = $engs;
+		}
+
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT id FROM {$table} WHERE status = %s{$engine_where} ORDER BY confidence_score DESC, id DESC", // phpcs:ignore WordPress.DB.PreparedSQL
+				array_merge( array( $status ), $engine_params )
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * Scan controls: Start / Pause / Resume / Stop + progress bar. Shared by the
 	 * Suggestions tab and the Setup dashboard. Initial button visibility reflects
 	 * the server scan state so an in-progress scan stays resumable across page
@@ -94,11 +150,7 @@ class Inbox {
 		}
 
 		// Source (engine) filter within the current status.
-		$engine_map = array(
-			'ai'      => array( 'llm' ),
-			'gsc'     => array( 'keyword' ),
-			'content' => array( 'tfidf' ),
-		);
+		$engine_map = self::engine_map();
 		$engine = isset( $_GET['engine'] ) ? sanitize_key( wp_unslash( $_GET['engine'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( ! isset( $engine_map[ $engine ] ) ) {
 			$engine = 'all';
@@ -228,6 +280,28 @@ class Inbox {
 				</select>
 				<button type="button" class="button" id="ailinking-bulk-go" disabled><?php esc_html_e( 'Go', 'ai-internal-linking' ); ?></button>
 				<span class="ailinking-bulk-count" id="ailinking-bulk-count"><?php esc_html_e( 'Nothing selected', 'ai-internal-linking' ); ?></span>
+				<?php
+				// Only worth offering when the filter holds more than this page.
+				// The ids are fetched on click rather than printed here: 1,000+
+				// hidden inputs would bloat every page load for a button most
+				// visits never press.
+				if ( $total > self::PER_PAGE ) :
+					?>
+					<span class="ailinking-bulk-all" id="ailinking-bulk-all-wrap">
+						<button type="button" class="button-link" id="ailinking-bulk-all"
+							data-total="<?php echo esc_attr( $total ); ?>"
+							data-status="<?php echo esc_attr( $status ); ?>"
+							data-engine="<?php echo esc_attr( $engine ); ?>">
+							<?php
+							printf(
+								/* translators: %s: total number of suggestions matching the current filter */
+								esc_html__( 'Select all %s matching this filter', 'ai-internal-linking' ),
+								esc_html( number_format_i18n( $total ) )
+							);
+							?>
+						</button>
+					</span>
+				<?php endif; ?>
 				<span class="ailinking-bulk-status" id="ailinking-bulk-status"></span>
 				<p class="description">
 					<?php esc_html_e( 'Applying writes the link into your content. Each one still saves a revision and an undo record first, and pages owned by a page builder are skipped rather than rewritten — you will be told how many.', 'ai-internal-linking' ); ?>
