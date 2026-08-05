@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.24.1
+Stable tag: 0.25.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,14 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.25.1 =
+* Fixed: on some browsers the new "Select all N matching this filter" button did nothing. The admin script is served with a one-year immutable cache, so any browser that loaded the page in the short window before the CDN copy refreshed had kept the previous script under the new version's address and would not ask for it again. Raising the version changes that address, so the button works without anyone needing to clear a cache.
+
+= 0.25.0 =
+* Added: bulk actions can now select every suggestion matching the current filter, not just the thirty on screen. A "Select all N matching this filter" button appears next to the selection count whenever the filter holds more than one page, so approving or applying a backlog of a thousand no longer means working through it thirty at a time.
+* The rows selected this way go through exactly the same path as a hand-ticked selection: the same bulk endpoint, the same twenty-five per request, and every apply still saves a revision and an undo record first and still skips page-builder pages rather than rewriting them. Selecting more changes how many clicks it takes, not what an apply is allowed to do.
+* Ticking or unticking any individual row leaves whole-filter mode, so a selection of two can never act on the whole filter.
 
 = 0.24.1 =
 * Fixed: the Status card on Setup & Dashboard stayed frozen while a scan ran. "Pages indexed" and "suggestions awaiting review" were rendered once when the page loaded and nothing ever updated them, so starting, resuming or stopping a scan appeared to do nothing until you reloaded the page. Both figures now refresh with every progress tick, and when a scan is paused or stopped.

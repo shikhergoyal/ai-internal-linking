@@ -37,6 +37,7 @@ class Ajax {
 		add_action( 'wp_ajax_ailinking_run_suggest', array( $this, 'run_suggest' ) );
 		add_action( 'wp_ajax_ailinking_set_status', array( $this, 'set_status' ) );
 		add_action( 'wp_ajax_ailinking_bulk', array( $this, 'bulk' ) );
+		add_action( 'wp_ajax_ailinking_bulk_ids', array( $this, 'bulk_ids' ) );
 		add_action( 'wp_ajax_ailinking_apply', array( $this, 'apply' ) );
 		add_action( 'wp_ajax_ailinking_undo', array( $this, 'undo' ) );
 		add_action( 'wp_ajax_ailinking_run_audits', array( $this, 'run_audits' ) );
@@ -247,6 +248,44 @@ class Ajax {
 	 * integrity check. Bulk here means fewer clicks, not a faster path with
 	 * fewer safeguards.
 	 */
+	/**
+	 * Every suggestion id matching a status + source filter.
+	 *
+	 * Backs "Select all N matching this filter" in the inbox. The checkboxes only
+	 * exist for the 30 rows on screen, so selecting the whole filter needs the ids
+	 * from the server.
+	 *
+	 * Read-only: this hands back ids and nothing else. The browser then feeds them
+	 * to ailinking_bulk in the same chunks as a hand-made selection, so every
+	 * apply still goes through Editor::apply() with its revision, ledger entry for
+	 * Undo and visible-text integrity check. This is fewer clicks, not a bypass.
+	 */
+	public function bulk_ids() {
+		$this->guard();
+
+		$allowed = array( 'pending', 'approved', 'rejected', 'applied' );
+		$status  = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : 'pending';
+		if ( ! in_array( $status, $allowed, true ) ) {
+			$status = 'pending';
+		}
+
+		$engine = isset( $_POST['engine'] ) ? sanitize_key( wp_unslash( $_POST['engine'] ) ) : 'all';
+		if ( ! isset( Inbox::engine_map()[ $engine ] ) ) {
+			$engine = 'all';
+		}
+
+		$ids = Inbox::matching_ids( $status, $engine );
+
+		wp_send_json_success(
+			array(
+				'status' => $status,
+				'engine' => $engine,
+				'total'  => count( $ids ),
+				'ids'    => $ids,
+			)
+		);
+	}
+
 	public function bulk() {
 		$this->guard();
 		global $wpdb;

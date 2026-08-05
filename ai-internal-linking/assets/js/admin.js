@@ -431,6 +431,12 @@
 		var bulkGo   = document.getElementById( 'ailinking-bulk-go' );
 		var bulkNum  = document.getElementById( 'ailinking-bulk-count' );
 		var bulkStat = document.getElementById( 'ailinking-bulk-status' );
+		var bulkAll  = document.getElementById( 'ailinking-bulk-all' );
+
+		// "Select all N matching this filter" mode. The checkboxes only exist for
+		// the 30 rows on screen, so whole-filter selection cannot be represented
+		// by them; this flag says "ignore the boxes, ask the server for the ids".
+		var selectAll = false;
 
 		function boxes() {
 			return Array.prototype.slice.call( document.querySelectorAll( '.ailinking-cb' ) );
@@ -442,18 +448,36 @@
 			} );
 		}
 
+		// Total the filter holds, per the server-rendered button.
+		function allTotal() {
+			return bulkAll ? parseInt( bulkAll.getAttribute( 'data-total' ), 10 ) || 0 : 0;
+		}
+
+		// Leaving whole-filter mode. Any manual change to the boxes means the user
+		// is picking rows again, so the flag must not silently outlive it and act
+		// on a thousand rows when two are ticked.
+		function clearSelectAll() {
+			if ( ! selectAll ) {
+				return;
+			}
+			selectAll = false;
+			if ( bulkAll ) {
+				bulkAll.disabled = false;
+			}
+		}
+
 		function refreshBulk() {
 			if ( ! bulkNum ) {
 				return;
 			}
-			var n = chosen().length;
+			var n = selectAll ? allTotal() : chosen().length;
 			bulkNum.textContent = n
 				? ( cfg.i18n.nSelected || '%s selected' ).replace( '%s', n )
 				: ( cfg.i18n.noneSelected || 'Nothing selected' );
 			if ( bulkGo ) {
 				bulkGo.disabled = ! n || ! bulkOp || ! bulkOp.value;
 			}
-			if ( cbAll ) {
+			if ( cbAll && ! selectAll ) {
 				var all = boxes();
 				cbAll.checked = all.length > 0 && n === all.length;
 			}
@@ -461,6 +485,7 @@
 
 		if ( cbAll ) {
 			cbAll.addEventListener( 'change', function () {
+				clearSelectAll();
 				boxes().forEach( function ( b ) {
 					b.checked = cbAll.checked;
 				} );
@@ -468,97 +493,158 @@
 			} );
 		}
 		boxes().forEach( function ( b ) {
-			b.addEventListener( 'change', refreshBulk );
+			b.addEventListener( 'change', function () {
+				clearSelectAll();
+				refreshBulk();
+			} );
 		} );
 		if ( bulkOp ) {
 			bulkOp.addEventListener( 'change', refreshBulk );
 		}
 
-		if ( bulkGo ) {
-			bulkGo.addEventListener( 'click', function () {
-				var op = bulkOp ? bulkOp.value : '';
-				var picked = chosen();
-				if ( ! op || ! picked.length ) {
+		if ( bulkAll ) {
+			bulkAll.addEventListener( 'click', function () {
+				selectAll = true;
+				// Tick the visible boxes too, so the table agrees with the count.
+				if ( cbAll ) {
+					cbAll.checked = true;
+				}
+				boxes().forEach( function ( b ) {
+					b.checked = true;
+				} );
+				bulkAll.disabled = true;
+				refreshBulk();
+			} );
+		}
+
+		// Run a bulk operation over an explicit id list.
+		//
+		// `manual` is how many of them sit on page-builder pages and will be
+		// skipped, or null when that is not knowable up front (whole-filter mode
+		// spans rows that were never rendered, so their safety flag is not here).
+		function startBulk( op, ids, manual ) {
+			if ( ! op || ! ids.length ) {
+				return;
+			}
+
+			// Say up front how many cannot be written to, rather than
+			// reporting it as a failure afterwards.
+			if ( 'apply' === op ) {
+				var msg = ( cfg.i18n.confirmBulkApply || 'Apply %s links to your content?' )
+					.replace( '%s', ids.length );
+				if ( null === manual ) {
+					msg += '\n\n' + ( cfg.i18n.bulkManualUnknown || 'Any page-builder pages in this set are skipped, not rewritten, and counted in the result.' );
+				} else if ( manual ) {
+					msg += '\n\n' + ( cfg.i18n.bulkManualNote || '%s are page-builder pages and will be skipped.' )
+						.replace( '%s', manual );
+				}
+				if ( ! window.confirm( msg ) ) {
+					return;
+				}
+			}
+
+			bulkGo.disabled = true;
+			if ( bulkOp ) {
+				bulkOp.disabled = true;
+			}
+
+			var done = 0;
+			var changed = 0;
+			var failed = 0;
+			var reasons = [];
+
+			function step() {
+				if ( ! ids.length ) {
+					var summary = ( cfg.i18n.bulkDone || '%1$s of %2$s done' )
+						.replace( '%1$s', changed )
+						.replace( '%2$s', done );
+					if ( failed ) {
+						summary += ' — ' + ( cfg.i18n.bulkSkipped || '%s skipped' ).replace( '%s', failed );
+					}
+					if ( reasons.length ) {
+						window.alert( summary + '\n\n' + reasons.join( '\n' ) );
+					}
+					bulkStat.textContent = summary;
+					window.location.reload();
 					return;
 				}
 
-				var ids = picked.map( function ( b ) {
-					return b.value;
-				} );
+				var chunk = ids.splice( 0, BULK_CHUNK );
+				done += chunk.length;
+				bulkStat.textContent = ( cfg.i18n.bulkWorking || 'Working… %s' ).replace( '%s', done );
 
-				// Say up front how many cannot be written to, rather than
-				// reporting it as a failure afterwards.
-				if ( 'apply' === op ) {
-					var manual = picked.filter( function ( b ) {
-						return 'auto' !== b.getAttribute( 'data-safety' );
-					} ).length;
-					var msg = ( cfg.i18n.confirmBulkApply || 'Apply %s links to your content?' )
-						.replace( '%s', ids.length );
-					if ( manual ) {
-						msg += '\n\n' + ( cfg.i18n.bulkManualNote || '%s are page-builder pages and will be skipped.' )
-							.replace( '%s', manual );
-					}
-					if ( ! window.confirm( msg ) ) {
-						return;
-					}
-				}
-
-				bulkGo.disabled = true;
-				if ( bulkOp ) {
-					bulkOp.disabled = true;
-				}
-
-				var done = 0;
-				var changed = 0;
-				var failed = 0;
-				var reasons = [];
-
-				function step() {
-					if ( ! ids.length ) {
-						var summary = ( cfg.i18n.bulkDone || '%1$s of %2$s done' )
-							.replace( '%1$s', changed )
-							.replace( '%2$s', done );
-						if ( failed ) {
-							summary += ' — ' + ( cfg.i18n.bulkSkipped || '%s skipped' ).replace( '%s', failed );
-						}
-						if ( reasons.length ) {
-							window.alert( summary + '\n\n' + reasons.join( '\n' ) );
-						}
-						bulkStat.textContent = summary;
-						window.location.reload();
-						return;
-					}
-
-					var chunk = ids.splice( 0, BULK_CHUNK );
-					done += chunk.length;
-					bulkStat.textContent = ( cfg.i18n.bulkWorking || 'Working… %s' ).replace( '%s', done );
-
-					post( 'ailinking_bulk', { op: op, ids: chunk } ).then( function ( res ) {
-						if ( ! res || ! res.success ) {
-							bulkStat.textContent = cfg.i18n.error;
-							bulkGo.disabled = false;
-							if ( bulkOp ) {
-								bulkOp.disabled = false;
-							}
-							return;
-						}
-						changed += res.data.changed || 0;
-						failed += res.data.failed || 0;
-						( res.data.reasons || [] ).forEach( function ( r ) {
-							if ( reasons.indexOf( r ) === -1 ) {
-								reasons.push( r );
-							}
-						} );
-						step();
-					} ).catch( function () {
+				post( 'ailinking_bulk', { op: op, ids: chunk } ).then( function ( res ) {
+					if ( ! res || ! res.success ) {
 						bulkStat.textContent = cfg.i18n.error;
 						bulkGo.disabled = false;
 						if ( bulkOp ) {
 							bulkOp.disabled = false;
 						}
+						return;
+					}
+					changed += res.data.changed || 0;
+					failed += res.data.failed || 0;
+					( res.data.reasons || [] ).forEach( function ( r ) {
+						if ( reasons.indexOf( r ) === -1 ) {
+							reasons.push( r );
+						}
 					} );
+					step();
+				} ).catch( function () {
+					bulkStat.textContent = cfg.i18n.error;
+					bulkGo.disabled = false;
+					if ( bulkOp ) {
+						bulkOp.disabled = false;
+					}
+				} );
+			}
+			step();
+		}
+
+		if ( bulkGo ) {
+			bulkGo.addEventListener( 'click', function () {
+				var op = bulkOp ? bulkOp.value : '';
+				if ( ! op ) {
+					return;
 				}
-				step();
+
+				// Whole-filter mode: the ids are not on the page, so ask the
+				// server for them first, then run the identical chunked loop.
+				if ( selectAll && bulkAll ) {
+					bulkGo.disabled = true;
+					bulkStat.textContent = cfg.i18n.bulkCollecting || 'Collecting…';
+					post( 'ailinking_bulk_ids', {
+						status: bulkAll.getAttribute( 'data-status' ),
+						engine: bulkAll.getAttribute( 'data-engine' )
+					} ).then( function ( res ) {
+						bulkGo.disabled = false;
+						var list = ( res && res.success && res.data && res.data.ids ) ? res.data.ids : null;
+						if ( ! list || ! list.length ) {
+							bulkStat.textContent = cfg.i18n.error;
+							return;
+						}
+						bulkStat.textContent = '';
+						startBulk( op, list.map( String ), null );
+					} ).catch( function () {
+						bulkGo.disabled = false;
+						bulkStat.textContent = cfg.i18n.error;
+					} );
+					return;
+				}
+
+				var picked = chosen();
+				if ( ! picked.length ) {
+					return;
+				}
+				startBulk(
+					op,
+					picked.map( function ( b ) {
+						return b.value;
+					} ),
+					picked.filter( function ( b ) {
+						return 'auto' !== b.getAttribute( 'data-safety' );
+					} ).length
+				);
 			} );
 		}
 		refreshBulk();
