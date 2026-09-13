@@ -807,6 +807,29 @@ ok( ! in_array( 'unique', $cols, true ), 'REGRESSION: UNIQUE KEY is not read as 
 ok( ! in_array( 'key', $cols, true ), 'REGRESSION: a KEY line is not read as a column' );
 ok( ! in_array( 'index', $cols, true ), 'REGRESSION: an INDEX line is not read as a column' );
 ok( count( $cols ) > 15, 'the whole table is parsed, not a fragment' );
+
+// The same parser, across every table this version declares. Checking only the
+// index table is how 1.9.0 came to be stamped as migrated on a site whose
+// link_graph never received target_kind: the index table was perfect, so the
+// check passed and said nothing at all about the table that had changed.
+$declared = \AILinking\Install\Schema::declared_columns();
+ok( count( $declared ) >= 9, 'every declared table is parsed, not just the index' );
+
+$graph = '';
+foreach ( array_keys( $declared ) as $name ) {
+	if ( false !== strpos( $name, 'link_graph' ) ) {
+		$graph = $name;
+	}
+}
+ok( '' !== $graph, 'the link_graph table is among them' );
+ok( in_array( 'target_kind', $declared[ $graph ], true ), 'REGRESSION: a column added to a table other than the index is seen' );
+ok( in_array( 'is_broken', $declared[ $graph ], true ), 'an older column of that table is seen too' );
+ok( ! in_array( 'key', $declared[ $graph ], true ), 'key lines are still not read as columns' );
+
+foreach ( $declared as $table_name => $table_cols ) {
+	ok( count( $table_cols ) > 2, "table '{$table_name}' parsed more than a fragment" );
+	ok( in_array( 'id', $table_cols, true ) || in_array( 'post_id', $table_cols, true ), "table '{$table_name}' has its key column" );
+}
 foreach ( $cols as $c ) {
 	ok( (bool) preg_match( '/^[a-z0-9_]+$/', $c ), "column name '{$c}' looks like a column name" );
 }
