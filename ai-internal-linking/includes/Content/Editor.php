@@ -117,7 +117,11 @@ class Editor {
 			$result = wp_update_post(
 				array(
 					'ID'           => $post->ID,
-					'post_content' => $write['value_after'],
+					// wp_insert_post unslashes everything it is handed before it
+					// writes, so content has to arrive slashed. Handing it the
+					// value straight from get_post() costs the post one level of
+					// backslashes on every single write.
+					'post_content' => wp_slash( $write['value_after'] ),
 				),
 				true
 			);
@@ -203,7 +207,9 @@ class Editor {
 			$result = wp_update_post(
 				array(
 					'ID'           => $post->ID,
-					'post_content' => $new_content,
+					// Slashed for the same reason as in apply(): what comes back
+					// from get_post() and what the ledger stored are both raw.
+					'post_content' => wp_slash( $new_content ),
 				),
 				true
 			);
