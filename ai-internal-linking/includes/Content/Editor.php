@@ -18,6 +18,10 @@ use AILinking\Indexer\Indexer;
 
 defined( 'ABSPATH' ) || exit;
 
+// The uninstall routine runs without the autoloader, so the code that takes a
+// link back out lives in a plain file that both paths can load.
+require_once __DIR__ . '/anchor-unwrap.php';
+
 class Editor {
 
 	/**
@@ -113,7 +117,11 @@ class Editor {
 			$result = wp_update_post(
 				array(
 					'ID'           => $post->ID,
-					'post_content' => $write['value_after'],
+					// wp_insert_post unslashes everything it is handed before it
+					// writes, so content has to arrive slashed. Handing it the
+					// value straight from get_post() costs the post one level of
+					// backslashes on every single write.
+					'post_content' => wp_slash( $write['value_after'] ),
 				),
 				true
 			);
@@ -179,7 +187,7 @@ class Editor {
 		// preserves any unrelated edits the user made after the link was inserted.
 		$data_id = (string) $row['data_attr_id'];
 		if ( 'post_content' === $row['storage_target'] && '' !== $data_id ) {
-			$unwrapped = self::unwrap_tagged_anchor( (string) $post->post_content, $data_id );
+			$unwrapped = ailinking_unwrap_tagged_anchor( (string) $post->post_content, $data_id );
 			if ( null !== $unwrapped ) {
 				$new_content = $unwrapped;
 			}
@@ -199,7 +207,9 @@ class Editor {
 			$result = wp_update_post(
 				array(
 					'ID'           => $post->ID,
-					'post_content' => $new_content,
+					// Slashed for the same reason as in apply(): what comes back
+					// from get_post() and what the ledger stored are both raw.
+					'post_content' => wp_slash( $new_content ),
 				),
 				true
 			);
@@ -232,20 +242,41 @@ class Editor {
 	/**
 	 * Revert a batch of active insertions (clean-removal while the plugin is active).
 	 *
+	 * Never forces. A forced undo writes back the copy of the post taken before
+	 * the link went in, which silently discards everything written since, and
+	 * "remove every link" is a bulk action nobody reviews page by page. Where a
+	 * link cannot be lifted out on its own, the page is left exactly as its
+	 * author left it and the row stops being tracked, so the caller's loop keeps
+	 * making progress instead of being handed the same rows forever.
+	 *
 	 * @param int $limit Rows per batch.
-	 * @return array{processed:int,remaining:int}
+	 * @return array{processed:int,kept:int,remaining:int,stalled:bool}
 	 */
 	public static function remove_all_batch( $limit = 10 ) {
 		$rows      = LedgerRepository::all_active( $limit );
 		$processed = 0;
+		$kept      = 0;
 		foreach ( $rows as $row ) {
-			$res = self::undo( (int) $row['id'], true );
+			$res = self::undo( (int) $row['id'], false );
 			if ( ! empty( $res['ok'] ) ) {
 				$processed++;
+				continue;
+			}
+			// Our tag is no longer in the content exactly once and the page has
+			// changed since we wrote it, so there is nothing we can take out
+			// without also taking out someone's edits. Leave the content alone.
+			if ( 'modified_since' === ( isset( $res['reason'] ) ? $res['reason'] : '' ) ) {
+				LedgerRepository::mark_removed( (int) $row['id'] );
+				$kept++;
 			}
 		}
 		return array(
 			'processed' => $processed,
+			'kept'      => $kept,
+			// A pass that moved nothing cannot be retried into moving something:
+			// the next call reads the same rows back. Say so, and let the caller
+			// stop rather than loop.
+			'stalled'   => ( ! empty( $rows ) && 0 === $processed + $kept ),
 			'remaining' => LedgerRepository::count_active(),
 		);
 	}
@@ -264,23 +295,5 @@ class Editor {
 			array( '%s' ),
 			array( '%d' )
 		);
-	}
-
-	/**
-	 * Remove exactly our tagged <a data-ailinking-id="..."> from HTML, unwrapping it
-	 * back to its inner text. Returns the new HTML, or null if it isn't present
-	 * exactly once (caller falls back to a full restore).
-	 *
-	 * @param string $html    Current content.
-	 * @param string $data_id Provenance id.
-	 * @return string|null
-	 */
-	private static function unwrap_tagged_anchor( $html, $data_id ) {
-		$pattern = '#<a\b[^>]*\bdata-ailinking-id="' . preg_quote( $data_id, '#' ) . '"[^>]*>(.*?)</a>#is';
-		if ( 1 !== preg_match_all( $pattern, $html, $m ) ) {
-			return null;
-		}
-		$new = preg_replace( $pattern, '$1', $html, 1 );
-		return is_string( $new ) ? $new : null;
 	}
 }

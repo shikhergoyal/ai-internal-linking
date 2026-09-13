@@ -15,6 +15,7 @@ namespace AILinking\Install;
 
 use AILinking\Support\Tables;
 use AILinking\Suggestions\Naturalness;
+use AILinking\Jobs\ProgressStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -27,6 +28,13 @@ class Schema {
 
 	/** Records which columns are missing when an upgrade gives up. */
 	const UPGRADE_NOTICE_OPTION = 'ailinking_upgrade_incomplete';
+
+	/**
+	 * Plugin version whose schema has been verified present. Autoloaded, so the
+	 * common case costs no query: without it, a version stamped as migrated
+	 * while a column is missing is a state nothing ever corrects.
+	 */
+	const SCHEMA_OK_OPTION = 'ailinking_schema_verified';
 
 	/** Attempts before recording the version anyway and reporting the problem. */
 	const MAX_UPGRADE_TRIES = 3;
@@ -58,7 +66,8 @@ class Schema {
 		// done and never retried, leaving a column permanently missing and every
 		// query against it failing quietly. Leaving the version alone means the
 		// next request simply tries again.
-		if ( ! self::schema_matches() ) {
+		$missing = self::missing_columns();
+		if ( $missing ) {
 			// Do not retry for ever. If the host refuses the ALTER — no
 			// permission, a locked table — leaving the version unstamped means
 			// dbDelta runs again on every single admin request, which is a
@@ -68,10 +77,18 @@ class Schema {
 			$tries = (int) get_option( self::UPGRADE_TRIES_OPTION, 0 ) + 1;
 			if ( $tries < self::MAX_UPGRADE_TRIES ) {
 				update_option( self::UPGRADE_TRIES_OPTION, $tries, false );
+				// Deliberately not marking the schema verified: the next
+				// request is meant to come back and try again.
 				return;
 			}
-			update_option( self::UPGRADE_NOTICE_OPTION, self::missing_columns(), false );
+			update_option( self::UPGRADE_NOTICE_OPTION, $missing, false );
+		} else {
+			delete_option( self::UPGRADE_NOTICE_OPTION );
 		}
+
+		// Either the schema is right, or it is wrong in a way retrying will not
+		// fix. Both are settled states; stop paying to re-check them.
+		update_option( self::SCHEMA_OK_OPTION, AILINKING_VERSION, true );
 
 		self::rescore_suggestions();
 
@@ -117,26 +134,39 @@ class Schema {
 	}
 
 	/**
-	 * Columns this version declares that the index table does not have.
+	 * Everything this version declares that the database does not have, as
+	 * "table.column" (or the table itself when it is absent altogether).
+	 *
+	 * Every declared table is checked, not just the index. Checking one table
+	 * and stamping the version on the strength of it is how 1.9.0 came to be
+	 * recorded as migrated on a site whose link_graph never got target_kind:
+	 * the index table was perfect, so the check passed and said nothing about
+	 * the table that had actually changed.
 	 *
 	 * @return string[]
 	 */
 	public static function missing_columns() {
 		global $wpdb;
-		$table = Tables::index();
-		if ( ! self::table_exists( $table ) ) {
-			return array( '(the index table itself)' );
-		}
-		$have = array();
-		foreach ( (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}" ) as $c ) { // phpcs:ignore WordPress.DB.PreparedSQL
-			$have[ strtolower( (string) $c ) ] = true;
-		}
 		$missing = array();
-		foreach ( self::index_columns() as $column ) {
-			if ( ! isset( $have[ $column ] ) ) {
-				$missing[] = $column;
+
+		foreach ( self::declared_columns() as $table => $columns ) {
+			if ( ! self::table_exists( $table ) ) {
+				$missing[] = $table . ' (the table itself)';
+				continue;
+			}
+
+			$have = array();
+			foreach ( (array) $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`" ) as $c ) { // phpcs:ignore WordPress.DB.PreparedSQL
+				$have[ strtolower( (string) $c ) ] = true;
+			}
+
+			foreach ( $columns as $column ) {
+				if ( ! isset( $have[ $column ] ) ) {
+					$missing[] = $table . '.' . $column;
+				}
 			}
 		}
+
 		return $missing;
 	}
 
@@ -173,66 +203,66 @@ class Schema {
 	}
 
 	/**
-	 * Whether the index table carries every column this version declares.
-	 *
-	 * The index table is the one that changes shape between versions, so it is
-	 * the honest check for "did the migration actually land".
+	 * Whether the database carries everything this version declares.
 	 *
 	 * @return bool
 	 */
 	private static function schema_matches() {
-		global $wpdb;
-		$table = Tables::index();
-		if ( ! self::table_exists( $table ) ) {
-			return false;
-		}
-
-		$have = array();
-		foreach ( (array) $wpdb->get_col( "SHOW COLUMNS FROM {$table}" ) as $c ) { // phpcs:ignore WordPress.DB.PreparedSQL
-			$have[ strtolower( (string) $c ) ] = true;
-		}
-
-		foreach ( self::index_columns() as $column ) {
-			if ( ! isset( $have[ $column ] ) ) {
-				return false;
-			}
-		}
-		return true;
+		return array() === self::missing_columns();
 	}
 
 	/**
-	 * Column names the index table is declared with, read from the statement
-	 * itself so the two can never drift apart.
+	 * Every table this version declares, mapped to its column names, read from
+	 * the CREATE TABLE statements themselves so the declaration and the check
+	 * can never drift apart.
 	 *
-	 * @return string[]
+	 * @return array<string,string[]> Table name => column names.
 	 */
-	public static function index_columns() {
+	public static function declared_columns() {
 		global $wpdb;
-		$table = Tables::index();
-		$out   = array();
+		$out = array();
 
 		foreach ( self::statements( $wpdb->get_charset_collate() ) as $sql ) {
-			if ( false === strpos( $sql, $table . ' (' ) ) {
-				continue;
-			}
-			foreach ( preg_split( '/
-||
-/', $sql ) as $line ) {
+			$table   = '';
+			$columns = array();
+
+			foreach ( preg_split( '/\r\n|\r|\n/', $sql ) as $line ) {
 				$line = trim( $line );
-				// Field lines only: skip the CREATE line, keys and the closer.
-				if ( '' === $line || 0 === stripos( $line, 'CREATE TABLE' ) || 0 === strpos( $line, ')' ) ) {
+				if ( '' === $line || 0 === strpos( $line, ')' ) ) {
 					continue;
 				}
+				if ( 0 === stripos( $line, 'CREATE TABLE' ) ) {
+					if ( preg_match( '/^CREATE\s+TABLE\s+`?([a-z0-9_]+)`?/i', $line, $m ) ) {
+						$table = $m[1];
+					}
+					continue;
+				}
+				// Field lines only: keys are not columns.
 				if ( preg_match( '/^(PRIMARY\s+KEY|UNIQUE\s+KEY|KEY|INDEX)\b/i', $line ) ) {
 					continue;
 				}
 				if ( preg_match( '/^`?([a-z0-9_]+)`?\s+/i', $line, $m ) ) {
-					$out[] = strtolower( $m[1] );
+					$columns[] = strtolower( $m[1] );
 				}
 			}
-			break;
+
+			if ( '' !== $table && $columns ) {
+				$out[ $table ] = $columns;
+			}
 		}
+
 		return $out;
+	}
+
+	/**
+	 * Column names the index table is declared with.
+	 *
+	 * @return string[]
+	 */
+	public static function index_columns() {
+		$all   = self::declared_columns();
+		$table = Tables::index();
+		return isset( $all[ $table ] ) ? $all[ $table ] : array();
 	}
 
 	/**
@@ -268,11 +298,22 @@ class Schema {
 			self::install();
 			return;
 		}
-		// Recovery: recreate tables if they went missing (admin only, to avoid a
-		// per-request query on the front end).
-		if ( is_admin() && ! self::table_exists( Tables::index() ) ) {
-			self::install();
+		// The version says the migration is done. That is not the same as it
+		// having worked. dbDelta can fail to add a column, and a deploy that
+		// uploads files one at a time can run this while the main file already
+		// declares the new DB version and the schema file is still the old one
+		// — which stamps the version against a migration that never ran. The
+		// version test above then passes for ever and nothing tries again.
+		//
+		// The verified flag is autoloaded, so the settled case costs no query.
+		if ( get_option( self::SCHEMA_OK_OPTION ) === AILINKING_VERSION ) {
+			return;
 		}
+		if ( self::schema_matches() ) {
+			update_option( self::SCHEMA_OK_OPTION, AILINKING_VERSION, true );
+			return;
+		}
+		self::install();
 	}
 
 	/**
@@ -286,21 +327,50 @@ class Schema {
 	}
 
 	/**
-	 * Reset the SCAN data (index, suggestions, link graph, keywords, jobs) and
-	 * clear progress/caches/locks, so the next scan starts from scratch.
-	 * Keeps the table schema, does NOT touch any WordPress posts, and deliberately
-	 * PRESERVES your configuration: saved API keys (provider_keys) and their spend
-	 * history (spend_log), plus all settings and the Search Console connection
-	 * (which live in options, not these tables). Links already inserted into
-	 * content remain in the posts.
+	 * Reset the SCAN data (index, link graph, keywords, jobs, and every
+	 * suggestion not yet applied) and clear progress/caches/locks, so the next
+	 * scan starts from scratch. Keeps the table schema and does NOT touch any
+	 * WordPress posts.
+	 *
+	 * Deliberately preserved:
+	 *
+	 * - Configuration: saved API keys (provider_keys) and their spend history
+	 *   (spend_log), plus all settings and the Search Console connection, which
+	 *   live in options rather than these tables.
+	 * - The undo record for every link still sitting in the content: the active
+	 *   ledger rows, and the applied suggestions that carry the Undo button.
+	 *
+	 * That second one is not scan data and is not ours to delete. This routine
+	 * used to empty the ledger with everything else, which stranded every link
+	 * the plugin had ever inserted: no per-link undo, no "Remove all inserted
+	 * links", and an uninstall that could no longer find them to take out. They
+	 * became permanent untracked edits in someone's posts. A reset exists so the
+	 * site can be scanned again, and nothing about scanning again is helped by
+	 * forgetting what was written into the content.
 	 */
 	public static function reset_data() {
 		global $wpdb;
 		self::ensure_installed();
 
-		// Configuration tables that must survive a data reset (your API keys and
-		// their usage/spend history). Everything else is scan data and is cleared.
-		$keep = array( 'provider_keys', 'spend_log' );
+		$ledger      = Tables::ledger();
+		$suggestions = Tables::suggestions();
+
+		// Ledger rows whose link has already been reverted are spent history:
+		// they carry no undo, so they clear with the rest of the data.
+		$wpdb->query( "DELETE FROM `{$ledger}` WHERE removed_at IS NOT NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		// Every suggestion goes except the applied ones still backed by a live
+		// ledger row. The Undo button is rendered from the suggestion, not from
+		// the ledger, so keeping the ledger alone would preserve the record with
+		// no way left in the admin to reach it.
+		$wpdb->query( // phpcs:ignore WordPress.DB.PreparedSQL
+			"DELETE FROM `{$suggestions}`
+			  WHERE status <> 'applied'
+			     OR applied_ledger_id NOT IN ( SELECT id FROM `{$ledger}` WHERE removed_at IS NULL )"
+		);
+
+		// Tables handled above, or holding configuration that a reset keeps.
+		$keep = array( 'provider_keys', 'spend_log', 'ledger', 'suggestions' );
 
 		foreach ( Tables::all_keys() as $key ) {
 			if ( in_array( $key, $keep, true ) ) {
@@ -316,9 +386,12 @@ class Schema {
 		delete_option( 'ailinking_progress_suggest' );
 		delete_option( 'ailinking_progress_embed' );
 		delete_transient( 'ailinking_audit_summary' );
-		delete_transient( 'ailinking_lock_index' );
-		delete_transient( 'ailinking_lock_suggest' );
-		delete_transient( 'ailinking_lock_embed' );
+		// Job locks live in options since 0.26.0. ProgressStore::release()
+		// clears both homes, so a reset cannot leave a job wedged behind a lock
+		// whose owner is gone.
+		ProgressStore::release( 'index' );
+		ProgressStore::release( 'suggest' );
+		ProgressStore::release( 'embed' );
 		// The site-wide word list is derived from the term table that was just
 		// emptied, so keeping it would describe pages using a vocabulary that no
 		// longer exists.
@@ -392,6 +465,7 @@ class Schema {
 			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			target_url varchar(2048) NOT NULL DEFAULT '',
 			target_url_norm varchar(512) NOT NULL DEFAULT '',
+			target_kind varchar(12) NOT NULL DEFAULT 'unknown',
 			anchor_text text NULL,
 			anchor_type varchar(12) NOT NULL DEFAULT 'partial',
 			location varchar(12) NOT NULL DEFAULT 'content',

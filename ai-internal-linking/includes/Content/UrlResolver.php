@@ -69,6 +69,33 @@ class UrlResolver {
 	}
 
 	/**
+	 * Absolute form of an internal URL, with the fragment removed.
+	 *
+	 * The fragment is dropped because "/about/#team" and "/about/" are the same
+	 * page, and url_to_postid() does not always agree: a link written with an
+	 * anchor could fail to resolve and be reported as a broken link to a page
+	 * that is plainly there.
+	 *
+	 * @param string $url Internal URL, absolute or relative.
+	 * @return string
+	 */
+	public static function absolute( $url ) {
+		$url = trim( (string) $url );
+		if ( '' === $url ) {
+			return '';
+		}
+		$hash = strpos( $url, '#' );
+		if ( false !== $hash ) {
+			$url = substr( $url, 0, $hash );
+		}
+		if ( '' === $url ) {
+			// The link was a bare "#section": same page, nothing to resolve.
+			return '';
+		}
+		return ( '/' === $url[0] ) ? home_url( $url ) : $url;
+	}
+
+	/**
 	 * Resolve an internal URL to a post ID, with index fallback.
 	 *
 	 * @param string $url Internal URL.
@@ -79,7 +106,10 @@ class UrlResolver {
 			return 0;
 		}
 
-		$absolute = ( '/' === $url[0] ) ? home_url( $url ) : $url;
+		$absolute = self::absolute( $url );
+		if ( '' === $absolute ) {
+			return 0;
+		}
 
 		$post_id = (int) url_to_postid( $absolute );
 		if ( $post_id > 0 ) {

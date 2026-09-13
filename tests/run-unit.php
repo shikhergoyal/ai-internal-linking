@@ -53,6 +53,20 @@ if ( ! function_exists( 'esc_attr' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	function wp_parse_url( $url, $component = -1 ) { // phpcs:ignore
+		return parse_url( $url, $component );
+	}
+}
+// The classifier measures paths relative to the WordPress home path. A site in
+// a subdirectory is the case that breaks naive path handling, so test against
+// one rather than against a root install.
+if ( ! function_exists( 'home_url' ) ) {
+	function home_url( $path = '' ) { // phpcs:ignore
+		return 'https://example.test/blog' . $path;
+	}
+}
+
 defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
 
 // In-memory transients, so cached lookups can be seeded by a test.
@@ -95,6 +109,9 @@ require_once $plugin . '/Providers/AnthropicProvider.php';
 require_once $plugin . '/Providers/Registry.php';
 require_once $plugin . '/Install/Schema.php';
 require_once $plugin . '/Content/WriteGuards.php';
+require_once $plugin . '/Content/anchor-unwrap.php'; // Plain functions, no namespace.
+require_once $plugin . '/Content/UrlClassifier.php';
+require_once $plugin . '/Indexer/Indexer.php'; // Only record_failure() is exercised; it touches nothing else.
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -109,6 +126,8 @@ use AILinking\Suggestions\Summarizer;
 use AILinking\Providers\AnthropicProvider;
 use AILinking\Providers\Registry;
 use AILinking\Content\WriteGuards;
+use AILinking\Content\UrlClassifier;
+use AILinking\Indexer\Indexer;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -788,6 +807,29 @@ ok( ! in_array( 'unique', $cols, true ), 'REGRESSION: UNIQUE KEY is not read as 
 ok( ! in_array( 'key', $cols, true ), 'REGRESSION: a KEY line is not read as a column' );
 ok( ! in_array( 'index', $cols, true ), 'REGRESSION: an INDEX line is not read as a column' );
 ok( count( $cols ) > 15, 'the whole table is parsed, not a fragment' );
+
+// The same parser, across every table this version declares. Checking only the
+// index table is how 1.9.0 came to be stamped as migrated on a site whose
+// link_graph never received target_kind: the index table was perfect, so the
+// check passed and said nothing at all about the table that had changed.
+$declared = \AILinking\Install\Schema::declared_columns();
+ok( count( $declared ) >= 9, 'every declared table is parsed, not just the index' );
+
+$graph = '';
+foreach ( array_keys( $declared ) as $name ) {
+	if ( false !== strpos( $name, 'link_graph' ) ) {
+		$graph = $name;
+	}
+}
+ok( '' !== $graph, 'the link_graph table is among them' );
+ok( in_array( 'target_kind', $declared[ $graph ], true ), 'REGRESSION: a column added to a table other than the index is seen' );
+ok( in_array( 'is_broken', $declared[ $graph ], true ), 'an older column of that table is seen too' );
+ok( ! in_array( 'key', $declared[ $graph ], true ), 'key lines are still not read as columns' );
+
+foreach ( $declared as $table_name => $table_cols ) {
+	ok( count( $table_cols ) > 2, "table '{$table_name}' parsed more than a fragment" );
+	ok( in_array( 'id', $table_cols, true ) || in_array( 'post_id', $table_cols, true ), "table '{$table_name}' has its key column" );
+}
 foreach ( $cols as $c ) {
 	ok( (bool) preg_match( '/^[a-z0-9_]+$/', $c ), "column name '{$c}' looks like a column name" );
 }
@@ -908,6 +950,154 @@ ok( false !== strpos( Redactor::scrub( 'request id ' . $uuid ), $uuid ), 'UUIDs 
 // Belt and braces: both layers together.
 $live = 'sk-livekeyabcdefghijklmnopqrstuvwxyz';
 ok( false === strpos( Redactor::scrub( 'bad key ' . $live, array( $live ) ), $live ), 'both layers together still remove the key' );
+
+// ---------------------------------------------------------------------------
+// anchor-unwrap — taking an inserted link back out.
+//
+// The one piece of code both the undo button and uninstall.php run. It has to
+// remove our tag and nothing else: an uninstall that wrote back the copy of the
+// post taken before insertion threw away every edit made since, and gave no
+// answer at all for a post that had received two links on different days.
+// ---------------------------------------------------------------------------
+
+$tag = '<a href="https://x.test/p" data-ailinking-id="id-1">drain of wealth</a>';
+
+// The link comes out, the anchor text stays, nothing else moves.
+eq(
+	ailinking_unwrap_tagged_anchor( '<p>The ' . $tag . ' argument.</p>', 'id-1' ),
+	'<p>The drain of wealth argument.</p>',
+	'unwrap leaves the anchor text and nothing else'
+);
+
+// The point of the whole exercise: an edit made after we inserted survives.
+eq(
+	ailinking_unwrap_tagged_anchor( '<p>Edited later. The ' . $tag . '</p><p>A new paragraph.</p>', 'id-1' ),
+	'<p>Edited later. The drain of wealth</p><p>A new paragraph.</p>',
+	'REGRESSION: edits made after insertion are kept'
+);
+
+// Markup inside the anchor is inner text too.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a data-ailinking-id="id-2">a <em>b</em> c</a>', 'id-2' ),
+	'a <em>b</em> c',
+	'inner markup is preserved'
+);
+
+// The id is found wherever it sits in the tag.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a data-ailinking-id="id-3" href="/p" rel="nofollow">x</a>', 'id-3' ),
+	'x',
+	'attribute order does not matter'
+);
+
+// Not exactly once means hands off: the caller must not guess.
+eq( ailinking_unwrap_tagged_anchor( '<p>no link here</p>', 'id-1' ), null, 'a tag that is gone returns null' );
+eq( ailinking_unwrap_tagged_anchor( $tag . $tag, 'id-1' ), null, 'a duplicated tag returns null' );
+eq( ailinking_unwrap_tagged_anchor( $tag, '' ), null, 'an empty id returns null' );
+
+// Someone else's links are not ours to touch.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a href="/other">other</a> ' . $tag, 'id-1' ),
+	'<a href="/other">other</a> drain of wealth',
+	'links this plugin did not insert are left alone'
+);
+eq( ailinking_unwrap_tagged_anchor( $tag, 'id-9' ), null, 'a different id does not match our tag' );
+
+// Two links in one post, inserted at different times. Either order, same result
+// — which is exactly what restoring saved copies of the post could not do.
+$two = '<p>First ' . $tag . ' then <a href="/q" data-ailinking-id="id-2">second</a>.</p>';
+$forward  = ailinking_unwrap_tagged_anchors( $two, array( 'id-1', 'id-2' ) );
+$backward = ailinking_unwrap_tagged_anchors( $two, array( 'id-2', 'id-1' ) );
+eq( $forward['html'], '<p>First drain of wealth then second.</p>', 'both links come out in one pass' );
+eq( $backward['html'], $forward['html'], 'REGRESSION: removal order cannot change the result' );
+eq( count( $forward['removed'] ), 2, 'both ids are reported removed' );
+eq( count( $forward['skipped'] ), 0, 'nothing was skipped' );
+
+// One link already edited away by hand: the other still comes out, and the page
+// is not rewritten on account of the one that cannot.
+$partial = ailinking_unwrap_tagged_anchors( $two, array( 'id-1', 'id-gone' ) );
+eq( $partial['html'], '<p>First drain of wealth then <a href="/q" data-ailinking-id="id-2">second</a>.</p>', 'a missing id does not stop the others' );
+eq( $partial['removed'], array( 'id-1' ), 'only the id actually removed is reported' );
+eq( $partial['skipped'], array( 'id-gone' ), 'the missing id is reported skipped' );
+
+// Nothing of ours present: report it, and hand back the content untouched so
+// the caller can skip the write entirely.
+$none = ailinking_unwrap_tagged_anchors( '<p>plain</p>', array( 'id-1' ) );
+eq( $none['html'], '<p>plain</p>', 'content with none of our tags is returned unchanged' );
+eq( $none['removed'], array(), 'nothing removed is an empty list, so the caller can skip the write' );
+
+// ---------------------------------------------------------------------------
+// UrlClassifier — the path arithmetic behind "is this link actually broken?"
+//
+// Everything that did not resolve to an indexed post used to be reported as a
+// broken link, which meant every category, tag, author and date archive on the
+// site. These are the pure parts of telling those apart.
+// ---------------------------------------------------------------------------
+
+// Paths are measured relative to the home path, so a subdirectory install is
+// not mistaken for a site whose every URL has an extra segment.
+eq( UrlClassifier::path_of( 'https://example.test/blog/category/news/' ), 'category/news', 'path is relative to the home path' );
+eq( UrlClassifier::path_of( 'https://example.test/blog/' ), '', 'the front page has an empty path' );
+eq( UrlClassifier::path_of( 'https://example.test/blog' ), '', 'the front page without a trailing slash too' );
+eq( UrlClassifier::path_of( 'https://example.test/blog/about/?utm_source=x' ), 'about', 'a query string is not part of the path' );
+// The home prefix has to end at a segment boundary: a plain prefix test turns
+// /blogging/thing into "ging/thing", a path that resolves to nothing and would
+// be reported as a broken link.
+eq( UrlClassifier::path_of( 'https://example.test/blogging/thing/' ), 'blogging/thing', 'a path that merely starts with the home path is left whole' );
+
+// /page/2/ pages through whatever precedes it; it is not a separate URL to
+// resolve, and it is certainly not broken.
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/category/news/page/2/' ), 'https://example.test/blog/category/news/', 'pagination is stripped' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/a-post/comment-page-3/' ), 'https://example.test/blog/a-post/', 'comment pagination is stripped' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/news/' ), 'https://example.test/blog/news/', 'a URL without pagination is untouched' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/page-two/' ), 'https://example.test/blog/page-two/', 'a slug that merely contains "page" is untouched' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/my-page/2/' ), 'https://example.test/blog/my-page/2/', 'a numeric final segment is not pagination' );
+
+// Date archives: a real one is a date at the end of the path.
+ok( UrlClassifier::path_is_date( '2024' ), 'a year is a date archive' );
+ok( UrlClassifier::path_is_date( '2024/05' ), 'a year and month is a date archive' );
+ok( UrlClassifier::path_is_date( '2024/05/17' ), 'a full date is a date archive' );
+ok( UrlClassifier::path_is_date( 'news/2024/05' ), 'a permalink front before the date is allowed' );
+ok( ! UrlClassifier::path_is_date( '2024/13' ), 'month 13 is not a date' );
+ok( ! UrlClassifier::path_is_date( '2024/05/32' ), 'day 32 is not a date' );
+ok( ! UrlClassifier::path_is_date( '1899' ), 'a year outside 19xx-20xx is not a date' );
+ok( ! UrlClassifier::path_is_date( '2024/05/17/my-post' ), 'a post under a date is not the archive' );
+ok( ! UrlClassifier::path_is_date( '' ), 'an empty path is not a date' );
+ok( ! UrlClassifier::path_is_date( 'about' ), 'an ordinary page is not a date' );
+
+// ---------------------------------------------------------------------------
+// Indexer::record_failure — the list a retry pass works from.
+//
+// A post that threw during indexing used to leave nothing behind but a
+// last_error string, overwritten by the next failure, so the post stayed
+// missing from the index until somebody noticed and re-ran the whole site.
+// ---------------------------------------------------------------------------
+
+$p = Indexer::record_failure( array(), 42, 'boom' );
+eq( $p['failed'], array( 42 ), 'a failure is remembered so it can be retried' );
+ok( false !== strpos( $p['last_error'], '42' ), 'the message still names the post' );
+ok( false !== strpos( $p['last_error'], 'boom' ), 'the message still carries the reason' );
+
+// The same post failing twice in one run is one post to retry, not two.
+$p = Indexer::record_failure( $p, 42, 'boom again' );
+eq( $p['failed'], array( 42 ), 'the same post is not queued twice' );
+eq( $p['last_error'], 'post 42: boom again', 'last_error still shows the most recent failure' );
+
+$p = Indexer::record_failure( $p, 43, 'another' );
+eq( $p['failed'], array( 42, 43 ), 'a different post is added' );
+
+// Existing progress is carried through, not replaced.
+$p = Indexer::record_failure( array( 'processed' => 7, 'cursor' => 99 ), 1, 'x' );
+eq( $p['processed'], 7, 'unrelated progress survives' );
+eq( $p['cursor'], 99, 'the cursor survives' );
+
+// A site where everything fails must not grow the option without limit.
+$p = array();
+for ( $i = 1; $i <= Indexer::MAX_TRACKED_FAILURES + 50; $i++ ) {
+	$p = Indexer::record_failure( $p, $i, 'x' );
+}
+eq( count( $p['failed'] ), Indexer::MAX_TRACKED_FAILURES, 'the retry list is capped' );
+eq( $p['failed'][0], 1, 'the cap keeps the earliest failures rather than the latest' );
 
 // ---------------------------------------------------------------------------
 

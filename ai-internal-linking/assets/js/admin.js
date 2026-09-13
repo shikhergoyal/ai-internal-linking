@@ -135,8 +135,21 @@
 				if ( showCreated ) {
 					label += '  (' + d.created + ' found)';
 				}
+				// The retry and prune phases run after the count is complete, so
+				// counting posts says nothing useful about them.
+				if ( 'retry' === d.phase || 'prune' === d.phase ) {
+					label = cfg.i18n.tidying;
+				}
 				var problem = d.error || d.last_error || '';
 				var doneLabel = problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done;
+				if ( d.done ) {
+					if ( d.pruned > 0 ) {
+						doneLabel += ' ' + cfg.i18n.indexPruned.replace( '%s', d.pruned );
+					}
+					if ( d.unindexed > 0 ) {
+						doneLabel += ' ' + cfg.i18n.indexFailed.replace( '%s', d.unindexed );
+					}
+				}
 				setBar( box, d.percent, d.done ? doneLabel : label );
 				setUsage( box, d.usage );
 				setStats( d.stats );
@@ -687,6 +700,9 @@
 				}
 				var box = document.querySelector( '#ailinking-progress-audits' );
 				rmBtn.disabled = true;
+				// Links we could not lift out without discarding later edits.
+				// Reported once at the end, not once per batch of ten.
+				var kept = 0;
 
 				function loop() {
 					post( 'ailinking_remove_links', {} ).then( function ( res ) {
@@ -694,8 +710,12 @@
 							setBar( box, 100, cfg.i18n.error );
 							return;
 						}
+						kept += parseInt( res.data.kept, 10 ) || 0;
 						setBar( box, res.data.done ? 100 : 50, cfg.i18n.removing + ' (' + res.data.remaining + ')' );
 						if ( res.data.done ) {
+							if ( kept > 0 ) {
+								window.alert( cfg.i18n.removeKept.replace( '%s', kept ) );
+							}
 							window.location.reload();
 						} else {
 							loop();

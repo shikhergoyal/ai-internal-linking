@@ -157,6 +157,11 @@ class Admin {
 					'indexing'      => __( 'Indexing…', 'ai-internal-linking' ),
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
 					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
+					'tidying'       => __( 'Checking for pages that are no longer there…', 'ai-internal-linking' ),
+					/* translators: %s: number of index entries removed */
+					'indexPruned'   => __( '%s entry(s) removed for pages that no longer exist or are no longer in your crawl scope.', 'ai-internal-linking' ),
+					/* translators: %s: number of posts that could not be indexed */
+					'indexFailed'   => __( '%s page(s) could not be indexed after two attempts and are missing from the index. The last error is shown above.', 'ai-internal-linking' ),
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
 					'fetchingGsc'   => __( 'Fetching from Search Console…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),
@@ -187,7 +192,9 @@ class Admin {
 					'confirmScan'   => __( 'Start a new scan? This replaces the current Pending suggestions (Approved and Applied ones are kept).', 'ai-internal-linking' ),
 					'error'         => __( 'Something went wrong. Please try again.', 'ai-internal-linking' ),
 					'confirmReset'  => __( 'Re-index the whole site from scratch?', 'ai-internal-linking' ),
-					'confirmRemove' => __( 'Revert every link this plugin inserted? Your content will be restored to its pre-link state.', 'ai-internal-linking' ),
+					'confirmRemove' => __( 'Remove every link this plugin inserted? Only the links come out — anything you have written or changed on those pages since is kept.', 'ai-internal-linking' ),
+					/* translators: %s: number of links left in place */
+					'removeKept'    => __( '%s link(s) were left in place: the text around them changed after they were inserted, so taking them out would have meant discarding those edits. They are ordinary links now and the plugin no longer tracks them.', 'ai-internal-linking' ),
 					'modifiedSince' => __( 'This page was edited after the link was inserted. Undo anyway and overwrite those edits?', 'ai-internal-linking' ),
 				),
 			)

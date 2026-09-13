@@ -12,6 +12,9 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Settings;
 use AILinking\Support\Stats;
 use AILinking\Install\Schema;
+use AILinking\Indexer\Indexer;
+use AILinking\LinkGraph\GraphAudits;
+use AILinking\Content\LedgerRepository;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
 use AILinking\Jobs\Scheduler;
@@ -111,6 +114,17 @@ class Wizard {
 			)
 		);
 
+		// Unticking a post type leaves every page of that type sitting in the
+		// index. A crawl only walks the posts that still qualify, and the save
+		// hook ignores types it does not crawl, so nothing else would ever
+		// remove them: they would go on inflating Link Health and go on being
+		// offered to the AI as places to link to.
+		$crawl_before = isset( $before['crawl_post_types'] ) ? (array) $before['crawl_post_types'] : array();
+		if ( array_diff( $crawl_before, $crawl ) ) {
+			Indexer::prune_stale_all();
+			GraphAudits::flush_summary();
+		}
+
 		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking&tab=dashboard' ) ) );
 		exit;
 	}
@@ -132,6 +146,10 @@ class Wizard {
 		$pending = Stats::pending_suggestions();
 
 		$idx_prog = ProgressStore::get( 'index' );
+
+		// Named in the reset warning: a count makes "your links are kept" a fact
+		// about this site rather than a general reassurance to be skimmed past.
+		$applied_links = LedgerRepository::count_active();
 		?>
 		<div class="wrap ailinking-wrap">
 			<h1><?php esc_html_e( 'AI Internal Linking — Setup & Dashboard', 'ai-internal-linking' ); ?></h1>
@@ -141,7 +159,7 @@ class Wizard {
 			<?php endif; ?>
 
 			<?php if ( isset( $_GET['ailinking_msg'] ) && 'reset_done' === $_GET['ailinking_msg'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Scan data was cleared (your API keys and Search Console connection were kept). Click “Index / Re-index site” to rebuild from scratch.', 'ai-internal-linking' ); ?></p></div>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Scan data was cleared. Your API keys, your Search Console connection, and the undo record for links already in your content were kept. Click “Index / Re-index site” to rebuild from scratch.', 'ai-internal-linking' ); ?></p></div>
 			<?php endif; ?>
 
 			<?php if ( ! Scheduler::has_action_scheduler() ) : ?>
@@ -200,9 +218,29 @@ class Wizard {
 				<h2><?php esc_html_e( 'Reset', 'ai-internal-linking' ); ?></h2>
 				<p class="description">
 					<strong class="ailinking-warn"><?php esc_html_e( 'Warning:', 'ai-internal-linking' ); ?></strong>
-					<?php esc_html_e( 'This permanently deletes the scan data — the index, every suggestion, the link graph, keywords and the inserted-links log — so you can rescan from scratch. Your API keys, settings and Search Console connection are kept (you will NOT need to re-enter them). Links already inserted into your posts remain in the content (use “Remove all inserted links” on Link Health first if you want to revert those). This cannot be undone.', 'ai-internal-linking' ); ?>
+					<?php esc_html_e( 'This permanently deletes the scan data — the index, the link graph, keywords, and every suggestion you have not applied — so you can rescan from scratch. Your API keys, settings and Search Console connection are kept (you will NOT need to re-enter them). This cannot be undone.', 'ai-internal-linking' ); ?>
 				</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'This permanently deletes the scan data (index, suggestions, link graph, keywords, inserted-links log) so you can rescan from scratch. Your API keys and Search Console connection are kept. This cannot be undone. Continue?', 'ai-internal-linking' ) ); ?>');">
+				<p class="description">
+					<?php
+					if ( $applied_links > 0 ) {
+						echo esc_html(
+							sprintf(
+								/* translators: %s: number of inserted links */
+								_n(
+									'The %s link already inserted into your content stays where it is, and so does the record that undoes it. You can still remove it one at a time, remove it in one go from Link Health, or have it taken out cleanly when the plugin is deleted.',
+									'The %s links already inserted into your content stay where they are, and so does the record that undoes them. You can still remove them one at a time, remove them all in one go from Link Health, or have them taken out cleanly when the plugin is deleted.',
+									$applied_links,
+									'ai-internal-linking'
+								),
+								number_format_i18n( $applied_links )
+							)
+						);
+					} else {
+						esc_html_e( 'Nothing has been inserted into your content, so there is nothing here for a reset to affect.', 'ai-internal-linking' );
+					}
+					?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'This permanently deletes the scan data (index, link graph, keywords, and every suggestion you have not applied) so you can rescan from scratch. Your API keys, your Search Console connection, and the undo record for links already in your content are all kept. This cannot be undone. Continue?', 'ai-internal-linking' ) ); ?>');">
 					<input type="hidden" name="action" value="ailinking_reset" />
 					<?php wp_nonce_field( 'ailinking_reset' ); ?>
 					<button type="submit" class="button ailinking-danger"><?php esc_html_e( 'Reset all data', 'ai-internal-linking' ); ?></button>

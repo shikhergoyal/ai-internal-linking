@@ -68,6 +68,9 @@ class GraphAudits {
 	public static function recompute_all() {
 		$depth = self::recompute_depth();
 		PageRank::compute();
+		// Before the orphan count is read: a page in the navigation is not an
+		// orphan, and the menu is where that is recorded.
+		MenuLinks::scan();
 		BrokenLinks::scan();
 		self::flush_summary();
 		return $depth;
@@ -92,7 +95,7 @@ class GraphAudits {
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$index} i
-				 LEFT JOIN (SELECT DISTINCT target_post_id FROM {$graph} WHERE location='content' AND target_post_id>0) g
+				 LEFT JOIN (SELECT DISTINCT target_post_id FROM {$graph} WHERE location IN ('content','menu') AND target_post_id>0) g
 				 ON i.post_id = g.target_post_id
 				 WHERE g.target_post_id IS NULL AND {$clause}", // phpcs:ignore WordPress.DB.PreparedSQL
 				$args
@@ -154,7 +157,7 @@ class GraphAudits {
 		return $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT i.post_id, i.title, i.url FROM {$index} i
-				 LEFT JOIN (SELECT DISTINCT target_post_id FROM {$graph} WHERE location='content' AND target_post_id>0) g
+				 LEFT JOIN (SELECT DISTINCT target_post_id FROM {$graph} WHERE location IN ('content','menu') AND target_post_id>0) g
 				 ON i.post_id = g.target_post_id
 				 WHERE g.target_post_id IS NULL AND {$clause}
 				 ORDER BY i.post_id ASC LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL

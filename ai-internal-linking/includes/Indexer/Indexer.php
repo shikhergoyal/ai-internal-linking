@@ -16,12 +16,26 @@ use AILinking\Detectors\SiteDetector;
 use AILinking\Detectors\BuilderDetector;
 use AILinking\Content\ContentParser;
 use AILinking\Content\UrlResolver;
+use AILinking\Content\UrlClassifier;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Jobs\ProgressStore;
 
 defined( 'ABSPATH' ) || exit;
 
 class Indexer {
+
+	/** Walking wp_posts forward on the keyset cursor. */
+	const PHASE_CRAWL = 'crawl';
+
+	/** Second attempt at the posts that threw during the crawl. */
+	const PHASE_RETRY = 'retry';
+
+	/** Removing index rows the crawl did not visit. */
+	const PHASE_PRUNE = 'prune';
+
+	/** Failures remembered per run. Enough to retry and to report; not a log. */
+	const MAX_TRACKED_FAILURES = 200;
+
 
 	/**
 	 * Scoped post types for crawling.
@@ -67,7 +81,16 @@ class Indexer {
 			'total'     => $total,
 			'processed' => 0,
 			'cursor'    => 0,
-			'status'    => $total > 0 ? 'running' : 'complete',
+			// A run is the crawl, then a second attempt at whatever threw, then
+			// removing rows the crawl never visited. It is not finished until
+			// the index holds what the site holds, which the crawl alone cannot
+			// achieve: walking forward over posts that qualify can never notice
+			// one that has stopped qualifying.
+			'phase'     => self::PHASE_CRAWL,
+			'failed'    => array(),
+			'unindexed' => array(),
+			'pruned'    => 0,
+			'status'    => 'running',
 		);
 		ProgressStore::set( 'index', $progress );
 		return $progress;
@@ -100,12 +123,20 @@ class Indexer {
 				$progress = self::start_full_reindex();
 			}
 
+			$phase = isset( $progress['phase'] ) ? (string) $progress['phase'] : self::PHASE_CRAWL;
+
+			if ( self::PHASE_RETRY === $phase ) {
+				return self::retry_batch( $progress, $limit );
+			}
+			if ( self::PHASE_PRUNE === $phase ) {
+				return self::prune_batch( $progress, $limit );
+			}
+
 			$types = self::scope_types();
 			if ( empty( $types ) ) {
-				$progress['status'] = 'complete';
-				$progress['done']   = true;
-				ProgressStore::set( 'index', $progress );
-				return $progress;
+				// Nothing is in scope, so everything in the index is out of it.
+				// Still a state worth pruning to rather than stopping at.
+				return self::enter_phase( $progress, self::PHASE_PRUNE );
 			}
 
 			$cursor = (int) ( isset( $progress['cursor'] ) ? $progress['cursor'] : 0 );
@@ -124,19 +155,19 @@ class Indexer {
 			);
 
 			if ( empty( $ids ) ) {
-				$progress['status'] = 'complete';
-				$progress['done']   = true;
-				ProgressStore::set( 'index', $progress );
-				return $progress;
+				// The crawl is over, but the run is not: posts that failed get a
+				// second attempt, and the index still holds rows for posts this
+				// crawl never visited.
+				return self::enter_phase( $progress, self::PHASE_RETRY );
 			}
 
 			foreach ( $ids as $id ) {
 				$id = (int) $id;
-				// Isolate per-post failures so one bad post can't stall the whole run.
+				// Isolate per-post failures so one bad post cannot stall the run.
 				try {
 					self::index_post( $id );
 				} catch ( \Throwable $e ) {
-					$progress['last_error'] = 'post ' . $id . ': ' . $e->getMessage();
+					$progress = self::record_failure( $progress, $id, $e->getMessage() );
 				}
 				$progress['cursor']    = $id; // advance even on failure (skip poison pill).
 				$progress['processed'] = (int) ( isset( $progress['processed'] ) ? $progress['processed'] : 0 ) + 1;
@@ -249,12 +280,261 @@ class Indexer {
 	}
 
 	/**
+	 * Move the run into its next phase and persist that.
+	 *
+	 * @param array  $progress Progress snapshot.
+	 * @param string $phase    Phase to enter.
+	 * @return array
+	 */
+	private static function enter_phase( $progress, $phase ) {
+		$progress['phase']  = $phase;
+		$progress['status'] = 'running';
+		$progress['done']   = false;
+		ProgressStore::set( 'index', $progress );
+		return $progress;
+	}
+
+	/**
+	 * Remember a post that threw, so it can be tried again at the end of the run.
+	 *
+	 * last_error alone was not enough: it holds one message, overwritten by the
+	 * next failure, so a post that failed simply stayed missing from the index
+	 * until somebody noticed and re-ran everything.
+	 *
+	 * Depends only on its arguments, so it is covered by the unit suite.
+	 *
+	 * @param array  $progress Progress snapshot.
+	 * @param int    $post_id  Post that failed.
+	 * @param string $message  Failure message.
+	 * @return array
+	 */
+	public static function record_failure( $progress, $post_id, $message ) {
+		$progress['last_error'] = 'post ' . $post_id . ': ' . $message;
+
+		$failed = isset( $progress['failed'] ) ? (array) $progress['failed'] : array();
+		if ( count( $failed ) < self::MAX_TRACKED_FAILURES && ! in_array( (int) $post_id, $failed, true ) ) {
+			$failed[] = (int) $post_id;
+		}
+		$progress['failed'] = $failed;
+
+		return $progress;
+	}
+
+	/**
+	 * Second attempt at the posts that threw, a batch at a time.
+	 *
+	 * Most indexing failures are transient — a timeout reaching an external
+	 * service, a lock, a memory spike on one large post. Trying once more at the
+	 * end of the run costs almost nothing and is usually the difference between
+	 * a page being in the index and being silently absent from it.
+	 *
+	 * @param array $progress Progress snapshot.
+	 * @param int   $limit    Posts per batch.
+	 * @return array
+	 */
+	private static function retry_batch( $progress, $limit ) {
+		$failed = isset( $progress['failed'] ) ? array_values( (array) $progress['failed'] ) : array();
+		if ( empty( $failed ) ) {
+			return self::enter_phase( $progress, self::PHASE_PRUNE );
+		}
+
+		$batch              = array_splice( $failed, 0, max( 1, (int) $limit ) );
+		$progress['failed'] = $failed;
+
+		$unindexed = isset( $progress['unindexed'] ) ? (array) $progress['unindexed'] : array();
+		foreach ( $batch as $post_id ) {
+			try {
+				self::index_post( (int) $post_id );
+			} catch ( \Throwable $e ) {
+				// Twice is not bad luck. Record it and say so on the dashboard
+				// rather than leaving a hole nobody knows about.
+				$progress['last_error'] = 'post ' . (int) $post_id . ': ' . $e->getMessage();
+				if ( count( $unindexed ) < self::MAX_TRACKED_FAILURES ) {
+					$unindexed[] = (int) $post_id;
+				}
+			}
+		}
+		$progress['unindexed'] = $unindexed;
+
+		ProgressStore::set( 'index', $progress );
+		$progress['done'] = false;
+		return $progress;
+	}
+
+	/**
+	 * Remove index rows the crawl did not visit, a batch at a time.
+	 *
+	 * @param array $progress Progress snapshot.
+	 * @param int   $limit    Rows per batch.
+	 * @return array
+	 */
+	private static function prune_batch( $progress, $limit ) {
+		$limit   = max( 1, (int) $limit );
+		$removed = self::prune_stale( $limit );
+
+		$progress['pruned'] = (int) ( isset( $progress['pruned'] ) ? $progress['pruned'] : 0 ) + $removed;
+
+		if ( $removed >= $limit ) {
+			// A full batch means there is probably more. Come back for it.
+			ProgressStore::set( 'index', $progress );
+			$progress['done'] = false;
+			return $progress;
+		}
+
+		$dead = self::prune_dead_suggestions( $limit );
+		$progress['pruned'] = (int) $progress['pruned'] + $dead;
+		if ( $dead >= $limit ) {
+			ProgressStore::set( 'index', $progress );
+			$progress['done'] = false;
+			return $progress;
+		}
+
+		$progress['status'] = 'complete';
+		$progress['done']   = true;
+		ProgressStore::set( 'index', $progress );
+		return $progress;
+	}
+
+	/**
+	 * Prune until nothing stale is left, or the time budget runs out.
+	 *
+	 * For the moment a setting changes, where waiting for the next full index
+	 * would mean living with a wrong Link Health count and a destination list
+	 * containing pages the reader has just excluded. Bounded because this runs
+	 * inside somebody's form submission; whatever is left over is picked up by
+	 * the prune phase of the next indexing run.
+	 *
+	 * @param float $budget Seconds to spend at most.
+	 * @return int Rows removed.
+	 */
+	public static function prune_stale_all( $budget = 5.0 ) {
+		$started = microtime( true );
+		$removed = 0;
+		do {
+			$batch    = self::prune_stale( 100 );
+			$removed += $batch;
+		} while ( $batch >= 100 && ( microtime( true ) - $started ) < (float) $budget );
+		return $removed;
+	}
+
+	/**
+	 * Drop suggestions that can never be acted on because a post they name is
+	 * gone.
+	 *
+	 * A scan replaces the pending queue, so pending rows look after themselves.
+	 * Approved ones do not: they are reviewed work waiting to be applied, and
+	 * nothing has ever removed them. An approved suggestion whose source post
+	 * was deleted sits in the queue for good and fails the moment it is used.
+	 *
+	 * Two deliberate limits on what counts as dead:
+	 *
+	 * - Applied rows are never touched. They carry the Undo button for a link
+	 *   that is in the content right now, and losing that is the fault fixed in
+	 *   the reset routine.
+	 * - Only a missing or unpublished post counts, never a post that has merely
+	 *   fallen outside the crawl scope. That post still exists and the link can
+	 *   still be made, so deleting the review someone already did would be
+	 *   throwing away their work over a settings change.
+	 *
+	 * @param int $limit Maximum rows to remove in one call.
+	 * @return int Rows removed.
+	 */
+	public static function prune_dead_suggestions( $limit = 100 ) {
+		global $wpdb;
+		$sugg  = Tables::suggestions();
+		$limit = max( 1, (int) $limit );
+
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT s.id FROM {$sugg} s
+				 LEFT JOIN {$wpdb->posts} src ON src.ID = s.source_post_id AND src.post_status = 'publish'
+				 LEFT JOIN {$wpdb->posts} tgt ON tgt.ID = s.target_post_id AND tgt.post_status = 'publish'
+				 WHERE s.status <> 'applied'
+				   AND ( src.ID IS NULL OR ( s.target_post_id > 0 AND tgt.ID IS NULL ) )
+				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				$limit
+			)
+		);
+
+		$ids = array_filter( array_map( 'intval', (array) $ids ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		$ph = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$sugg} WHERE id IN ({$ph})", $ids ) // phpcs:ignore WordPress.DB.PreparedSQL
+		);
+
+		return count( $ids );
+	}
+
+	/**
+	 * Drop index rows for posts that no longer qualify.
+	 *
+	 * A crawl only ever walks forward over the posts that currently qualify and
+	 * writes what it finds, so nothing it does can remove a row for a post that
+	 * has stopped qualifying. The live hooks catch a post being trashed,
+	 * deleted or unpublished while the plugin is running, but not a post
+	 * removed while it was deactivated, not a post deleted straight from the
+	 * database by an import or a migration, and never a change of crawl scope —
+	 * unticking a post type leaves every page of that type in the index for
+	 * good, because the save hook ignores types it does not crawl.
+	 *
+	 * Those rows are not inert. They inflate the Link Health counts and they
+	 * stay in the list of destinations the AI is offered, so the plugin can
+	 * suggest linking to a page that no longer exists.
+	 *
+	 * @param int $limit Maximum rows to remove in one call.
+	 * @return int Rows removed.
+	 */
+	public static function prune_stale( $limit = 100 ) {
+		global $wpdb;
+		$index = Tables::index();
+		$limit = max( 1, (int) $limit );
+		$types = self::scope_types();
+
+		if ( empty( $types ) ) {
+			$stale = $wpdb->get_col(
+				$wpdb->prepare( "SELECT post_id FROM {$index} LIMIT %d", $limit ) // phpcs:ignore WordPress.DB.PreparedSQL
+			);
+		} else {
+			$ph     = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+			$args   = $types;
+			$args[] = $limit;
+			$stale  = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT i.post_id FROM {$index} i
+					 LEFT JOIN {$wpdb->posts} p
+					        ON p.ID = i.post_id AND p.post_status = 'publish' AND p.post_type IN ($ph)
+					 WHERE p.ID IS NULL
+					 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+					$args
+				)
+			);
+		}
+
+		foreach ( (array) $stale as $post_id ) {
+			self::remove_post( (int) $post_id );
+		}
+
+		return count( (array) $stale );
+	}
+
+	/**
 	 * Remove a post from the index and graph (e.g. on trash/delete).
 	 *
 	 * @param int $post_id Post ID.
 	 */
 	public static function remove_post( $post_id ) {
 		global $wpdb;
+
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			// Menu edges are recorded with source_post_id 0, so a stray 0 here
+			// would delete every one of them.
+			return;
+		}
 		$wpdb->delete( Tables::index(), array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( Tables::tfidf(), array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( Tables::link_graph(), array( 'source_post_id' => $post_id, 'origin' => 'discovered' ), array( '%d', '%s' ) );
@@ -283,9 +563,13 @@ class Indexer {
 			if ( ! UrlResolver::is_internal( $url ) ) {
 				continue;
 			}
-			$target_id = UrlResolver::to_post_id( $url );
-			$norm      = UrlResolver::normalize( $url );
-			$anchor    = isset( $link['anchor'] ) ? $link['anchor'] : '';
+			// Ask what the URL is, not just whether it is a post. A link to a
+			// category or author archive resolves to no post and is not broken,
+			// and the broken-link report has to be able to tell the two apart.
+			$classified = UrlClassifier::classify( $url );
+			$target_id  = (int) $classified['post_id'];
+			$norm       = UrlResolver::normalize( $url );
+			$anchor     = isset( $link['anchor'] ) ? $link['anchor'] : '';
 
 			$key       = $target_id > 0 ? ( 'p' . $target_id ) : ( 'u' . $norm );
 			$is_first  = isset( $seen[ $key ] ) ? 0 : 1;
@@ -298,13 +582,14 @@ class Indexer {
 					'target_post_id' => $target_id,
 					'target_url'     => $url,
 					'target_url_norm' => $norm,
+					'target_kind'    => (string) $classified['kind'],
 					'anchor_text'    => $anchor,
 					'anchor_type'    => self::classify_anchor( $anchor ),
 					'location'       => 'content',
 					'is_first_link'  => $is_first,
 					'origin'         => 'discovered',
 				),
-				array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+				array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 			);
 		}
 	}

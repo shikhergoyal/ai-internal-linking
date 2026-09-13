@@ -51,7 +51,7 @@ class HealthDashboard {
 			<div class="ailinking-cards">
 				<?php
 				$this->stat_card( __( 'Indexed pages', 'ai-internal-linking' ), $summary['indexed'] );
-				$this->stat_card( __( 'Orphans (no inbound links)', 'ai-internal-linking' ), $summary['orphans'] );
+				$this->stat_card( __( 'Orphans (nothing links here)', 'ai-internal-linking' ), $summary['orphans'] );
 				$this->stat_card( __( 'Dead-ends (no outbound links)', 'ai-internal-linking' ), $summary['dead_ends'] );
 				$this->stat_card( __( 'Over-linked pages', 'ai-internal-linking' ), $summary['over_linked'] );
 				$this->stat_card( __( 'Under-linked pages', 'ai-internal-linking' ), $summary['under_linked'] );
@@ -64,7 +64,12 @@ class HealthDashboard {
 			</div>
 
 			<?php
-			$this->list_table( __( 'Orphan pages', 'ai-internal-linking' ), GraphAudits::orphans( 50 ), false );
+			$this->list_table(
+				__( 'Orphan pages', 'ai-internal-linking' ),
+				GraphAudits::orphans( 50 ),
+				false,
+				__( 'Pages with no link to them from the body of another page and no place in a navigation menu. Links from widgets, footers and shortcodes are not counted — those come in too many shapes to read reliably — so a page listed here may still be reachable by one.', 'ai-internal-linking' )
+			);
 			$this->list_table( __( 'Dead-end pages', 'ai-internal-linking' ), GraphAudits::dead_ends( 50 ), false );
 			$this->list_table( __( 'Over-linked pages', 'ai-internal-linking' ), GraphAudits::over_linked( 50 ), true );
 			$this->pagerank_table( PageRank::top( 25 ) );
@@ -104,6 +109,7 @@ class HealthDashboard {
 	private function broken_table( $rows ) {
 		echo '<div class="ailinking-card">';
 		echo '<h2>' . esc_html__( 'Broken internal links', 'ai-internal-linking' ) . '</h2>';
+		echo '<p class="description">' . esc_html__( 'Links to this site that WordPress cannot route to anything: no post, no page, no category, tag, author or date archive, no shop or blog index. Archives and pages outside your crawl scope are not listed here — they are real pages, whether or not this plugin indexes them. Nothing is fetched over HTTP, so a page that exists but whose server returns an error cannot be seen from here.', 'ai-internal-linking' ) . '</p>';
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'None found.', 'ai-internal-linking' ) . '</p></div>';
 			return;
@@ -135,10 +141,14 @@ class HealthDashboard {
 	 * @param string $title    Section title.
 	 * @param array  $rows     Result rows.
 	 * @param bool   $show_links Show link-count + word-count columns.
+	 * @param string $note     What the list does and does not cover.
 	 */
-	private function list_table( $title, $rows, $show_links ) {
+	private function list_table( $title, $rows, $show_links, $note = '' ) {
 		echo '<div class="ailinking-card">';
 		echo '<h2>' . esc_html( $title ) . '</h2>';
+		if ( '' !== $note ) {
+			echo '<p class="description">' . esc_html( $note ) . '</p>';
+		}
 
 		if ( empty( $rows ) ) {
 			echo '<p>' . esc_html__( 'None found.', 'ai-internal-linking' ) . '</p></div>';
