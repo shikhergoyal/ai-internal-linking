@@ -422,6 +422,7 @@ class Schema {
 			target_post_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			target_url varchar(2048) NOT NULL DEFAULT '',
 			target_url_norm varchar(512) NOT NULL DEFAULT '',
+			target_kind varchar(12) NOT NULL DEFAULT 'unknown',
 			anchor_text text NULL,
 			anchor_type varchar(12) NOT NULL DEFAULT 'partial',
 			location varchar(12) NOT NULL DEFAULT 'content',

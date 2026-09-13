@@ -19,7 +19,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'AILINKING_VERSION', '0.26.0' );
-define( 'AILINKING_DB_VERSION', '1.8.0' );
+define( 'AILINKING_DB_VERSION', '1.9.0' );
 define( 'AILINKING_FILE', __FILE__ );
 define( 'AILINKING_PATH', plugin_dir_path( __FILE__ ) );
 define( 'AILINKING_URL', plugin_dir_url( __FILE__ ) );

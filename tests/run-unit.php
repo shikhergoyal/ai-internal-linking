@@ -53,6 +53,20 @@ if ( ! function_exists( 'esc_attr' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_parse_url' ) ) {
+	function wp_parse_url( $url, $component = -1 ) { // phpcs:ignore
+		return parse_url( $url, $component );
+	}
+}
+// The classifier measures paths relative to the WordPress home path. A site in
+// a subdirectory is the case that breaks naive path handling, so test against
+// one rather than against a root install.
+if ( ! function_exists( 'home_url' ) ) {
+	function home_url( $path = '' ) { // phpcs:ignore
+		return 'https://example.test/blog' . $path;
+	}
+}
+
 defined( 'ARRAY_A' ) || define( 'ARRAY_A', 'ARRAY_A' ); // $wpdb result-shape constant.
 
 // In-memory transients, so cached lookups can be seeded by a test.
@@ -96,6 +110,7 @@ require_once $plugin . '/Providers/Registry.php';
 require_once $plugin . '/Install/Schema.php';
 require_once $plugin . '/Content/WriteGuards.php';
 require_once $plugin . '/Content/anchor-unwrap.php'; // Plain functions, no namespace.
+require_once $plugin . '/Content/UrlClassifier.php';
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -110,6 +125,7 @@ use AILinking\Suggestions\Summarizer;
 use AILinking\Providers\AnthropicProvider;
 use AILinking\Providers\Registry;
 use AILinking\Content\WriteGuards;
+use AILinking\Content\UrlClassifier;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -984,6 +1000,45 @@ eq( $partial['skipped'], array( 'id-gone' ), 'the missing id is reported skipped
 $none = ailinking_unwrap_tagged_anchors( '<p>plain</p>', array( 'id-1' ) );
 eq( $none['html'], '<p>plain</p>', 'content with none of our tags is returned unchanged' );
 eq( $none['removed'], array(), 'nothing removed is an empty list, so the caller can skip the write' );
+
+// ---------------------------------------------------------------------------
+// UrlClassifier — the path arithmetic behind "is this link actually broken?"
+//
+// Everything that did not resolve to an indexed post used to be reported as a
+// broken link, which meant every category, tag, author and date archive on the
+// site. These are the pure parts of telling those apart.
+// ---------------------------------------------------------------------------
+
+// Paths are measured relative to the home path, so a subdirectory install is
+// not mistaken for a site whose every URL has an extra segment.
+eq( UrlClassifier::path_of( 'https://example.test/blog/category/news/' ), 'category/news', 'path is relative to the home path' );
+eq( UrlClassifier::path_of( 'https://example.test/blog/' ), '', 'the front page has an empty path' );
+eq( UrlClassifier::path_of( 'https://example.test/blog' ), '', 'the front page without a trailing slash too' );
+eq( UrlClassifier::path_of( 'https://example.test/blog/about/?utm_source=x' ), 'about', 'a query string is not part of the path' );
+// The home prefix has to end at a segment boundary: a plain prefix test turns
+// /blogging/thing into "ging/thing", a path that resolves to nothing and would
+// be reported as a broken link.
+eq( UrlClassifier::path_of( 'https://example.test/blogging/thing/' ), 'blogging/thing', 'a path that merely starts with the home path is left whole' );
+
+// /page/2/ pages through whatever precedes it; it is not a separate URL to
+// resolve, and it is certainly not broken.
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/category/news/page/2/' ), 'https://example.test/blog/category/news/', 'pagination is stripped' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/a-post/comment-page-3/' ), 'https://example.test/blog/a-post/', 'comment pagination is stripped' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/news/' ), 'https://example.test/blog/news/', 'a URL without pagination is untouched' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/page-two/' ), 'https://example.test/blog/page-two/', 'a slug that merely contains "page" is untouched' );
+eq( UrlClassifier::strip_paging( 'https://example.test/blog/my-page/2/' ), 'https://example.test/blog/my-page/2/', 'a numeric final segment is not pagination' );
+
+// Date archives: a real one is a date at the end of the path.
+ok( UrlClassifier::path_is_date( '2024' ), 'a year is a date archive' );
+ok( UrlClassifier::path_is_date( '2024/05' ), 'a year and month is a date archive' );
+ok( UrlClassifier::path_is_date( '2024/05/17' ), 'a full date is a date archive' );
+ok( UrlClassifier::path_is_date( 'news/2024/05' ), 'a permalink front before the date is allowed' );
+ok( ! UrlClassifier::path_is_date( '2024/13' ), 'month 13 is not a date' );
+ok( ! UrlClassifier::path_is_date( '2024/05/32' ), 'day 32 is not a date' );
+ok( ! UrlClassifier::path_is_date( '1899' ), 'a year outside 19xx-20xx is not a date' );
+ok( ! UrlClassifier::path_is_date( '2024/05/17/my-post' ), 'a post under a date is not the archive' );
+ok( ! UrlClassifier::path_is_date( '' ), 'an empty path is not a date' );
+ok( ! UrlClassifier::path_is_date( 'about' ), 'an ordinary page is not a date' );
 
 // ---------------------------------------------------------------------------
 

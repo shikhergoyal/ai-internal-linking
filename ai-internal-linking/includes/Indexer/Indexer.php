@@ -16,6 +16,7 @@ use AILinking\Detectors\SiteDetector;
 use AILinking\Detectors\BuilderDetector;
 use AILinking\Content\ContentParser;
 use AILinking\Content\UrlResolver;
+use AILinking\Content\UrlClassifier;
 use AILinking\Suggestions\Tfidf;
 use AILinking\Jobs\ProgressStore;
 
@@ -283,9 +284,13 @@ class Indexer {
 			if ( ! UrlResolver::is_internal( $url ) ) {
 				continue;
 			}
-			$target_id = UrlResolver::to_post_id( $url );
-			$norm      = UrlResolver::normalize( $url );
-			$anchor    = isset( $link['anchor'] ) ? $link['anchor'] : '';
+			// Ask what the URL is, not just whether it is a post. A link to a
+			// category or author archive resolves to no post and is not broken,
+			// and the broken-link report has to be able to tell the two apart.
+			$classified = UrlClassifier::classify( $url );
+			$target_id  = (int) $classified['post_id'];
+			$norm       = UrlResolver::normalize( $url );
+			$anchor     = isset( $link['anchor'] ) ? $link['anchor'] : '';
 
 			$key       = $target_id > 0 ? ( 'p' . $target_id ) : ( 'u' . $norm );
 			$is_first  = isset( $seen[ $key ] ) ? 0 : 1;
@@ -298,13 +303,14 @@ class Indexer {
 					'target_post_id' => $target_id,
 					'target_url'     => $url,
 					'target_url_norm' => $norm,
+					'target_kind'    => (string) $classified['kind'],
 					'anchor_text'    => $anchor,
 					'anchor_type'    => self::classify_anchor( $anchor ),
 					'location'       => 'content',
 					'is_first_link'  => $is_first,
 					'origin'         => 'discovered',
 				),
-				array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+				array( '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
 			);
 		}
 	}
