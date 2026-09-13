@@ -216,7 +216,8 @@ class Schema {
 				continue;
 			}
 			foreach ( preg_split( '/
-||
+|
+|
 /', $sql ) as $line ) {
 				$line = trim( $line );
 				// Field lines only: skip the CREATE line, keys and the closer.
@@ -286,21 +287,50 @@ class Schema {
 	}
 
 	/**
-	 * Reset the SCAN data (index, suggestions, link graph, keywords, jobs) and
-	 * clear progress/caches/locks, so the next scan starts from scratch.
-	 * Keeps the table schema, does NOT touch any WordPress posts, and deliberately
-	 * PRESERVES your configuration: saved API keys (provider_keys) and their spend
-	 * history (spend_log), plus all settings and the Search Console connection
-	 * (which live in options, not these tables). Links already inserted into
-	 * content remain in the posts.
+	 * Reset the SCAN data (index, link graph, keywords, jobs, and every
+	 * suggestion not yet applied) and clear progress/caches/locks, so the next
+	 * scan starts from scratch. Keeps the table schema and does NOT touch any
+	 * WordPress posts.
+	 *
+	 * Deliberately preserved:
+	 *
+	 * - Configuration: saved API keys (provider_keys) and their spend history
+	 *   (spend_log), plus all settings and the Search Console connection, which
+	 *   live in options rather than these tables.
+	 * - The undo record for every link still sitting in the content: the active
+	 *   ledger rows, and the applied suggestions that carry the Undo button.
+	 *
+	 * That second one is not scan data and is not ours to delete. This routine
+	 * used to empty the ledger with everything else, which stranded every link
+	 * the plugin had ever inserted: no per-link undo, no "Remove all inserted
+	 * links", and an uninstall that could no longer find them to take out. They
+	 * became permanent untracked edits in someone's posts. A reset exists so the
+	 * site can be scanned again, and nothing about scanning again is helped by
+	 * forgetting what was written into the content.
 	 */
 	public static function reset_data() {
 		global $wpdb;
 		self::ensure_installed();
 
-		// Configuration tables that must survive a data reset (your API keys and
-		// their usage/spend history). Everything else is scan data and is cleared.
-		$keep = array( 'provider_keys', 'spend_log' );
+		$ledger      = Tables::ledger();
+		$suggestions = Tables::suggestions();
+
+		// Ledger rows whose link has already been reverted are spent history:
+		// they carry no undo, so they clear with the rest of the data.
+		$wpdb->query( "DELETE FROM `{$ledger}` WHERE removed_at IS NOT NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		// Every suggestion goes except the applied ones still backed by a live
+		// ledger row. The Undo button is rendered from the suggestion, not from
+		// the ledger, so keeping the ledger alone would preserve the record with
+		// no way left in the admin to reach it.
+		$wpdb->query( // phpcs:ignore WordPress.DB.PreparedSQL
+			"DELETE FROM `{$suggestions}`
+			  WHERE status <> 'applied'
+			     OR applied_ledger_id NOT IN ( SELECT id FROM `{$ledger}` WHERE removed_at IS NULL )"
+		);
+
+		// Tables handled above, or holding configuration that a reset keeps.
+		$keep = array( 'provider_keys', 'spend_log', 'ledger', 'suggestions' );
 
 		foreach ( Tables::all_keys() as $key ) {
 			if ( in_array( $key, $keep, true ) ) {
