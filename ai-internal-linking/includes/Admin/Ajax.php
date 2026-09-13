@@ -398,7 +398,9 @@ class Ajax {
 		$this->guard();
 		$result = Editor::remove_all_batch( 10 );
 		GraphAudits::flush_summary();
-		$result['done'] = ( 0 === (int) $result['remaining'] );
+		// A pass that moved nothing will move nothing next time either, so end
+		// the run rather than let the browser ask again forever.
+		$result['done'] = ( 0 === (int) $result['remaining'] ) || ! empty( $result['stalled'] );
 		wp_send_json_success( $result );
 	}
 

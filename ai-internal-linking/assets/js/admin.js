@@ -687,6 +687,9 @@
 				}
 				var box = document.querySelector( '#ailinking-progress-audits' );
 				rmBtn.disabled = true;
+				// Links we could not lift out without discarding later edits.
+				// Reported once at the end, not once per batch of ten.
+				var kept = 0;
 
 				function loop() {
 					post( 'ailinking_remove_links', {} ).then( function ( res ) {
@@ -694,8 +697,12 @@
 							setBar( box, 100, cfg.i18n.error );
 							return;
 						}
+						kept += parseInt( res.data.kept, 10 ) || 0;
 						setBar( box, res.data.done ? 100 : 50, cfg.i18n.removing + ' (' + res.data.remaining + ')' );
 						if ( res.data.done ) {
+							if ( kept > 0 ) {
+								window.alert( cfg.i18n.removeKept.replace( '%s', kept ) );
+							}
 							window.location.reload();
 						} else {
 							loop();

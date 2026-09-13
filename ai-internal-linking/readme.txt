@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.25.1
+Stable tag: 0.26.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,7 +42,7 @@ Nothing is inserted without your approval. When you do approve, the plugin write
 
 Insertions are a byte-preserving splice of a plain `<a data-ailinking-id>` tag, never a shortcode and never a DOM round trip, and each write passes a visible-text integrity check before it is saved. Auto-apply covers Gutenberg and Classic. Elementor, Divi, WPBakery, Beaver Builder and ACF are suggest-only, so the plugin never rewrites content a builder owns.
 
-Uninstalling restores content from the ledger first, so removing the plugin does not leave its links behind.
+Uninstalling takes those links back out first, so removing the plugin does not leave them behind. It unwraps its own tags from the page as it stands at that moment, so anything written or changed on those pages since the link went in is kept. A link it cannot lift out on its own — because the text around it has been rewritten — is left alone as an ordinary link rather than overwritten.
 
 **Link Health**
 
@@ -64,6 +64,13 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.26.0 =
+* Fixed: deleting the plugin could roll a post back to an older version of itself. Uninstall restored each linked post from the copy taken just before that link was inserted, so anything written or edited afterwards was overwritten without warning. Where a post had received two links on different days there were two such copies and no order in which writing both back left the post correct.
+* Uninstall now removes its own tags from the post as it stands at that moment, which is what the one-click undo has always done. Only the link comes out; every other word on the page is left byte for byte as its author left it, and it no longer matters how many links a post received or in what order.
+* A link that cannot be lifted out on its own is left in place rather than overwritten — that happens when the text around it has since been rewritten or the link was already removed by hand. It stays an ordinary working link and nothing else on the page is touched.
+* "Remove all inserted links" on Link Health had the same fault and is fixed the same way: it no longer overrides the "this page changed since" check. It now reports how many links it left in place and why, and a pass that cannot move anything ends the run instead of retrying forever.
+* Uninstall stops short of the PHP execution limit rather than being killed part way through and leaving the plugin half-deleted. To revert every link with a progress bar and no time limit, use "Remove all inserted links" before deleting the plugin.
 
 = 0.25.1 =
 * Fixed: on some browsers the new "Select all N matching this filter" button did nothing. The admin script is served with a one-year immutable cache, so any browser that loaded the page in the short window before the CDN copy refreshed had kept the previous script under the new version's address and would not ask for it again. Raising the version changes that address, so the button works without anyone needing to clear a cache.

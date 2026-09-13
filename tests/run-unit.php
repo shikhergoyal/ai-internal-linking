@@ -95,6 +95,7 @@ require_once $plugin . '/Providers/AnthropicProvider.php';
 require_once $plugin . '/Providers/Registry.php';
 require_once $plugin . '/Install/Schema.php';
 require_once $plugin . '/Content/WriteGuards.php';
+require_once $plugin . '/Content/anchor-unwrap.php'; // Plain functions, no namespace.
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -908,6 +909,81 @@ ok( false !== strpos( Redactor::scrub( 'request id ' . $uuid ), $uuid ), 'UUIDs 
 // Belt and braces: both layers together.
 $live = 'sk-livekeyabcdefghijklmnopqrstuvwxyz';
 ok( false === strpos( Redactor::scrub( 'bad key ' . $live, array( $live ) ), $live ), 'both layers together still remove the key' );
+
+// ---------------------------------------------------------------------------
+// anchor-unwrap — taking an inserted link back out.
+//
+// The one piece of code both the undo button and uninstall.php run. It has to
+// remove our tag and nothing else: an uninstall that wrote back the copy of the
+// post taken before insertion threw away every edit made since, and gave no
+// answer at all for a post that had received two links on different days.
+// ---------------------------------------------------------------------------
+
+$tag = '<a href="https://x.test/p" data-ailinking-id="id-1">drain of wealth</a>';
+
+// The link comes out, the anchor text stays, nothing else moves.
+eq(
+	ailinking_unwrap_tagged_anchor( '<p>The ' . $tag . ' argument.</p>', 'id-1' ),
+	'<p>The drain of wealth argument.</p>',
+	'unwrap leaves the anchor text and nothing else'
+);
+
+// The point of the whole exercise: an edit made after we inserted survives.
+eq(
+	ailinking_unwrap_tagged_anchor( '<p>Edited later. The ' . $tag . '</p><p>A new paragraph.</p>', 'id-1' ),
+	'<p>Edited later. The drain of wealth</p><p>A new paragraph.</p>',
+	'REGRESSION: edits made after insertion are kept'
+);
+
+// Markup inside the anchor is inner text too.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a data-ailinking-id="id-2">a <em>b</em> c</a>', 'id-2' ),
+	'a <em>b</em> c',
+	'inner markup is preserved'
+);
+
+// The id is found wherever it sits in the tag.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a data-ailinking-id="id-3" href="/p" rel="nofollow">x</a>', 'id-3' ),
+	'x',
+	'attribute order does not matter'
+);
+
+// Not exactly once means hands off: the caller must not guess.
+eq( ailinking_unwrap_tagged_anchor( '<p>no link here</p>', 'id-1' ), null, 'a tag that is gone returns null' );
+eq( ailinking_unwrap_tagged_anchor( $tag . $tag, 'id-1' ), null, 'a duplicated tag returns null' );
+eq( ailinking_unwrap_tagged_anchor( $tag, '' ), null, 'an empty id returns null' );
+
+// Someone else's links are not ours to touch.
+eq(
+	ailinking_unwrap_tagged_anchor( '<a href="/other">other</a> ' . $tag, 'id-1' ),
+	'<a href="/other">other</a> drain of wealth',
+	'links this plugin did not insert are left alone'
+);
+eq( ailinking_unwrap_tagged_anchor( $tag, 'id-9' ), null, 'a different id does not match our tag' );
+
+// Two links in one post, inserted at different times. Either order, same result
+// — which is exactly what restoring saved copies of the post could not do.
+$two = '<p>First ' . $tag . ' then <a href="/q" data-ailinking-id="id-2">second</a>.</p>';
+$forward  = ailinking_unwrap_tagged_anchors( $two, array( 'id-1', 'id-2' ) );
+$backward = ailinking_unwrap_tagged_anchors( $two, array( 'id-2', 'id-1' ) );
+eq( $forward['html'], '<p>First drain of wealth then second.</p>', 'both links come out in one pass' );
+eq( $backward['html'], $forward['html'], 'REGRESSION: removal order cannot change the result' );
+eq( count( $forward['removed'] ), 2, 'both ids are reported removed' );
+eq( count( $forward['skipped'] ), 0, 'nothing was skipped' );
+
+// One link already edited away by hand: the other still comes out, and the page
+// is not rewritten on account of the one that cannot.
+$partial = ailinking_unwrap_tagged_anchors( $two, array( 'id-1', 'id-gone' ) );
+eq( $partial['html'], '<p>First drain of wealth then <a href="/q" data-ailinking-id="id-2">second</a>.</p>', 'a missing id does not stop the others' );
+eq( $partial['removed'], array( 'id-1' ), 'only the id actually removed is reported' );
+eq( $partial['skipped'], array( 'id-gone' ), 'the missing id is reported skipped' );
+
+// Nothing of ours present: report it, and hand back the content untouched so
+// the caller can skip the write entirely.
+$none = ailinking_unwrap_tagged_anchors( '<p>plain</p>', array( 'id-1' ) );
+eq( $none['html'], '<p>plain</p>', 'content with none of our tags is returned unchanged' );
+eq( $none['removed'], array(), 'nothing removed is an empty list, so the caller can skip the write' );
 
 // ---------------------------------------------------------------------------
 

@@ -1,0 +1,31 @@
+name: Lint and test
+
+# The release workflow already lints, but only once a tag is pushed — by which
+# point a parse error is a broken release rather than a failed check. This runs
+# the same lint plus the unit suite on every branch and pull request, so a
+# change is known good before it is merged.
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 7.4, the minimum version the plugin supports
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          find ai-internal-linking -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Unit tests
+        run: php tests/run-unit.php
