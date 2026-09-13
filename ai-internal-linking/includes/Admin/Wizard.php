@@ -12,6 +12,8 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Settings;
 use AILinking\Support\Stats;
 use AILinking\Install\Schema;
+use AILinking\Indexer\Indexer;
+use AILinking\LinkGraph\GraphAudits;
 use AILinking\Content\LedgerRepository;
 use AILinking\Detectors\SiteDetector;
 use AILinking\Jobs\ProgressStore;
@@ -111,6 +113,17 @@ class Wizard {
 				'wizard_complete'     => true,
 			)
 		);
+
+		// Unticking a post type leaves every page of that type sitting in the
+		// index. A crawl only walks the posts that still qualify, and the save
+		// hook ignores types it does not crawl, so nothing else would ever
+		// remove them: they would go on inflating Link Health and go on being
+		// offered to the AI as places to link to.
+		$crawl_before = isset( $before['crawl_post_types'] ) ? (array) $before['crawl_post_types'] : array();
+		if ( array_diff( $crawl_before, $crawl ) ) {
+			Indexer::prune_stale_all();
+			GraphAudits::flush_summary();
+		}
 
 		wp_safe_redirect( add_query_arg( 'ailinking_saved', '1', admin_url( 'admin.php?page=ailinking&tab=dashboard' ) ) );
 		exit;

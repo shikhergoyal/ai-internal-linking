@@ -111,6 +111,7 @@ require_once $plugin . '/Install/Schema.php';
 require_once $plugin . '/Content/WriteGuards.php';
 require_once $plugin . '/Content/anchor-unwrap.php'; // Plain functions, no namespace.
 require_once $plugin . '/Content/UrlClassifier.php';
+require_once $plugin . '/Indexer/Indexer.php'; // Only record_failure() is exercised; it touches nothing else.
 
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
@@ -126,6 +127,7 @@ use AILinking\Providers\AnthropicProvider;
 use AILinking\Providers\Registry;
 use AILinking\Content\WriteGuards;
 use AILinking\Content\UrlClassifier;
+use AILinking\Indexer\Indexer;
 
 // ---------------------------------------------------------------------------
 // Tiny assertion harness.
@@ -1039,6 +1041,40 @@ ok( ! UrlClassifier::path_is_date( '1899' ), 'a year outside 19xx-20xx is not a 
 ok( ! UrlClassifier::path_is_date( '2024/05/17/my-post' ), 'a post under a date is not the archive' );
 ok( ! UrlClassifier::path_is_date( '' ), 'an empty path is not a date' );
 ok( ! UrlClassifier::path_is_date( 'about' ), 'an ordinary page is not a date' );
+
+// ---------------------------------------------------------------------------
+// Indexer::record_failure — the list a retry pass works from.
+//
+// A post that threw during indexing used to leave nothing behind but a
+// last_error string, overwritten by the next failure, so the post stayed
+// missing from the index until somebody noticed and re-ran the whole site.
+// ---------------------------------------------------------------------------
+
+$p = Indexer::record_failure( array(), 42, 'boom' );
+eq( $p['failed'], array( 42 ), 'a failure is remembered so it can be retried' );
+ok( false !== strpos( $p['last_error'], '42' ), 'the message still names the post' );
+ok( false !== strpos( $p['last_error'], 'boom' ), 'the message still carries the reason' );
+
+// The same post failing twice in one run is one post to retry, not two.
+$p = Indexer::record_failure( $p, 42, 'boom again' );
+eq( $p['failed'], array( 42 ), 'the same post is not queued twice' );
+eq( $p['last_error'], 'post 42: boom again', 'last_error still shows the most recent failure' );
+
+$p = Indexer::record_failure( $p, 43, 'another' );
+eq( $p['failed'], array( 42, 43 ), 'a different post is added' );
+
+// Existing progress is carried through, not replaced.
+$p = Indexer::record_failure( array( 'processed' => 7, 'cursor' => 99 ), 1, 'x' );
+eq( $p['processed'], 7, 'unrelated progress survives' );
+eq( $p['cursor'], 99, 'the cursor survives' );
+
+// A site where everything fails must not grow the option without limit.
+$p = array();
+for ( $i = 1; $i <= Indexer::MAX_TRACKED_FAILURES + 50; $i++ ) {
+	$p = Indexer::record_failure( $p, $i, 'x' );
+}
+eq( count( $p['failed'] ), Indexer::MAX_TRACKED_FAILURES, 'the retry list is capped' );
+eq( $p['failed'][0], 1, 'the cap keeps the earliest failures rather than the latest' );
 
 // ---------------------------------------------------------------------------
 

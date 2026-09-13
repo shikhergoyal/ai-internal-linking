@@ -135,8 +135,21 @@
 				if ( showCreated ) {
 					label += '  (' + d.created + ' found)';
 				}
+				// The retry and prune phases run after the count is complete, so
+				// counting posts says nothing useful about them.
+				if ( 'retry' === d.phase || 'prune' === d.phase ) {
+					label = cfg.i18n.tidying;
+				}
 				var problem = d.error || d.last_error || '';
 				var doneLabel = problem ? ( cfg.i18n.error + ': ' + problem ) : cfg.i18n.done;
+				if ( d.done ) {
+					if ( d.pruned > 0 ) {
+						doneLabel += ' ' + cfg.i18n.indexPruned.replace( '%s', d.pruned );
+					}
+					if ( d.unindexed > 0 ) {
+						doneLabel += ' ' + cfg.i18n.indexFailed.replace( '%s', d.unindexed );
+					}
+				}
 				setBar( box, d.percent, d.done ? doneLabel : label );
 				setUsage( box, d.usage );
 				setStats( d.stats );

@@ -157,6 +157,11 @@ class Admin {
 					'indexing'      => __( 'Indexing…', 'ai-internal-linking' ),
 					'scanning'      => __( 'Scanning for suggestions…', 'ai-internal-linking' ),
 					'removing'      => __( 'Removing inserted links…', 'ai-internal-linking' ),
+					'tidying'       => __( 'Checking for pages that are no longer there…', 'ai-internal-linking' ),
+					/* translators: %s: number of index entries removed */
+					'indexPruned'   => __( '%s entry(s) removed for pages that no longer exist or are no longer in your crawl scope.', 'ai-internal-linking' ),
+					/* translators: %s: number of posts that could not be indexed */
+					'indexFailed'   => __( '%s page(s) could not be indexed after two attempts and are missing from the index. The last error is shown above.', 'ai-internal-linking' ),
 					'auditing'      => __( 'Recomputing audits…', 'ai-internal-linking' ),
 					'fetchingGsc'   => __( 'Fetching from Search Console…', 'ai-internal-linking' ),
 					'testing'       => __( 'Testing…', 'ai-internal-linking' ),

@@ -466,6 +466,13 @@ class Ajax {
 			'percent'    => $percent,
 			'done'       => $done,
 			'status'     => isset( $progress['status'] ) ? (string) $progress['status'] : '',
+			// An indexing run retries what threw and then removes rows for posts
+			// that no longer qualify. Both happen after the bar reads 100%, so
+			// without these the screen would look stalled and finish with no
+			// account of what the tidy-up did.
+			'phase'      => isset( $progress['phase'] ) ? (string) $progress['phase'] : '',
+			'pruned'     => (int) ( $progress['pruned'] ?? 0 ),
+			'unindexed'  => count( (array) ( $progress['unindexed'] ?? array() ) ),
 			'last_error' => isset( $progress['last_error'] ) ? (string) $progress['last_error'] : '',
 			'usage'      => $this->run_usage( $progress ),
 			// The dashboard Status card is server-rendered, so without this it
