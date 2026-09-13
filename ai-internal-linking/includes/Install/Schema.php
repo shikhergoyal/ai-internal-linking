@@ -15,6 +15,7 @@ namespace AILinking\Install;
 
 use AILinking\Support\Tables;
 use AILinking\Suggestions\Naturalness;
+use AILinking\Jobs\ProgressStore;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -346,9 +347,12 @@ class Schema {
 		delete_option( 'ailinking_progress_suggest' );
 		delete_option( 'ailinking_progress_embed' );
 		delete_transient( 'ailinking_audit_summary' );
-		delete_transient( 'ailinking_lock_index' );
-		delete_transient( 'ailinking_lock_suggest' );
-		delete_transient( 'ailinking_lock_embed' );
+		// Job locks live in options since 0.26.0. ProgressStore::release()
+		// clears both homes, so a reset cannot leave a job wedged behind a lock
+		// whose owner is gone.
+		ProgressStore::release( 'index' );
+		ProgressStore::release( 'suggest' );
+		ProgressStore::release( 'embed' );
 		// The site-wide word list is derived from the term table that was just
 		// emptied, so keeping it would describe pages using a vocabulary that no
 		// longer exists.

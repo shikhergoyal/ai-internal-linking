@@ -381,6 +381,14 @@ class Indexer {
 			return $progress;
 		}
 
+		$dead = self::prune_dead_suggestions( $limit );
+		$progress['pruned'] = (int) $progress['pruned'] + $dead;
+		if ( $dead >= $limit ) {
+			ProgressStore::set( 'index', $progress );
+			$progress['done'] = false;
+			return $progress;
+		}
+
 		$progress['status'] = 'complete';
 		$progress['done']   = true;
 		ProgressStore::set( 'index', $progress );
@@ -407,6 +415,58 @@ class Indexer {
 			$removed += $batch;
 		} while ( $batch >= 100 && ( microtime( true ) - $started ) < (float) $budget );
 		return $removed;
+	}
+
+	/**
+	 * Drop suggestions that can never be acted on because a post they name is
+	 * gone.
+	 *
+	 * A scan replaces the pending queue, so pending rows look after themselves.
+	 * Approved ones do not: they are reviewed work waiting to be applied, and
+	 * nothing has ever removed them. An approved suggestion whose source post
+	 * was deleted sits in the queue for good and fails the moment it is used.
+	 *
+	 * Two deliberate limits on what counts as dead:
+	 *
+	 * - Applied rows are never touched. They carry the Undo button for a link
+	 *   that is in the content right now, and losing that is the fault fixed in
+	 *   the reset routine.
+	 * - Only a missing or unpublished post counts, never a post that has merely
+	 *   fallen outside the crawl scope. That post still exists and the link can
+	 *   still be made, so deleting the review someone already did would be
+	 *   throwing away their work over a settings change.
+	 *
+	 * @param int $limit Maximum rows to remove in one call.
+	 * @return int Rows removed.
+	 */
+	public static function prune_dead_suggestions( $limit = 100 ) {
+		global $wpdb;
+		$sugg  = Tables::suggestions();
+		$limit = max( 1, (int) $limit );
+
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT s.id FROM {$sugg} s
+				 LEFT JOIN {$wpdb->posts} src ON src.ID = s.source_post_id AND src.post_status = 'publish'
+				 LEFT JOIN {$wpdb->posts} tgt ON tgt.ID = s.target_post_id AND tgt.post_status = 'publish'
+				 WHERE s.status <> 'applied'
+				   AND ( src.ID IS NULL OR ( s.target_post_id > 0 AND tgt.ID IS NULL ) )
+				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
+				$limit
+			)
+		);
+
+		$ids = array_filter( array_map( 'intval', (array) $ids ) );
+		if ( empty( $ids ) ) {
+			return 0;
+		}
+
+		$ph = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$wpdb->query(
+			$wpdb->prepare( "DELETE FROM {$sugg} WHERE id IN ({$ph})", $ids ) // phpcs:ignore WordPress.DB.PreparedSQL
+		);
+
+		return count( $ids );
 	}
 
 	/**
@@ -468,6 +528,13 @@ class Indexer {
 	 */
 	public static function remove_post( $post_id ) {
 		global $wpdb;
+
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			// Menu edges are recorded with source_post_id 0, so a stray 0 here
+			// would delete every one of them.
+			return;
+		}
 		$wpdb->delete( Tables::index(), array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( Tables::tfidf(), array( 'post_id' => $post_id ), array( '%d' ) );
 		$wpdb->delete( Tables::link_graph(), array( 'source_post_id' => $post_id, 'origin' => 'discovered' ), array( '%d', '%s' ) );
