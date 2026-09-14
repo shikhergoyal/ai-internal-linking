@@ -490,6 +490,7 @@ class Schema {
 			suggested_context text NULL,
 			field_ref varchar(191) NOT NULL DEFAULT '',
 			relevance_score float NOT NULL DEFAULT 0,
+			raw_score float NOT NULL DEFAULT 0,
 			naturalness_score float NOT NULL DEFAULT 0,
 			confidence_score float NOT NULL DEFAULT 0,
 			bridge_priority float NOT NULL DEFAULT 0,

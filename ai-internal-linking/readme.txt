@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.26.1
+Stable tag: 0.27.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,13 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.27.0 =
+* Fixed: the review queue was ordered by which engine produced a suggestion, not by how good the link was. The three engines each wrote their own number into the same relevance column and the screen sorted across all of them — but Related Content reports a word-overlap score of maybe 0.25, the GSC keyword engine cannot report below 0.50 whatever the evidence, and the AI engine reported whatever confidence the model typed, using 0.70 when it typed none at all. A Related Content suggestion could therefore never reach the top of your queue however good the link was, and an AI pick that volunteered no confidence outranked a strong measured match by default.
+* Each engine's score is now mapped onto one shared scale before it is stored, so the number means the same thing wherever it came from and the ordering reflects the link rather than its source. Nothing is lost: every suggestion also records what its own engine said, and the review screen shows that alongside, marked as the engine's own figure.
+* Fixed: "Minimum relevance" only ever filtered one of the three engines. Raising it deleted the most cautiously scored engine first and left AI and Search Console suggestions completely untouched — the quality dial worked backwards. Now that the scores are on one scale it applies to all three.
+* Fixed: one page could be given the same phrase pointing at two different destinations. Suggestions were de-duplicated by destination only and anchor text was never compared, so after applying both, the same words led two different places in the same article. Overlapping phrases are rejected too — "Gandhi" and "Gandhi in South Africa" compete for the same words, and which one won was an accident of ordering.
+* Fixed: only one engine limited how often the same exact phrase could point at the same destination. The keyword engine has always capped it at three; the AI and Related Content engines had no limit, and Related Content builds its anchors out of the destination's own title, so it repeated the same exact phrase across the site. The cap now applies to every engine. The anchor-diversity report was previously counting a problem that nothing had tried to prevent.
 
 = 0.26.1 =
 * Fixed: a link straight at a file — a PDF in your uploads folder, an image, a theme asset — was reported as a broken link. WordPress does not route those; the web server hands them out directly, so asking WordPress to resolve one was never going to work, and calling it broken for that is the same mistake 0.26.0 fixed for category and author pages. The file is now checked on disk, which is exact and costs nothing: present means a working link, absent means genuinely broken. An upload that is in your media library resolves to its attachment, so it counts as a real link in the graph.

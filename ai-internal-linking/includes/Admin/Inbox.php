@@ -13,6 +13,7 @@ use AILinking\Security\Capabilities;
 use AILinking\Support\Tables;
 use AILinking\Detectors\BuilderDetector;
 use AILinking\Jobs\ProgressStore;
+use AILinking\Suggestions\Relevance;
 use AILinking\Providers\UsageStats;
 
 defined( 'ABSPATH' ) || exit;
@@ -315,7 +316,7 @@ class Inbox {
 						<td class="manage-column column-cb check-column">
 							<input type="checkbox" id="ailinking-cb-all" title="<?php esc_attr_e( 'Select every suggestion on this page', 'ai-internal-linking' ); ?>" />
 						</td>
-						<th class="col-score" title="<?php esc_attr_e( 'Overall score blending relevance and naturalness', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'Relevance', 'ai-internal-linking' ); ?></th>
+						<th class="col-score" title="<?php esc_attr_e( 'Overall score blending relevance and naturalness. Relevance is put on one shared scale first, so rows from different engines can be compared with each other.', 'ai-internal-linking' ); ?>"><?php esc_html_e( 'Relevance', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'From (source page)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'To (target page)', 'ai-internal-linking' ); ?></th>
 						<th><?php esc_html_e( 'Anchor & context', 'ai-internal-linking' ); ?></th>
@@ -372,6 +373,21 @@ class Inbox {
 												number_format_i18n( (float) $row['naturalness_score'], 2 )
 											)
 										);
+										// The relevance above is on one shared scale so the three
+										// engines can be compared. What the engine itself reported
+										// is a different number on its own scale, and hiding it
+										// would leave no way to see why a row scored as it did.
+										if ( isset( $row['raw_score'] ) && Relevance::is_calibrated( (string) $row['engine'] ) ) {
+											echo ' <span class="ailinking-raw" title="' . esc_attr__( 'What this engine reported on its own scale, before it was put on the shared one. The three engines measure different things, so their raw numbers are not comparable with each other.', 'ai-internal-linking' ) . '">'
+												. esc_html(
+													sprintf(
+														/* translators: %s: the engine's own unscaled score */
+														__( '(engine said %s)', 'ai-internal-linking' ),
+														number_format_i18n( (float) $row['raw_score'], 2 )
+													)
+												)
+												. '</span>';
+										}
 										if ( 'keyword' === $row['engine'] ) {
 											echo ' <span class="ailinking-badge ailinking-badge-kw" title="' . esc_attr__( 'The target page ranks for this keyword (imported from Google Search Console) and it appears here unlinked.', 'ai-internal-linking' ) . '">' . esc_html__( 'GSC keyword', 'ai-internal-linking' ) . '</span>';
 										} elseif ( 'llm' === $row['engine'] ) {
