@@ -119,6 +119,7 @@ class SuggestionEngine {
 						'anchor_text'    => $cand['anchor'],
 						'context'        => $cand['context'],
 						'relevance'      => $relevance,
+						'target_title'   => isset( $cand['title'] ) ? (string) $cand['title'] : '',
 						'naturalness'    => $naturalness,
 						'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
 						'engine'         => 'keyword',
@@ -179,6 +180,7 @@ class SuggestionEngine {
 							'context'        => $pick['context'],
 							'relevance'      => $relevance,
 							'raw'            => isset( $pick['confidence'] ) ? (float) $pick['confidence'] : $relevance,
+							'target_title'   => isset( $pick['title'] ) ? (string) $pick['title'] : '',
 							'naturalness'    => $naturalness,
 							'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
 							'engine'         => 'llm',
@@ -277,7 +279,16 @@ class SuggestionEngine {
 		// opinion and its candidate's similarity is a measurement.
 		$measured   = (float) $s['relevance'];
 		$raw        = isset( $s['raw'] ) ? (float) $s['raw'] : $measured;
-		$relevance  = Relevance::calibrate( $engine, $measured );
+
+		// Where the anchor was chosen independently of the destination's title,
+		// how squarely it names that destination is evidence in its own right,
+		// and the better of the two readings wins. Related Content is left out
+		// on purpose: it cuts its anchors from the title, so asking whether its
+		// anchor matches the title is asking whether the title matches itself.
+		$title     = isset( $s['target_title'] ) ? (string) $s['target_title'] : '';
+		$relevance = '' !== $title
+			? Relevance::best_of( $engine, $measured, $anchor, $title )
+			: Relevance::calibrate( $engine, $measured );
 		$confidence = Naturalness::confidence( $relevance, (float) $s['naturalness'] );
 
 		// The minimum-relevance setting now governs every engine. It used to be
