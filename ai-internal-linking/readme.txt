@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.27.3
+Stable tag: 0.27.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.27.4 =
+* Fixed: anchors that stop in the middle of a name. Anchor text is built by sliding a window across the destination’s title, and a window that stopped one word short of the end of a name produced the anchors a real site was found carrying — “Disintegration of the Mughal” for the page about the Mughal Empire, “Chandra Bose and the Indian National” for the one about the Indian National Army, “Untouchability and the Poona” for the Poona Pact. They read as sentences interrupted, and the anchor is the part your reader actually sees.
+* The word just outside the window is what separates a whole name from half of one: a name carries on with a capitalised word, a new clause carries on with a lower-case word or a year. So “Government of India Act” followed by “1858” is kept, and “… the Mughal” followed by “Empire” is not. Checked at both ends, because a window can begin inside a name as easily as end inside one.
+* Where the writing system has no capital letters this finds nothing and changes nothing, which is deliberate rather than an oversight — the same reasoning that keeps the rest of the anchor rules working outside English.
+* Only Related Content is affected. The AI and Search Console engines choose their own anchor text, so they never went through this.
 
 = 0.27.3 =
 * Fixed: 0.27.1 started ranking AI suggestions by how much vocabulary the two pages share, and that was the wrong question. Word overlap answers whether two pages are about the same thing, which on a well-organised site is close to the opposite of whether a link is worth making — an anchor reading “Simon Commission” pointing at the article about the Simon Commission is a good link precisely because the two pages cover different ground, so they share few words and scored badly. Measured on a real site, links of exactly that kind were being pushed from near the top of the review queue to near the bottom.
