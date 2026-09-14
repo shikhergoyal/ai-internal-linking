@@ -3,7 +3,7 @@
  * Plugin Name:       AI Internal Linking
  * Plugin URI:        https://github.com/shikhergoyal/ai-internal-linking
  * Description:       Universal, AI-assisted internal linking. Crawls any WordPress site, then suggests contextual internal links (SEO + GEO best practices). Every suggestion is reviewed and gated — nothing is auto-inserted.
- * Version:           0.27.1
+ * Version:           0.27.2
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Shikher Goyal
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AILINKING_VERSION', '0.27.1' );
+define( 'AILINKING_VERSION', '0.27.2' );
 // The schema version lives in Install/Schema.php, beside the statements it
 // describes, so a half-uploaded plugin cannot claim a schema it does not have.
 // Defined here too, after the autoloader, only so existing callers keep working.
@@ -65,8 +65,6 @@ if ( ! ailinking_requirements_met() ) {
 require_once AILINKING_PATH . 'includes/Autoloader.php';
 \AILinking\Autoloader::register();
 
-define( 'AILINKING_DB_VERSION', \AILinking\Install\Schema::DB_VERSION );
-
 register_activation_hook( __FILE__, array( '\AILinking\Install\Activator', 'activate' ) );
 register_deactivation_hook( __FILE__, array( '\AILinking\Install\Deactivator', 'deactivate' ) );
 
@@ -74,6 +72,18 @@ register_deactivation_hook( __FILE__, array( '\AILinking\Install\Deactivator', '
  * Boot the plugin once all plugins are loaded.
  */
 function ailinking() {
+	// Mirror of the schema file's own version, for any third-party code reading
+	// the old constant. Deliberately not a plain reference at file scope: a
+	// deploy that uploads files one at a time can run this file while
+	// Install/Schema.php is still the previous copy, which loads perfectly well
+	// and simply has no such constant — so a hard reference brings the whole
+	// site down for the length of the upload. defined() on a class constant
+	// answers false in that window instead of fataling, and by plugins_loaded
+	// the upload is over in the normal case.
+	if ( ! defined( 'AILINKING_DB_VERSION' ) && defined( '\AILinking\Install\Schema::DB_VERSION' ) ) {
+		define( 'AILINKING_DB_VERSION', \AILinking\Install\Schema::DB_VERSION );
+	}
+
 	return \AILinking\Plugin::instance();
 }
 
