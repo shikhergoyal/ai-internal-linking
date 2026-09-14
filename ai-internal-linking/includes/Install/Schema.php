@@ -21,6 +21,24 @@ defined( 'ABSPATH' ) || exit;
 
 class Schema {
 
+	/**
+	 * The schema version THIS file declares.
+	 *
+	 * Deliberately here and not in the main plugin file. Verifying the schema
+	 * against the declaration was not enough, because both come from this file:
+	 * when a deploy uploads files one at a time and a request arrives in the
+	 * window where the main file already says 1.10.0 and this file is still the
+	 * 1.9.0 copy, the migration ran the old statements, the check read the old
+	 * declaration, the two agreed, and a version the schema did not have was
+	 * stamped as verified. A check that reads the same stale file as the
+	 * migration can only ever confirm the migration's own mistake.
+	 *
+	 * With the number here, a stale copy of this file declares the version it
+	 * actually implements, so nothing upgrades until the file that knows how to
+	 * do the upgrade has landed.
+	 */
+	const DB_VERSION = '1.10.0';
+
 	const DB_VERSION_OPTION = 'ailinking_db_version';
 
 	/** Counts failed upgrade attempts, so a blocked ALTER cannot loop for ever. */
@@ -93,7 +111,7 @@ class Schema {
 		self::rescore_suggestions();
 
 		delete_option( self::UPGRADE_TRIES_OPTION );
-		update_option( self::DB_VERSION_OPTION, AILINKING_DB_VERSION, false );
+		update_option( self::DB_VERSION_OPTION, self::DB_VERSION, false );
 	}
 
 	/**
@@ -294,7 +312,7 @@ class Schema {
 	 */
 	public static function maybe_upgrade() {
 		$installed = get_option( self::DB_VERSION_OPTION, '0' );
-		if ( version_compare( $installed, AILINKING_DB_VERSION, '<' ) ) {
+		if ( version_compare( $installed, self::DB_VERSION, '<' ) ) {
 			self::install();
 			return;
 		}
