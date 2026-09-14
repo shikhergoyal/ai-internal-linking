@@ -157,7 +157,21 @@ class AnchorGenerator {
 		$before = $start > 0 ? $words[ $start - 1 ] : null;
 		$after  = ( $start + $size ) < count( $words ) ? $words[ $start + $size ] : null;
 
-		return self::continues_a_name( $before ) || self::continues_a_name( $after );
+		$refuse = self::continues_a_name( $before ) || self::continues_a_name( $after );
+
+		/**
+		 * Filter whether a window stopping inside a name is refused.
+		 *
+		 * An escape hatch for a site whose titles defeat the test, and the seam
+		 * that lets the rule's effect be measured against real data instead of
+		 * argued about.
+		 *
+		 * @param bool     $refuse Whether to refuse this window.
+		 * @param string[] $words  All words in the segment.
+		 * @param int      $start  Index the window starts at.
+		 * @param int      $size   Window length in words.
+		 */
+		return (bool) apply_filters( 'ailinking_refuse_cut_names', $refuse, $words, $start, $size );
 	}
 
 	/**
