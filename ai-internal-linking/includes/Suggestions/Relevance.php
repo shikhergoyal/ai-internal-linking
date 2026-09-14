@@ -55,11 +55,12 @@ class Relevance {
 			// Cannot report below 0.5 by construction, so 0.5 is its zero.
 			'keyword' => array( 0.50, 0.98 ),
 
-			// Models cluster their self-reported confidence high and rarely go
-			// below 0.5, so the bottom half of the range carries no information
-			// and treating 0.7 as "good" is what let an unstated confidence beat
-			// a measured match.
-			'llm'     => array( 0.50, 1.00 ),
+			// Since 0.27.1 the AI engine reports the measured similarity of the
+			// page the model chose, not the confidence the model claimed for
+			// itself, so it is on the cosine scale like Related Content. The
+			// model's own figure is kept alongside for display but is not what
+			// gets ranked: an opinion about a pick is not evidence for it.
+			'llm'     => array( 0.05, 0.60 ),
 		);
 
 		/**

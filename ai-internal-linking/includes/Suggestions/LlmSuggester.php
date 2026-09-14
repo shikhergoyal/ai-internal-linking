@@ -175,8 +175,13 @@ class LlmSuggester {
 				'url'     => isset( $cand['url'] ) ? (string) $cand['url'] : '',
 				'anchor'  => $hit['anchor'],
 				'context' => $hit['context'],
-				'score'   => $conf,
-				'reason'  => isset( $link['reason'] ) ? sanitize_text_field( (string) $link['reason'] ) : '',
+				// The measured similarity of the candidate the model chose. The
+				// model picked from a scored pool, so this costs nothing to
+				// carry and it is the only number here that measures anything:
+				// $conf below is the model's opinion of its own pick.
+				'score'      => isset( $cand['score'] ) ? (float) $cand['score'] : 0.0,
+				'confidence' => $conf,
+				'reason'     => isset( $link['reason'] ) ? sanitize_text_field( (string) $link['reason'] ) : '',
 			);
 			$seen[ $tid ] = true;
 		}

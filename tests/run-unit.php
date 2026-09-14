@@ -1117,21 +1117,32 @@ eq( Relevance::calibrate( 'tfidf', 0.05 ), 0.10, 'tfidf floor calibrates to the 
 eq( Relevance::calibrate( 'tfidf', 0.60 ), 0.95, 'tfidf ceiling calibrates to the band ceiling' );
 eq( Relevance::calibrate( 'keyword', 0.50 ), 0.10, 'keyword floor calibrates to the band floor' );
 eq( Relevance::calibrate( 'keyword', 0.98 ), 0.95, 'keyword ceiling calibrates to the band ceiling' );
-eq( Relevance::calibrate( 'llm', 0.50 ), 0.10, 'llm floor calibrates to the band floor' );
-eq( Relevance::calibrate( 'llm', 1.00 ), 0.95, 'llm ceiling calibrates to the band ceiling' );
+// Since 0.27.1 the AI engine reports the measured similarity of the page the
+// model chose, not the confidence the model claimed for itself, so it sits on
+// the same cosine scale as Related Content.
+eq( Relevance::calibrate( 'llm', 0.05 ), 0.10, 'llm floor calibrates to the band floor' );
+eq( Relevance::calibrate( 'llm', 0.60 ), 0.95, 'llm ceiling calibrates to the band ceiling' );
 
 // Out-of-range input is clamped, never extrapolated.
 eq( Relevance::calibrate( 'tfidf', 0.0 ), 0.10, 'below the range clamps to the floor' );
 eq( Relevance::calibrate( 'tfidf', 9.9 ), 0.95, 'above the range clamps to the ceiling' );
-eq( Relevance::calibrate( 'llm', 0.1 ), 0.10, 'a low self-reported confidence clamps to the floor' );
+eq( Relevance::calibrate( 'llm', 0.0 ), 0.10, 'a similarity below the range clamps to the floor' );
 
-// The regression, stated as the comparison that used to be wrong: a genuinely
-// good measured match must beat a model that volunteered nothing.
-$measured_good = Relevance::calibrate( 'tfidf', 0.45 );
-$llm_default   = Relevance::calibrate( 'llm', 0.7 );
+// The same measured similarity must score the same whichever engine found it.
+// This is the property the whole exercise is for.
+eq(
+	Relevance::calibrate( 'llm', 0.30 ),
+	Relevance::calibrate( 'tfidf', 0.30 ),
+	'REGRESSION: identical measured similarity scores identically across engines'
+);
+
+// The defect this replaced: the AI engine reported the model's own confidence,
+// defaulting to 0.70 when the model stated none, so an AI row that volunteered
+// nothing outranked a strong measured match. A confidence of 0.70 is no longer
+// a relevance at all, so a strong match wins on the measurement.
 ok(
-	$measured_good > $llm_default,
-	'REGRESSION: a strong measured match outranks an AI default confidence'
+	Relevance::calibrate( 'tfidf', 0.45 ) > Relevance::calibrate( 'llm', 0.12 ),
+	'REGRESSION: a strong measured match outranks a weak one from the AI engine'
 );
 
 // And the keyword engine's floor, which is a floor by construction rather than
@@ -1144,7 +1155,7 @@ ok(
 // Ordering within an engine is preserved — calibration rescales, it does not
 // reshuffle.
 ok( Relevance::calibrate( 'tfidf', 0.4 ) > Relevance::calibrate( 'tfidf', 0.2 ), 'tfidf order is preserved' );
-ok( Relevance::calibrate( 'llm', 0.9 ) > Relevance::calibrate( 'llm', 0.6 ), 'llm order is preserved' );
+ok( Relevance::calibrate( 'llm', 0.40 ) > Relevance::calibrate( 'llm', 0.20 ), 'llm order is preserved' );
 ok( Relevance::calibrate( 'keyword', 0.9 ) > Relevance::calibrate( 'keyword', 0.6 ), 'keyword order is preserved' );
 
 // Nothing reaches 0 or 1: a calibrated figure is an estimate and should not

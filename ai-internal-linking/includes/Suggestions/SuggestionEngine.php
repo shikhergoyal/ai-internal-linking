@@ -161,6 +161,11 @@ class SuggestionEngine {
 					if ( isset( $skip[ $tid ] ) ) {
 						continue;
 					}
+					// Relevance is the measured similarity of the page the model
+					// chose, not the confidence the model reported in itself.
+					// A self-assessment is not evidence, and taking one as
+					// relevance is what let a pick that stated no confidence at
+					// all outrank a strong measured match.
 					$relevance   = (float) $pick['score'];
 					$naturalness = Naturalness::score( $pick['anchor'], $relevance );
 
@@ -173,6 +178,7 @@ class SuggestionEngine {
 							'anchor_text'    => $pick['anchor'],
 							'context'        => $pick['context'],
 							'relevance'      => $relevance,
+							'raw'            => isset( $pick['confidence'] ) ? (float) $pick['confidence'] : $relevance,
 							'naturalness'    => $naturalness,
 							'confidence'     => Naturalness::confidence( $relevance, $naturalness ),
 							'engine'         => 'llm',
@@ -265,8 +271,13 @@ class SuggestionEngine {
 		// put on the scale every other engine is measured against. Everything
 		// below judges the calibrated one, because judging the raw one meant
 		// judging three different things with one threshold.
-		$raw        = (float) $s['relevance'];
-		$relevance  = Relevance::calibrate( $engine, $raw );
+		// What the engine reported about itself, kept for display, and the
+		// measured number that is actually judged. For most engines they are the
+		// same figure; the AI engine reports both, because its confidence is an
+		// opinion and its candidate's similarity is a measurement.
+		$measured   = (float) $s['relevance'];
+		$raw        = isset( $s['raw'] ) ? (float) $s['raw'] : $measured;
+		$relevance  = Relevance::calibrate( $engine, $measured );
 		$confidence = Naturalness::confidence( $relevance, (float) $s['naturalness'] );
 
 		// The minimum-relevance setting now governs every engine. It used to be

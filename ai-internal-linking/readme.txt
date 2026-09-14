@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.27.0
+Stable tag: 0.27.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.27.1 =
+* Fixed: the AI engine's relevance was the confidence the model claimed for itself, which is an opinion about a pick rather than evidence for it. The model chooses from a shortlist that already carries a measured similarity for every page on it, so that measurement was there all along and was being thrown away. Relevance is now the measured figure, and what the model said about itself is kept beside it and shown on the review screen, clearly labelled. 0.27.0 put the old self-reported number on a shared scale, which made it comparable without making it meaningful; this replaces it.
+* Fixed: a database column could still go missing while the upgrade recorded itself as done. 0.26.0 added a check that the schema really carries what the plugin declares, but the check and the declaration both come from the same file — so when a deploy uploads files one at a time and a page is requested in the window where the main file already names the new version and the schema file is still the old one, the migration ran the old statements, the check read the old declaration, the two agreed, and a version the database did not have was stamped as verified. The schema version now lives beside the statements it describes, so a half-uploaded plugin declares the version it actually implements and nothing upgrades until the file that knows how to do the upgrade has arrived. This was found by the column added in 0.27.0 failing to appear on a real site.
 
 = 0.27.0 =
 * Fixed: the review queue was ordered by which engine produced a suggestion, not by how good the link was. The three engines each wrote their own number into the same relevance column and the screen sorted across all of them — but Related Content reports a word-overlap score of maybe 0.25, the GSC keyword engine cannot report below 0.50 whatever the evidence, and the AI engine reported whatever confidence the model typed, using 0.70 when it typed none at all. A Related Content suggestion could therefore never reach the top of your queue however good the link was, and an AI pick that volunteered no confidence outranked a strong measured match by default.
