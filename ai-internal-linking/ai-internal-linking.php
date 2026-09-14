@@ -3,7 +3,7 @@
  * Plugin Name:       AI Internal Linking
  * Plugin URI:        https://github.com/shikhergoyal/ai-internal-linking
  * Description:       Universal, AI-assisted internal linking. Crawls any WordPress site, then suggests contextual internal links (SEO + GEO best practices). Every suggestion is reviewed and gated — nothing is auto-inserted.
- * Version:           0.27.2
+ * Version:           0.27.3
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Author:            Shikher Goyal
@@ -18,7 +18,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'AILINKING_VERSION', '0.27.2' );
+define( 'AILINKING_VERSION', '0.27.3' );
 // The schema version lives in Install/Schema.php, beside the statements it
 // describes, so a half-uploaded plugin cannot claim a schema it does not have.
 // Defined here too, after the autoloader, only so existing callers keep working.

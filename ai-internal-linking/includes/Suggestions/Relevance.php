@@ -61,6 +61,10 @@ class Relevance {
 			// model's own figure is kept alongside for display but is not what
 			// gets ranked: an opinion about a pick is not evidence for it.
 			'llm'     => array( 0.05, 0.60 ),
+
+			// Not an engine: the anchor-to-title signal below, which already
+			// reports on a 0-1 scale, so this only compresses it into the band.
+			'anchor_title' => array( 0.00, 1.00 ),
 		);
 
 		/**
@@ -102,6 +106,89 @@ class Relevance {
 		$position = max( 0.0, min( 1.0, $position ) );
 
 		return round( self::FLOOR + ( $position * ( self::CEILING - self::FLOOR ) ), 4 );
+	}
+
+	/**
+	 * How strongly an anchor names the page it points at.
+	 *
+	 * Word overlap between two pages measures whether they are about the same
+	 * thing. That is not the same question as whether a link is worth making,
+	 * and on a well-organised site it is close to the opposite: "Simon
+	 * Commission" pointing at the article about the Simon Commission is a good
+	 * link precisely because the two pages cover different ground, so they share
+	 * little vocabulary and score badly on overlap alone.
+	 *
+	 * An anchor that reproduces the destination's title in full is direct
+	 * evidence that the link goes where the words say it goes, which is the
+	 * thing overlap cannot see.
+	 *
+	 * Deliberately structural, with no list of words to ignore: such a list
+	 * would have to be written per language and would quietly stop working on
+	 * every site that does not write in it. Instead the anchor must be at least
+	 * two words and every one of them must appear in the title, which rules out
+	 * a single common word matching by luck without needing to know which words
+	 * are common in which language.
+	 *
+	 * @param string $anchor Anchor phrase.
+	 * @param string $title  Destination title.
+	 * @return float 0 when the anchor does not name the destination.
+	 */
+	public static function anchor_title_match( $anchor, $title ) {
+		$anchor_words = self::words( $anchor );
+		$title_words  = self::words( $title );
+
+		if ( count( $anchor_words ) < 2 || empty( $title_words ) ) {
+			return 0.0;
+		}
+
+		// Every word, not most of them. A partial match is not a name.
+		foreach ( $anchor_words as $word ) {
+			if ( ! in_array( $word, $title_words, true ) ) {
+				return 0.0;
+			}
+		}
+
+		// A longer phrase matching in full is stronger evidence than a short
+		// one, because there is more of it that could have failed to match.
+		$words = min( 4, count( $anchor_words ) );
+
+		return round( 0.65 + ( 0.115 * ( $words - 2 ) ), 4 );
+	}
+
+	/**
+	 * The stronger of two readings of the same suggestion: how much the pages
+	 * share, and how squarely the anchor names the destination.
+	 *
+	 * Taking the better of the two is deliberate. They are different kinds of
+	 * evidence and a suggestion only needs one of them to be worth making.
+	 *
+	 * @param string $engine   Engine key, for the measured score's scale.
+	 * @param float  $measured The engine's measured score.
+	 * @param string $anchor   Anchor phrase.
+	 * @param string $title    Destination title.
+	 * @return float Calibrated score.
+	 */
+	public static function best_of( $engine, $measured, $anchor, $title ) {
+		return max(
+			self::calibrate( $engine, $measured ),
+			self::calibrate( 'anchor_title', self::anchor_title_match( $anchor, $title ) )
+		);
+	}
+
+	/**
+	 * Lowercased distinct words, by Unicode letter and digit so the split works
+	 * the same in any script.
+	 *
+	 * @param string $text Text.
+	 * @return string[]
+	 */
+	private static function words( $text ) {
+		$text = (string) $text;
+		$text = function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : strtolower( $text );
+		if ( ! preg_match_all( '/[\p{L}\p{Nd}]+/u', $text, $m ) ) {
+			return array();
+		}
+		return array_values( array_unique( $m[0] ) );
 	}
 
 	/**

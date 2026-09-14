@@ -179,6 +179,7 @@ class LlmSuggester {
 				// model picked from a scored pool, so this costs nothing to
 				// carry and it is the only number here that measures anything:
 				// $conf below is the model's opinion of its own pick.
+				'title'      => isset( $cand['title'] ) ? (string) $cand['title'] : '',
 				'score'      => isset( $cand['score'] ) ? (float) $cand['score'] : 0.0,
 				'confidence' => $conf,
 				'reason'     => isset( $link['reason'] ) ? sanitize_text_field( (string) $link['reason'] ) : '',

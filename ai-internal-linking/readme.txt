@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.27.2
+Stable tag: 0.27.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,12 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.27.3 =
+* Fixed: 0.27.1 started ranking AI suggestions by how much vocabulary the two pages share, and that was the wrong question. Word overlap answers whether two pages are about the same thing, which on a well-organised site is close to the opposite of whether a link is worth making — an anchor reading “Simon Commission” pointing at the article about the Simon Commission is a good link precisely because the two pages cover different ground, so they share few words and scored badly. Measured on a real site, links of exactly that kind were being pushed from near the top of the review queue to near the bottom.
+* A suggestion is now judged on the better of two readings: how much the two pages share, and how squarely the anchor names the page it points at. An anchor that reproduces the destination’s title is direct evidence that the link goes where the words say it goes, which is the thing word overlap cannot see. Either reading is enough on its own.
+* The anchor has to be at least two words and every one of them has to appear in the title, so a single common word cannot match by luck. That rule is structural on purpose: a list of words to ignore would have to be written for each language and would quietly stop working on every site that does not write in it.
+* Related Content is deliberately left out of this, because it builds its anchors out of the destination’s title in the first place — asking whether its anchor matches the title would be asking whether the title matches itself.
 
 = 0.27.2 =
 * Fixed: upgrading to 0.27.1 could take the site down for the few seconds an upload takes. 0.27.1 moved the database version into the schema file and had the main plugin file read it directly — but when a plugin is uploaded file by file, the main file can be the new one while the schema file is still the previous copy, which loads perfectly well and simply does not have that value yet. The result was a fatal error on every page until the upload finished. The value is now read in a way that answers "not yet" during that window instead of stopping, and it is read after WordPress has finished loading rather than while the plugin file is still being read.

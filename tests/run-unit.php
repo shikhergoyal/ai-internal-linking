@@ -1194,6 +1194,52 @@ ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( '', 'Gandhi' ), 
 ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', '' ), 'nor is it the other way round' );
 
 // ---------------------------------------------------------------------------
+// Relevance::anchor_title_match — does the anchor name the page it points at?
+//
+// Word overlap between two pages answers "are these about the same thing",
+// which on a well-organised site is nearly the opposite of "is this link worth
+// making". "Simon Commission" pointing at the Simon Commission article is a
+// good link BECAUSE the two pages cover different ground, so they share little
+// vocabulary and score badly on overlap alone.
+// ---------------------------------------------------------------------------
+
+ok(
+	Relevance::anchor_title_match( 'Simon Commission', 'The Simon Commission, the Nehru Report and the Communal Fault-line' ) > 0.6,
+	'REGRESSION: an anchor naming the destination scores well despite low page overlap'
+);
+
+$two   = Relevance::anchor_title_match( 'Simon Commission', 'The Simon Commission and the Nehru Report' );
+$three = Relevance::anchor_title_match( 'the Simon Commission', 'The Simon Commission and the Nehru Report' );
+$four  = Relevance::anchor_title_match( 'the Simon Commission report', 'The Simon Commission and the Nehru Report' );
+ok( $three > $two, 'three words beat two' );
+ok( $four > $three, 'four words beat three' );
+ok( $four <= 1.0, 'and it stays inside the scale' );
+
+// Every word has to be there. A partial match is not a name.
+eq( Relevance::anchor_title_match( 'Simon Commission review', 'The Simon Commission and the Nehru Report' ), 0.0, 'a word missing from the title scores nothing' );
+eq( Relevance::anchor_title_match( 'Nehru Report', 'Gandhi and the Salt March' ), 0.0, 'an unrelated title scores nothing' );
+
+// A single word must not qualify, whatever it is. This is what stands in for a
+// stop-word list, which would have to be written per language.
+eq( Relevance::anchor_title_match( 'system', 'The revenue system of British India' ), 0.0, 'one common word is not a name' );
+eq( Relevance::anchor_title_match( 'Gandhi', 'Gandhi and the Salt March' ), 0.0, 'and neither is one uncommon word' );
+
+ok( Relevance::anchor_title_match( 'muslim league', 'The All-India Muslim League, 1906' ) > 0.0, 'case and punctuation are ignored' );
+eq( Relevance::anchor_title_match( '', 'A title' ), 0.0, 'an empty anchor scores nothing' );
+eq( Relevance::anchor_title_match( 'Some Anchor', '' ), 0.0, 'an empty title scores nothing' );
+
+// best_of takes the stronger reading, never the weaker.
+ok(
+	Relevance::best_of( 'llm', 0.103, 'Simon Commission', 'The Simon Commission and the Nehru Report' ) > Relevance::calibrate( 'llm', 0.103 ),
+	'REGRESSION: naming the destination rescues a low-overlap link'
+);
+eq(
+	Relevance::best_of( 'llm', 0.55, 'unrelated words here', 'A completely different title' ),
+	Relevance::calibrate( 'llm', 0.55 ),
+	'a strong measured match is unaffected by a missing title match'
+);
+
+// ---------------------------------------------------------------------------
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit( $failed > 0 ? 1 : 0 );
