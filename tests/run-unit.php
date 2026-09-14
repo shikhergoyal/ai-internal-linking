@@ -96,6 +96,8 @@ $plugin = __DIR__ . '/../ai-internal-linking/includes';
 require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
 require_once $plugin . '/Suggestions/Naturalness.php';
+require_once $plugin . '/Suggestions/Relevance.php';
+require_once $plugin . '/Suggestions/SuggestionEngine.php'; // Only anchors_collide() is exercised.
 require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
 require_once $plugin . '/Security/Redactor.php';
@@ -116,6 +118,7 @@ require_once $plugin . '/Indexer/Indexer.php'; // Only record_failure() is exerc
 use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
 use AILinking\Suggestions\Naturalness;
+use AILinking\Suggestions\Relevance;
 use AILinking\Providers\Pricing;
 use AILinking\Providers\UsageStats;
 use AILinking\Security\Redactor;
@@ -1098,6 +1101,86 @@ for ( $i = 1; $i <= Indexer::MAX_TRACKED_FAILURES + 50; $i++ ) {
 }
 eq( count( $p['failed'] ), Indexer::MAX_TRACKED_FAILURES, 'the retry list is capped' );
 eq( $p['failed'][0], 1, 'the cap keeps the earliest failures rather than the latest' );
+
+// ---------------------------------------------------------------------------
+// Relevance::calibrate — putting three engines on one scale.
+//
+// All three engines wrote their own number into one relevance column and the
+// review screen sorted across them, so the queue was ordered by which engine
+// produced a row. TF-IDF reports a cosine of maybe 0.25; the keyword engine
+// cannot report below 0.50; the AI engine reported whatever the model typed,
+// defaulting to 0.70 when it typed nothing at all.
+// ---------------------------------------------------------------------------
+
+// Each engine's floor and ceiling land on the same two numbers.
+eq( Relevance::calibrate( 'tfidf', 0.05 ), 0.10, 'tfidf floor calibrates to the band floor' );
+eq( Relevance::calibrate( 'tfidf', 0.60 ), 0.95, 'tfidf ceiling calibrates to the band ceiling' );
+eq( Relevance::calibrate( 'keyword', 0.50 ), 0.10, 'keyword floor calibrates to the band floor' );
+eq( Relevance::calibrate( 'keyword', 0.98 ), 0.95, 'keyword ceiling calibrates to the band ceiling' );
+eq( Relevance::calibrate( 'llm', 0.50 ), 0.10, 'llm floor calibrates to the band floor' );
+eq( Relevance::calibrate( 'llm', 1.00 ), 0.95, 'llm ceiling calibrates to the band ceiling' );
+
+// Out-of-range input is clamped, never extrapolated.
+eq( Relevance::calibrate( 'tfidf', 0.0 ), 0.10, 'below the range clamps to the floor' );
+eq( Relevance::calibrate( 'tfidf', 9.9 ), 0.95, 'above the range clamps to the ceiling' );
+eq( Relevance::calibrate( 'llm', 0.1 ), 0.10, 'a low self-reported confidence clamps to the floor' );
+
+// The regression, stated as the comparison that used to be wrong: a genuinely
+// good measured match must beat a model that volunteered nothing.
+$measured_good = Relevance::calibrate( 'tfidf', 0.45 );
+$llm_default   = Relevance::calibrate( 'llm', 0.7 );
+ok(
+	$measured_good > $llm_default,
+	'REGRESSION: a strong measured match outranks an AI default confidence'
+);
+
+// And the keyword engine's floor, which is a floor by construction rather than
+// evidence, must not outrank a real match either.
+ok(
+	Relevance::calibrate( 'tfidf', 0.30 ) > Relevance::calibrate( 'keyword', 0.50 ),
+	'REGRESSION: a mid measured match outranks a keyword score that is only its floor'
+);
+
+// Ordering within an engine is preserved — calibration rescales, it does not
+// reshuffle.
+ok( Relevance::calibrate( 'tfidf', 0.4 ) > Relevance::calibrate( 'tfidf', 0.2 ), 'tfidf order is preserved' );
+ok( Relevance::calibrate( 'llm', 0.9 ) > Relevance::calibrate( 'llm', 0.6 ), 'llm order is preserved' );
+ok( Relevance::calibrate( 'keyword', 0.9 ) > Relevance::calibrate( 'keyword', 0.6 ), 'keyword order is preserved' );
+
+// Nothing reaches 0 or 1: a calibrated figure is an estimate and should not
+// present itself as certainty in either direction.
+foreach ( array( 'tfidf', 'keyword', 'llm' ) as $eng ) {
+	foreach ( array( -1.0, 0.0, 0.3, 0.7, 1.0, 2.0 ) as $v ) {
+		$c = Relevance::calibrate( $eng, $v );
+		ok( $c >= 0.10 && $c <= 0.95, "calibrated {$eng} at {$v} stays inside the band" );
+	}
+}
+
+// An engine nobody declared a range for is passed through, not silently
+// rescaled — a third-party engine keeps its own meaning.
+eq( Relevance::calibrate( 'something-else', 0.42 ), 0.42, 'an unknown engine is passed through' );
+eq( Relevance::calibrate( 'something-else', 5.0 ), 1.0, 'an unknown engine is still clamped' );
+ok( Relevance::is_calibrated( 'tfidf' ), 'tfidf is reported as calibrated' );
+ok( ! Relevance::is_calibrated( 'something-else' ), 'an unknown engine is reported as not calibrated' );
+
+// ---------------------------------------------------------------------------
+// SuggestionEngine::anchors_collide — two links fighting over the same words.
+//
+// Suggestions were de-duplicated by destination only, so one article could be
+// given the same phrase pointing at two different pages. The writer takes the
+// first eligible occurrence, so which link won was an accident of ordering.
+// ---------------------------------------------------------------------------
+
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'British rule', 'British rule' ), 'identical anchors collide' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'British Rule', 'british rule' ), 'case does not save them' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', 'Gandhi in South Africa' ), 'a phrase inside a longer one collides' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi in South Africa', 'Gandhi' ), 'and the same pair the other way round' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( '  Gandhi  ', 'Gandhi' ), 'surrounding space is ignored' );
+
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', 'Nehru' ), 'unrelated anchors do not collide' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'salt march', 'civil disobedience' ), 'two real phrases can coexist' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( '', 'Gandhi' ), 'an empty anchor is not a collision' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', '' ), 'nor is it the other way round' );
 
 // ---------------------------------------------------------------------------
 

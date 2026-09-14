@@ -158,11 +158,11 @@ class SettingsPage {
 						</p>
 						<p class="description">
 							<strong><?php esc_html_e( 'How each engine works it out.', 'ai-internal-linking' ); ?></strong>
-							<?php esc_html_e( 'Related Content compares the two pages word by word, and the score is the share of this page’s distinctive vocabulary that the other page also uses. AI Suggestion uses the model’s own stated confidence in the pick. GSC keyword starts at 0.50 because a phrase people actually search for is stronger evidence than any word overlap, then adds more for striking-distance rankings.', 'ai-internal-linking' ); ?>
+							<?php esc_html_e( 'Related Content compares the two pages word by word, and its raw score is the share of this page’s distinctive vocabulary that the other page also uses. AI Suggestion reports the model’s own stated confidence in the pick. GSC keyword starts at 0.50 because a phrase people actually search for is stronger evidence than any word overlap, then adds more for striking-distance rankings. Those three raw numbers are on three different scales, so each is then mapped onto one shared scale before it is stored. The review screen shows the shared figure, and each suggestion still records what its own engine said.', 'ai-internal-linking' ); ?>
 						</p>
 						<p class="description">
 							<strong><?php esc_html_e( 'What this setting does.', 'ai-internal-linking' ); ?></strong>
-							<?php esc_html_e( 'It sets the floor for the Related Content engine only. Below it, two pages share so little vocabulary that the overlap is coincidence. It does not filter AI or Search Console suggestions, which are judged on different evidence and are not comparable to a word-overlap score.', 'ai-internal-linking' ); ?>
+							<?php esc_html_e( 'It sets the floor for every engine. Raise it and you raise the bar for all three, because the scores are put on one scale first — until version 0.27.0 this filtered Related Content alone, so turning it up deleted the most cautiously scored engine and left the other two untouched. The number you type is still read as a word-overlap score, so the guidance below has not changed.', 'ai-internal-linking' ); ?>
 						</p>
 						<p class="description">
 							<strong><?php esc_html_e( 'Choosing a number.', 'ai-internal-linking' ); ?></strong>

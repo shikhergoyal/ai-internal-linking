@@ -257,24 +257,168 @@ class SuggestionEngine {
 			return false;
 		}
 
+		$engine = (string) $s['engine'];
+		$anchor = (string) $s['anchor_text'];
+		$target = (int) $s['target_post_id'];
+
+		// The engine's own number, kept as it was reported, and the same number
+		// put on the scale every other engine is measured against. Everything
+		// below judges the calibrated one, because judging the raw one meant
+		// judging three different things with one threshold.
+		$raw        = (float) $s['relevance'];
+		$relevance  = Relevance::calibrate( $engine, $raw );
+		$confidence = Naturalness::confidence( $relevance, (float) $s['naturalness'] );
+
+		// The minimum-relevance setting now governs every engine. It used to be
+		// applied in the TF-IDF pass alone, which made turning the quality dial
+		// up delete the most conservatively scored engine first and leave the
+		// other two untouched.
+		$min_rel = (float) Settings::get( 'min_relevance', 0.08 );
+		if ( $relevance < Relevance::calibrate( 'tfidf', $min_rel ) ) {
+			return false;
+		}
+
+		if ( self::anchor_conflicts( $source_id, $anchor ) ) {
+			return false;
+		}
+
+		if ( self::anchor_saturated( $target, $anchor ) ) {
+			return false;
+		}
+
 		return (bool) $wpdb->insert(
 			Tables::suggestions(),
 			array(
 				'source_post_id'    => (int) $source_id,
-				'target_post_id'    => (int) $s['target_post_id'],
+				'target_post_id'    => $target,
 				'target_url'        => $s['target_url'],
-				'anchor_text'       => self::trim_len( $s['anchor_text'], 255 ),
+				'anchor_text'       => self::trim_len( $anchor, 255 ),
 				'suggested_context' => $s['context'],
-				'relevance_score'   => $s['relevance'],
+				'relevance_score'   => $relevance,
+				'raw_score'         => $raw,
 				'naturalness_score' => $s['naturalness'],
-				'confidence_score'  => $s['confidence'],
+				'confidence_score'  => $confidence,
 				'type'              => 'outbound',
-				'engine'            => $s['engine'],
+				'engine'            => $engine,
 				'lang_code'         => $lang_code,
 				'status'            => 'pending',
 			),
-			array( '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
+			array( '%d', '%d', '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s' )
 		);
+	}
+
+	/**
+	 * Whether this page already has a suggestion whose anchor is the same phrase,
+	 * or contains it, or sits inside it.
+	 *
+	 * Deduplication was keyed on the destination alone, so one article could be
+	 * given "British rule" pointing at one page and "British rule" pointing at
+	 * another, and after both were applied the same phrase led two different
+	 * places on the same page. Overlapping phrases are just as bad: "Gandhi" and
+	 * "Gandhi in South Africa" compete for the same words, and the writer takes
+	 * the first eligible occurrence, so which one wins is an accident of order.
+	 *
+	 * @param int    $source_id Source post ID.
+	 * @param string $anchor    Proposed anchor.
+	 * @return bool
+	 */
+	public static function anchor_conflicts( $source_id, $anchor ) {
+		global $wpdb;
+
+		$anchor = trim( (string) $anchor );
+		if ( '' === $anchor ) {
+			return true;
+		}
+
+		$table = Tables::suggestions();
+
+		$existing = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT anchor_text FROM {$table}
+				  WHERE source_post_id = %d AND status IN ('pending','approved','applied')", // phpcs:ignore WordPress.DB.PreparedSQL
+				(int) $source_id
+			)
+		);
+
+		foreach ( (array) $existing as $other ) {
+			if ( self::anchors_collide( $anchor, (string) $other ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Whether two anchors compete for the same words on one page.
+	 *
+	 * Identical, or one contained in the other. Both cases end the same way: the
+	 * writer takes the first eligible occurrence of a phrase, so two suggestions
+	 * that overlap are two links fighting over the same run of text, and which
+	 * one wins is decided by the order they happen to be applied in.
+	 *
+	 * Depends only on its arguments, so it is covered by the unit suite.
+	 *
+	 * @param string $a One anchor.
+	 * @param string $b The other.
+	 * @return bool
+	 */
+	public static function anchors_collide( $a, $b ) {
+		$a = trim( (string) $a );
+		$b = trim( (string) $b );
+		if ( '' === $a || '' === $b ) {
+			return false;
+		}
+
+		$lower = function_exists( 'mb_strtolower' ) ? 'mb_strtolower' : 'strtolower';
+		$a     = 'mb_strtolower' === $lower ? mb_strtolower( $a, 'UTF-8' ) : strtolower( $a );
+		$b     = 'mb_strtolower' === $lower ? mb_strtolower( $b, 'UTF-8' ) : strtolower( $b );
+
+		return $a === $b || false !== strpos( $a, $b ) || false !== strpos( $b, $a );
+	}
+
+	/**
+	 * Whether a destination already has as many links with this exact anchor as
+	 * it should get.
+	 *
+	 * The keyword engine has always had this guard, because keyword anchors are
+	 * exact-match by nature. The other two engines had none, and the TF-IDF
+	 * engine builds its anchors out of the destination's own title, so it
+	 * produces the same exact phrase over and over across a site. The
+	 * anchor-diversity report then counted the result without anything having
+	 * tried to prevent it.
+	 *
+	 * @param int    $target_id Destination post ID.
+	 * @param string $anchor    Proposed anchor.
+	 * @return bool
+	 */
+	public static function anchor_saturated( $target_id, $anchor ) {
+		$max = (int) apply_filters( 'ailinking_max_exact_anchors_per_target', 3 );
+		if ( $max <= 0 || $target_id <= 0 ) {
+			return false;
+		}
+
+		global $wpdb;
+		$graph = Tables::link_graph();
+		$sugg  = Tables::suggestions();
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( (string) $anchor ), 'UTF-8' ) : strtolower( trim( (string) $anchor ) );
+
+		$live = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$graph} WHERE target_post_id = %d AND location = 'content' AND LOWER(anchor_text) = %s", // phpcs:ignore WordPress.DB.PreparedSQL
+				(int) $target_id,
+				$lower
+			)
+		);
+		$open = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$sugg} WHERE target_post_id = %d AND status IN ('pending','approved') AND LOWER(anchor_text) = %s", // phpcs:ignore WordPress.DB.PreparedSQL
+				(int) $target_id,
+				$lower
+			)
+		);
+
+		return ( $live + $open ) >= $max;
 	}
 
 	/**
