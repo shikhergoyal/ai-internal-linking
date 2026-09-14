@@ -322,7 +322,7 @@ class SuggestionEngine {
 	 * @param string $anchor    Proposed anchor.
 	 * @return bool
 	 */
-	private static function anchor_conflicts( $source_id, $anchor ) {
+	public static function anchor_conflicts( $source_id, $anchor ) {
 		global $wpdb;
 
 		$anchor = trim( (string) $anchor );
@@ -331,7 +331,6 @@ class SuggestionEngine {
 		}
 
 		$table = Tables::suggestions();
-		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $anchor, 'UTF-8' ) : strtolower( $anchor );
 
 		$existing = $wpdb->get_col(
 			$wpdb->prepare(
@@ -342,19 +341,40 @@ class SuggestionEngine {
 		);
 
 		foreach ( (array) $existing as $other ) {
-			$other = trim( (string) $other );
-			if ( '' === $other ) {
-				continue;
-			}
-			$other_lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $other, 'UTF-8' ) : strtolower( $other );
-			if ( $lower === $other_lower
-				|| false !== strpos( $lower, $other_lower )
-				|| false !== strpos( $other_lower, $lower ) ) {
+			if ( self::anchors_collide( $anchor, (string) $other ) ) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Whether two anchors compete for the same words on one page.
+	 *
+	 * Identical, or one contained in the other. Both cases end the same way: the
+	 * writer takes the first eligible occurrence of a phrase, so two suggestions
+	 * that overlap are two links fighting over the same run of text, and which
+	 * one wins is decided by the order they happen to be applied in.
+	 *
+	 * Depends only on its arguments, so it is covered by the unit suite.
+	 *
+	 * @param string $a One anchor.
+	 * @param string $b The other.
+	 * @return bool
+	 */
+	public static function anchors_collide( $a, $b ) {
+		$a = trim( (string) $a );
+		$b = trim( (string) $b );
+		if ( '' === $a || '' === $b ) {
+			return false;
+		}
+
+		$lower = function_exists( 'mb_strtolower' ) ? 'mb_strtolower' : 'strtolower';
+		$a     = 'mb_strtolower' === $lower ? mb_strtolower( $a, 'UTF-8' ) : strtolower( $a );
+		$b     = 'mb_strtolower' === $lower ? mb_strtolower( $b, 'UTF-8' ) : strtolower( $b );
+
+		return $a === $b || false !== strpos( $a, $b ) || false !== strpos( $b, $a );
 	}
 
 	/**
@@ -372,7 +392,7 @@ class SuggestionEngine {
 	 * @param string $anchor    Proposed anchor.
 	 * @return bool
 	 */
-	private static function anchor_saturated( $target_id, $anchor ) {
+	public static function anchor_saturated( $target_id, $anchor ) {
 		$max = (int) apply_filters( 'ailinking_max_exact_anchors_per_target', 3 );
 		if ( $max <= 0 || $target_id <= 0 ) {
 			return false;

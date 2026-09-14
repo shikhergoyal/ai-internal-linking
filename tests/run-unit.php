@@ -97,6 +97,7 @@ require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
 require_once $plugin . '/Suggestions/Naturalness.php';
 require_once $plugin . '/Suggestions/Relevance.php';
+require_once $plugin . '/Suggestions/SuggestionEngine.php'; // Only anchors_collide() is exercised.
 require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
 require_once $plugin . '/Security/Redactor.php';
@@ -1161,6 +1162,25 @@ eq( Relevance::calibrate( 'something-else', 0.42 ), 0.42, 'an unknown engine is 
 eq( Relevance::calibrate( 'something-else', 5.0 ), 1.0, 'an unknown engine is still clamped' );
 ok( Relevance::is_calibrated( 'tfidf' ), 'tfidf is reported as calibrated' );
 ok( ! Relevance::is_calibrated( 'something-else' ), 'an unknown engine is reported as not calibrated' );
+
+// ---------------------------------------------------------------------------
+// SuggestionEngine::anchors_collide — two links fighting over the same words.
+//
+// Suggestions were de-duplicated by destination only, so one article could be
+// given the same phrase pointing at two different pages. The writer takes the
+// first eligible occurrence, so which link won was an accident of ordering.
+// ---------------------------------------------------------------------------
+
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'British rule', 'British rule' ), 'identical anchors collide' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'British Rule', 'british rule' ), 'case does not save them' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', 'Gandhi in South Africa' ), 'a phrase inside a longer one collides' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi in South Africa', 'Gandhi' ), 'and the same pair the other way round' );
+ok( \AILinking\Suggestions\SuggestionEngine::anchors_collide( '  Gandhi  ', 'Gandhi' ), 'surrounding space is ignored' );
+
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', 'Nehru' ), 'unrelated anchors do not collide' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'salt march', 'civil disobedience' ), 'two real phrases can coexist' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( '', 'Gandhi' ), 'an empty anchor is not a collision' );
+ok( ! \AILinking\Suggestions\SuggestionEngine::anchors_collide( 'Gandhi', '' ), 'nor is it the other way round' );
 
 // ---------------------------------------------------------------------------
 
