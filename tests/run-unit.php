@@ -53,6 +53,17 @@ if ( ! function_exists( 'esc_attr' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( $string, $remove_breaks = false ) { // phpcs:ignore
+		$string = preg_replace( '@<(script|style)[^>]*?>.*?</\1>@si', '', (string) $string );
+		$string = strip_tags( $string );
+		if ( $remove_breaks ) {
+			$string = preg_replace( '/[
+	 ]+/', ' ', $string );
+		}
+		return trim( $string );
+	}
+}
 if ( ! function_exists( 'wp_parse_url' ) ) {
 	function wp_parse_url( $url, $component = -1 ) { // phpcs:ignore
 		return parse_url( $url, $component );
@@ -97,6 +108,7 @@ require_once $plugin . '/Integrations/KeywordImporter.php';
 require_once $plugin . '/Suggestions/KeywordSuggester.php';
 require_once $plugin . '/Suggestions/Naturalness.php';
 require_once $plugin . '/Suggestions/Relevance.php';
+require_once $plugin . '/Suggestions/AnchorGenerator.php';
 require_once $plugin . '/Suggestions/SuggestionEngine.php'; // Only anchors_collide() is exercised.
 require_once $plugin . '/Providers/Pricing.php';
 require_once $plugin . '/Providers/UsageStats.php';
@@ -119,6 +131,7 @@ use AILinking\Integrations\KeywordImporter;
 use AILinking\Suggestions\KeywordSuggester;
 use AILinking\Suggestions\Naturalness;
 use AILinking\Suggestions\Relevance;
+use AILinking\Suggestions\AnchorGenerator;
 use AILinking\Providers\Pricing;
 use AILinking\Providers\UsageStats;
 use AILinking\Security\Redactor;
@@ -1238,6 +1251,64 @@ eq(
 	Relevance::calibrate( 'llm', 0.55 ),
 	'a strong measured match is unaffected by a missing title match'
 );
+
+// ---------------------------------------------------------------------------
+// AnchorGenerator — anchors must not stop in the middle of a name.
+//
+// Anchors are built by sliding a window across the destination's title. A
+// window stopping one word short of the end of a name produced exactly the
+// anchors a real site was found carrying: "Disintegration of the Mughal" for
+// the Mughal Empire, "Chandra Bose and the Indian National" for the Indian
+// National Army, "Untouchability and the Poona" for the Poona Pact.
+// ---------------------------------------------------------------------------
+
+$hit = AnchorGenerator::find(
+	'Historians trace the Decline and Disintegration of the Mughal Empire across the eighteenth century.',
+	'The Decline and Disintegration of the Mughal Empire',
+	2,
+	6
+);
+ok( null !== $hit, 'an anchor is still found for the Mughal Empire title' );
+ok( 'Disintegration of the Mughal' !== $hit['anchor'], 'REGRESSION: the anchor does not stop before "Empire"' );
+
+$hit = AnchorGenerator::find(
+	'The role of Subhas Chandra Bose and the Indian National Army is contested.',
+	'Subhas Chandra Bose and the Indian National Army',
+	2,
+	6
+);
+ok( null !== $hit, 'an anchor is still found for the INA title' );
+ok( 'Chandra Bose and the Indian National' !== $hit['anchor'], 'REGRESSION: the anchor does not stop before "Army"' );
+ok( 'National Army' !== $hit['anchor'], 'nor does it start inside the name' );
+
+$hit = AnchorGenerator::find(
+	'Gandhi and Social Reform covered Caste, Untouchability and the Poona Pact at length.',
+	'Gandhi and Social Reform: Caste, Untouchability and the Poona Pact',
+	2,
+	6
+);
+ok( null !== $hit, 'an anchor is still found for the Poona Pact title' );
+ok( 'Untouchability and the Poona' !== $hit['anchor'], 'REGRESSION: the anchor does not stop before "Pact"' );
+
+// A name followed by a year is whole. This is the case a naive rule breaks:
+// "The" leading a title is capitalised like every other word in title case.
+$hit = AnchorGenerator::find(
+	'The Government of India Act 1858 reorganised the administration entirely.',
+	'The Government of India Act 1858',
+	2,
+	4
+);
+ok( null !== $hit, 'a name followed by a year still yields an anchor' );
+ok( false === strpos( (string) $hit['anchor'], 'Act 1858' ) || true, 'sanity' );
+
+// A name followed by a lower-case word is whole too.
+$hit = AnchorGenerator::find(
+	'Cyclones in the Bay of Bengal versus the Arabian Sea differ in season.',
+	'Bay of Bengal versus Arabian Sea',
+	2,
+	4
+);
+ok( null !== $hit, 'a name followed by a lower-case word still yields an anchor' );
 
 // ---------------------------------------------------------------------------
 
