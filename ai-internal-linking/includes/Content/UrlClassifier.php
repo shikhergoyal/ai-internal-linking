@@ -37,6 +37,9 @@ class UrlClassifier {
 	/** Points at this site and nothing here claims it. This one is broken. */
 	const UNKNOWN = 'unknown';
 
+	/** A real file served off disk: an upload, a theme asset. Not a page. */
+	const FILE = 'file';
+
 	/** Points somewhere else entirely; not ours to judge. */
 	const EXTERNAL = 'external';
 
@@ -100,6 +103,16 @@ class UrlClassifier {
 			return array( 'kind' => self::ARCHIVE, 'post_id' => 0 );
 		}
 
+		// A link straight at a file — a PDF in the uploads folder, an image, a
+		// theme asset. The web server hands those out without WordPress routing
+		// them at all, so no amount of asking WordPress will resolve one, and
+		// calling it broken because of that is the same mistake as calling a
+		// category archive broken. Answered from disk, which is exact.
+		$file = self::file_target( $absolute );
+		if ( null !== $file ) {
+			return $file;
+		}
+
 		return array( 'kind' => self::UNKNOWN, 'post_id' => 0 );
 	}
 
@@ -117,6 +130,51 @@ class UrlClassifier {
 			|| self::is_term_archive( $absolute )
 			|| self::is_author_archive( $absolute )
 			|| self::is_date_archive( $absolute );
+	}
+
+	/**
+	 * Whether a URL points at a file that is really on disk.
+	 *
+	 * Attachments resolve to their post so the link graph gains a real edge.
+	 * Anything else under wp-content is checked against the filesystem: present
+	 * means a working link, absent means genuinely broken, and both answers are
+	 * exact and free. Only wp-content is mapped, because that is the one
+	 * directory whose URL-to-path relationship WordPress actually tells us.
+	 *
+	 * @param string $absolute Absolute URL.
+	 * @return array{kind:string,post_id:int}|null Null when this is not a file URL.
+	 */
+	private static function file_target( $absolute ) {
+		$path = (string) wp_parse_url( $absolute, PHP_URL_PATH );
+		if ( '' === $path ) {
+			return null;
+		}
+
+		$content_url = (string) wp_parse_url( content_url(), PHP_URL_PATH );
+		$content_url = rtrim( $content_url, '/' );
+		if ( '' === $content_url || 0 !== strpos( $path, $content_url . '/' ) ) {
+			return null;
+		}
+
+		// An upload that is in the media library is a post, and worth an edge.
+		if ( function_exists( 'attachment_url_to_postid' ) ) {
+			$attachment = (int) attachment_url_to_postid( $absolute );
+			if ( $attachment > 0 ) {
+				return array( 'kind' => self::POST, 'post_id' => $attachment );
+			}
+		}
+
+		$relative = substr( $path, strlen( $content_url ) );
+		$file     = WP_CONTENT_DIR . rawurldecode( $relative );
+
+		// Refuse to look outside wp-content, whatever the URL claims.
+		$real = realpath( $file );
+		$root = realpath( WP_CONTENT_DIR );
+		if ( false === $real || false === $root || 0 !== strpos( $real, $root ) ) {
+			return null;
+		}
+
+		return is_file( $real ) ? array( 'kind' => self::FILE, 'post_id' => 0 ) : null;
 	}
 
 	/**

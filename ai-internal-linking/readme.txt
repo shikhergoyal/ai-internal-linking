@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.26.0
+Stable tag: 0.26.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,10 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.26.1 =
+* Fixed: a link straight at a file — a PDF in your uploads folder, an image, a theme asset — was reported as a broken link. WordPress does not route those; the web server hands them out directly, so asking WordPress to resolve one was never going to work, and calling it broken for that is the same mistake 0.26.0 fixed for category and author pages. The file is now checked on disk, which is exact and costs nothing: present means a working link, absent means genuinely broken. An upload that is in your media library resolves to its attachment, so it counts as a real link in the graph.
+* Fixed: "Unreachable from home" reported every page on the site, and click-depth showed -1, on any site without a static front page. Depth is measured by walking out from the home page, and where home is the blog index rather than a page, there was nothing to start from — so the audit gave up and the screen reported its own inability to start as though it were a finding about the site. That is the commonest WordPress setup there is. The blog index links to your most recent posts, so those are one click from home by definition, and the walk now starts from them.
 
 = 0.26.0 =
 * Fixed: deleting the plugin could roll a post back to an older version of itself. Uninstall restored each linked post from the copy taken just before that link was inserted, so anything written or edited afterwards was overwritten without warning. Where a post had received two links on different days there were two such copies and no order in which writing both back left the post correct.
