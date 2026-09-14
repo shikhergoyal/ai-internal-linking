@@ -4,7 +4,7 @@ Tags: internal linking, seo, links, suggestions, geo
 Requires at least: 6.2
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 0.27.1
+Stable tag: 0.27.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,6 +64,9 @@ Keys are yours and are stored encrypted. A live ticker shows tokens and estimate
 4. Review results under **AI Linking → Suggestions**.
 
 == Changelog ==
+
+= 0.27.2 =
+* Fixed: upgrading to 0.27.1 could take the site down for the few seconds an upload takes. 0.27.1 moved the database version into the schema file and had the main plugin file read it directly — but when a plugin is uploaded file by file, the main file can be the new one while the schema file is still the previous copy, which loads perfectly well and simply does not have that value yet. The result was a fatal error on every page until the upload finished. The value is now read in a way that answers "not yet" during that window instead of stopping, and it is read after WordPress has finished loading rather than while the plugin file is still being read.
 
 = 0.27.1 =
 * Fixed: the AI engine's relevance was the confidence the model claimed for itself, which is an opinion about a pick rather than evidence for it. The model chooses from a shortlist that already carries a measured similarity for every page on it, so that measurement was there all along and was being thrown away. Relevance is now the measured figure, and what the model said about itself is kept beside it and shown on the review screen, clearly labelled. 0.27.0 put the old self-reported number on a shared scale, which made it comparable without making it meaningful; this replaces it.
