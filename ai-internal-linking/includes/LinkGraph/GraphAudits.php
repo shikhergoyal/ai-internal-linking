@@ -11,6 +11,7 @@ namespace AILinking\LinkGraph;
 use AILinking\Support\Tables;
 use AILinking\Support\Settings;
 use AILinking\Content\UrlResolver;
+use AILinking\Indexer\Indexer;
 use AILinking\Content\LedgerRepository;
 use AILinking\Scorers\AnchorDiversity;
 
@@ -209,6 +210,28 @@ class GraphAudits {
 	/** ---- Click depth (BFS from the front page) ---- */
 
 	/**
+	 * The posts the blog index links to, for a site with no static front page.
+	 *
+	 * @return int[]
+	 */
+	private static function front_page_posts() {
+		$types = Indexer::scope_types();
+		if ( empty( $types ) ) {
+			return array();
+		}
+		$ids = get_posts(
+			array(
+				'numberposts'      => max( 1, (int) get_option( 'posts_per_page', 10 ) ),
+				'post_type'        => $types,
+				'post_status'      => 'publish',
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+			)
+		);
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * Recompute click-depth from the front page and store it on each index row.
 	 *
 	 * @return array{ok:bool,reason?:string,reached?:int}
@@ -218,11 +241,28 @@ class GraphAudits {
 		$index = Tables::index();
 		$graph = Tables::link_graph();
 
-		$seed = (int) get_option( 'page_on_front' );
-		if ( $seed <= 0 ) {
-			$seed = UrlResolver::to_post_id( home_url( '/' ) );
+		// Where "home" is. A static front page is one post to start from. A site
+		// that has never set one shows the blog index instead, which is not a
+		// post at all — and returning no_seed for that left every page on the
+		// site reading "unreachable from home" with a click-depth of -1. That
+		// is not a finding about the site, it is the audit describing its own
+		// inability to start, and it is the commonest WordPress setup there is.
+		//
+		// The blog index links to the most recent posts, so those genuinely are
+		// one click from home. Start there.
+		$seeds = array();
+		$front = (int) get_option( 'page_on_front' );
+		if ( $front <= 0 ) {
+			$front = UrlResolver::to_post_id( home_url( '/' ) );
 		}
-		if ( $seed <= 0 ) {
+		if ( $front > 0 ) {
+			$seeds[ $front ] = 0;
+		} else {
+			foreach ( self::front_page_posts() as $post_id ) {
+				$seeds[ $post_id ] = 1;
+			}
+		}
+		if ( empty( $seeds ) ) {
 			return array( 'ok' => false, 'reason' => 'no_seed' );
 		}
 
@@ -238,9 +278,9 @@ class GraphAudits {
 			$adj[ $s ][] = $t;
 		}
 
-		// BFS.
-		$depth = array( $seed => 0 );
-		$queue = array( $seed );
+		// BFS from every seed at once.
+		$depth = $seeds;
+		$queue = array_keys( $seeds );
 		while ( ! empty( $queue ) ) {
 			$node = array_shift( $queue );
 			$d    = $depth[ $node ];
