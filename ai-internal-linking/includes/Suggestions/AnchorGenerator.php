@@ -88,6 +88,9 @@ class AnchorGenerator {
 					if ( self::is_noise_phrase( $slice ) ) {
 						continue;
 					}
+					if ( self::cuts_a_name( $words, $i, $size ) ) {
+						continue;
+					}
 					$phrase = implode( ' ', $slice );
 					if ( strlen( $phrase ) < 6 ) {
 						continue;
@@ -120,6 +123,92 @@ class AnchorGenerator {
 		}
 
 		return $phrases;
+	}
+
+	/**
+	 * Whether a window stops in the middle of a name instead of spanning one.
+	 *
+	 * Anchors are built by sliding a window across the destination's title, and
+	 * a window that stops one word short of the end of a name produces exactly
+	 * the anchors a real site was found carrying: "Disintegration of the Mughal"
+	 * for the Mughal Empire, "Chandra Bose and the Indian National" for the
+	 * Indian National Army, "Untouchability and the Poona" for the Poona Pact.
+	 * They read as sentences interrupted, and they are the anchor the reader
+	 * sees.
+	 *
+	 * The signal is the word immediately outside the window. A name continues
+	 * with a capitalised word; a new clause continues with a lower-case one, or
+	 * with a year. So "Government of India Act" followed by "1858" is a whole
+	 * name and "... the Mughal" followed by "Empire" is half of one. Checked at
+	 * both ends, because a window can start inside a name as easily as it can
+	 * end inside one.
+	 *
+	 * Where the writing system has no capitals this finds nothing and changes
+	 * nothing, which is the intended behaviour rather than a gap: a title in
+	 * sentence case gives the same weaker signal, and the rest of the anchor
+	 * rules still apply. See the note on stopwords for the same reasoning.
+	 *
+	 * @param string[] $words All words in the segment.
+	 * @param int      $start Index the window starts at.
+	 * @param int      $size  Window length in words.
+	 * @return bool
+	 */
+	private static function cuts_a_name( array $words, $start, $size ) {
+		$before = $start > 0 ? $words[ $start - 1 ] : null;
+		$after  = ( $start + $size ) < count( $words ) ? $words[ $start + $size ] : null;
+
+		return self::continues_a_name( $before ) || self::continues_a_name( $after );
+	}
+
+	/**
+	 * Whether a word next to the window carries the same name on.
+	 *
+	 * Capitalised, and not a function word. The second half matters because
+	 * titles are usually written in title case, where "The" leading a title is
+	 * capitalised like everything else — without this, "The Government of India
+	 * Act 1858" would refuse "Government of India Act", which is the whole name
+	 * and exactly the anchor wanted. A function word ends a name; it does not
+	 * continue one.
+	 *
+	 * @param string|null $word Neighbouring word, or null at a segment edge.
+	 * @return bool
+	 */
+	private static function continues_a_name( $word ) {
+		if ( null === $word || '' === $word ) {
+			return false;
+		}
+		if ( isset( self::stopwords()[ self::lc( $word ) ] ) ) {
+			return false;
+		}
+		return self::begins_capitalised( $word );
+	}
+
+	/**
+	 * Whether a word starts with a capital, in a script that has capitals.
+	 *
+	 * The second half matters: Devanagari, Arabic and the CJK scripts draw no
+	 * distinction, so upper and lower case of their first character are the same
+	 * character. Asking "is this capitalised" there is meaningless, and a naive
+	 * test would answer yes for every word and reject every candidate anchor on
+	 * the site.
+	 *
+	 * @param string|null $word Word, or null at the edge of a segment.
+	 * @return bool
+	 */
+	private static function begins_capitalised( $word ) {
+		if ( null === $word || '' === $word ) {
+			return false;
+		}
+
+		$first = function_exists( 'mb_substr' ) ? mb_substr( $word, 0, 1, 'UTF-8' ) : substr( $word, 0, 1 );
+		$upper = function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $first, 'UTF-8' ) : strtoupper( $first );
+		$lower = function_exists( 'mb_strtolower' ) ? mb_strtolower( $first, 'UTF-8' ) : strtolower( $first );
+
+		if ( $upper === $lower ) {
+			return false; // No case in this script; the signal does not exist.
+		}
+
+		return $first === $upper;
 	}
 
 	/**
